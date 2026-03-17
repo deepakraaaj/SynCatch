@@ -25,6 +25,7 @@
   --warning: 219 179 113;
   --danger: 240 120 112;
   --shadow-color: 3 5 7;
+  --accent-contrast: 7 12 16;
 }
 
 [data-theme='light-studio'] {
@@ -44,6 +45,7 @@
   --warning: 182 126 62;
   --danger: 190 92 88;
   --shadow-color: 148 137 119;
+  --accent-contrast: 246 251 250;
 }
 
 [data-theme='midnight-purple'] {
@@ -63,6 +65,7 @@
   --warning: 236 188 110;
   --danger: 233 141 176;
   --shadow-color: 5 4 9;
+  --accent-contrast: 18 14 31;
 }
 
 [data-theme='zen-mode'] {
@@ -82,6 +85,7 @@
   --warning: 177 131 76;
   --danger: 183 92 90;
   --shadow-color: 133 142 125;
+  --accent-contrast: 246 251 248;
 }
 
 @layer base {
@@ -205,6 +209,25 @@
       linear-gradient(180deg, rgb(var(--surface-1) / 0.98), rgb(var(--surface-2) / 0.96));
   }
 
+  .surface-muted {
+    border: 1px solid rgb(var(--border-subtle) / 0.34);
+    background: linear-gradient(180deg, rgb(var(--surface-1) / 0.72), rgb(var(--surface-2) / 0.64));
+  }
+
+  .surface-muted-strong {
+    border: 1px solid rgb(var(--border-strong) / 0.22);
+    background: linear-gradient(180deg, rgb(var(--surface-1) / 0.9), rgb(var(--surface-2) / 0.82));
+  }
+
+  .accent-glow-soft {
+    box-shadow: 0 0 30px rgb(var(--accent) / 0.18);
+  }
+
+  .accent-avatar {
+    background: linear-gradient(135deg, rgb(var(--accent) / 0.42), rgb(var(--accent-soft) / 0.82));
+    color: rgb(var(--accent-contrast));
+  }
+
   .hud-shell {
     box-shadow:
       0 24px 80px rgb(0 0 0 / 0.36),
@@ -214,10 +237,27 @@
     isolation: isolate;
   }
 
+  .hud-shell--solid {
+    border-color: rgb(var(--border-strong) / 0.22);
+    background: linear-gradient(180deg, rgb(var(--surface-1) / 0.96), rgb(var(--surface-2) / 0.94));
+  }
+
+  .hud-shell--ghost {
+    border-color: rgb(var(--border-subtle) / 0.34);
+    background: linear-gradient(180deg, rgb(var(--surface-1) / 0.84), rgb(var(--surface-2) / 0.68));
+  }
+
   .hud-shell--stable {
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  .hud-focus-panel {
+    border: 1px solid rgb(var(--border-subtle) / 0.34);
+    background:
+      radial-gradient(circle at 20% 18%, rgb(var(--accent) / 0.08), transparent 24%),
+      linear-gradient(180deg, rgb(var(--surface-1) / 0.78), rgb(var(--surface-1) / 0.64));
   }
 
   .hud-scroll-region {

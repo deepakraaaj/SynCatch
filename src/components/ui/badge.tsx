@@ -7,7 +7,7 @@ interface BadgeProps {
 }
 
 const toneClasses = {
-  neutral: 'border border-white/8 bg-white/[0.04] text-text-secondary',
+  neutral: 'border border-borderSoft/40 bg-panel/60 text-text-secondary',
   accent: 'border border-accent/20 bg-accent/12 text-accent',
   success: 'border border-success/20 bg-success/12 text-success',
   warning: 'border border-warning/20 bg-warning/12 text-warning',

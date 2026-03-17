@@ -119,7 +119,7 @@ export function QuickAddApp() {
         transition={{ duration: 0.24, ease: 'easeOut' }}
       >
         <Card className="quick-add-shell rounded-[32px] p-4">
-          <WindowDragHandle className="mb-4 flex items-center justify-between rounded-[20px] border border-white/6 bg-white/[0.03] px-4 py-3">
+          <WindowDragHandle className="surface-muted mb-4 flex items-center justify-between rounded-[20px] px-4 py-3">
             <div>
               <p className="text-[10px] uppercase tracking-[0.3em] text-accent/80">Quick Add</p>
               <p className="mt-1 text-sm font-medium text-text-primary">Capture without breaking flow</p>
@@ -160,7 +160,7 @@ export function QuickAddApp() {
             />
 
             <div className="grid gap-4 grid-cols-[minmax(0,1fr)_180px]">
-              <div className="rounded-[24px] border border-white/6 bg-black/18 p-4">
+              <div className="surface-muted rounded-[24px] p-4">
                 <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Suggested title</p>
                 <p className="mt-3 text-lg font-medium text-text-primary">{suggestedTitle}</p>
                 <p className="mt-2 text-sm text-text-secondary">
@@ -168,7 +168,7 @@ export function QuickAddApp() {
                 </p>
               </div>
 
-              <div className="rounded-[24px] border border-white/6 bg-black/18 p-4">
+              <div className="surface-muted rounded-[24px] p-4">
                 <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Default lane</p>
                 <p className="mt-3 text-lg font-medium text-text-primary">Inbox</p>
                 <p className="mt-2 text-sm text-text-secondary">Keep capture frictionless.</p>

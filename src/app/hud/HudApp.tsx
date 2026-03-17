@@ -333,6 +333,7 @@ export function HudApp() {
   const resources = buildResources(currentMission);
   const focusStatusLabel = getFocusStatusLabel(focusStatus);
   const useStableHudRendering = isTauriApp() && isLinuxPlatform();
+  const hudShellToneClass = hudTransparency === 'ghost' ? 'hud-shell--ghost' : 'hud-shell--solid';
   const isSessionRunning = Boolean(focusSessionStart);
   const hasPausedProgress = !isSessionRunning && focusElapsedSeconds > 0;
   const sessionToggleLabel = isSessionRunning
@@ -494,18 +495,12 @@ export function HudApp() {
         <div
           className={cn(
             'hud-shell flex h-full w-full max-h-[720px] max-w-[1180px] overflow-hidden rounded-[34px] border',
+            hudShellToneClass,
             useStableHudRendering && 'hud-shell--stable',
-            useStableHudRendering
-              ? hudTransparency === 'ghost'
-                ? 'border-white/12 bg-[linear-gradient(180deg,rgba(11,16,19,0.94),rgba(8,12,15,0.9))]'
-                : 'border-white/12 bg-[linear-gradient(180deg,rgba(11,16,19,0.98),rgba(8,12,15,0.95))]'
-              : hudTransparency === 'ghost'
-                ? 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.46),rgba(8,12,15,0.3))]'
-                : 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.78),rgba(8,12,15,0.6))]',
           )}
         >
-          <aside className="flex w-[74px] flex-col items-center border-r border-white/6 bg-black/18 px-4 py-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-[11px] font-semibold uppercase tracking-[0.22em] text-text-primary">
+          <aside className="flex w-[74px] flex-col items-center border-r border-borderSoft/35 bg-panel2/68 px-4 py-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-borderStrong/25 bg-panel/70 text-[11px] font-semibold uppercase tracking-[0.22em] text-text-primary">
               DW
             </div>
             <div className="mt-8 space-y-3">
@@ -516,7 +511,7 @@ export function HudApp() {
                     'flex h-11 w-11 items-center justify-center rounded-2xl border text-[10px] uppercase tracking-[0.2em]',
                     index === 0
                       ? 'border-accent/35 bg-accent/12 text-accent'
-                      : 'border-white/6 bg-white/[0.03] text-text-muted',
+                      : 'border-borderSoft/35 bg-panel/58 text-text-muted',
                   )}
                 >
                   {item.slice(0, 1)}
@@ -535,7 +530,7 @@ export function HudApp() {
           </aside>
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <WindowDragHandle className="flex items-center justify-between border-b border-white/6 px-6 py-4">
+            <WindowDragHandle className="flex items-center justify-between border-b border-borderSoft/35 px-6 py-4">
               <div className="flex items-center gap-4">
                 <span className="text-sm font-semibold text-text-primary">Work</span>
                 <div className="hidden items-center gap-5 text-[10px] uppercase tracking-[0.28em] text-text-muted md:flex">
@@ -565,7 +560,7 @@ export function HudApp() {
                   useStableHudRendering && 'hud-scroll-region--stable',
                 )}
               >
-                <div className="shrink-0 rounded-[30px] border border-white/6 bg-[radial-gradient(circle_at_20%_18%,rgba(123,232,220,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01))] p-6">
+                <div className="hud-focus-panel shrink-0 rounded-[30px] p-6">
                   <p className="text-[10px] uppercase tracking-[0.3em] text-accent/80">Focusing now</p>
                   <button
                     className="mt-4 max-w-[540px] text-left text-[clamp(2.1rem,4vw,3rem)] font-semibold tracking-[-0.05em] text-text-primary transition hover:text-accent"
@@ -597,7 +592,7 @@ export function HudApp() {
                             'flex items-center gap-3 rounded-[18px] border px-4 py-3',
                             index === 0
                               ? 'border-accent/35 bg-accent/10 text-text-primary'
-                              : 'border-white/6 bg-white/[0.03] text-text-secondary',
+                              : 'border-borderSoft/35 bg-panel/58 text-text-secondary',
                           )}
                         >
                           <span
@@ -605,7 +600,7 @@ export function HudApp() {
                               'flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold',
                               index === 0
                                 ? 'border-accent/45 bg-accent/20 text-accent'
-                                : 'border-white/10 text-text-muted',
+                                : 'border-borderStrong/30 text-text-muted',
                             )}
                           >
                             {index + 1}
@@ -617,7 +612,7 @@ export function HudApp() {
                   </div>
                 </div>
 
-                <div className="flex min-h-[260px] flex-1 flex-col rounded-[28px] border border-white/6 bg-black/15 p-5">
+                <div className="surface-muted flex min-h-[260px] flex-1 flex-col rounded-[28px] p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Session thoughts</p>
@@ -639,11 +634,11 @@ export function HudApp() {
 
               <aside
                 className={cn(
-                  'hud-scroll-region scrollbar-hidden flex w-full shrink-0 flex-col gap-5 overflow-y-auto border-t border-white/6 bg-black/12 p-5 lg:w-[340px] lg:border-l lg:border-t-0',
+                  'hud-scroll-region scrollbar-hidden flex w-full shrink-0 flex-col gap-5 overflow-y-auto border-t border-borderSoft/35 bg-panel2/56 p-5 lg:w-[340px] lg:border-l lg:border-t-0',
                   useStableHudRendering && 'hud-scroll-region--stable',
                 )}
               >
-                <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+                <div className="surface-muted rounded-[24px] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[10px] uppercase tracking-[0.28em] text-accent/80">System active</span>
                     <span className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Core 12.4</span>
@@ -656,7 +651,7 @@ export function HudApp() {
                   </p>
                 </div>
 
-                <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+                <div className="surface-muted rounded-[24px] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Sub-tasks</p>
                     <span className="text-[10px] uppercase tracking-[0.28em] text-accent/80">
@@ -671,7 +666,7 @@ export function HudApp() {
                           'w-full rounded-[16px] border px-3 py-3 text-left text-sm transition',
                           index === 0
                             ? 'border-accent/35 bg-accent/10 text-text-primary'
-                            : 'border-white/6 bg-white/[0.025] text-text-secondary hover:border-white/10 hover:bg-white/[0.04]',
+                            : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
                         )}
                         type="button"
                       >
@@ -681,7 +676,7 @@ export function HudApp() {
                   </div>
                 </div>
 
-                <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+                <div className="surface-muted rounded-[24px] p-4">
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Inbox / idea drop</p>
                   <Input
                     className="mt-4"
@@ -696,7 +691,7 @@ export function HudApp() {
                     {resources.map((resource) => (
                       <span
                         key={resource}
-                        className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-2 text-xs text-text-secondary"
+                        className="rounded-full border border-borderSoft/40 bg-panel/62 px-3 py-2 text-xs text-text-secondary"
                       >
                         {resource}
                       </span>
@@ -704,13 +699,13 @@ export function HudApp() {
                   </div>
                 </div>
 
-                <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+                <div className="surface-muted rounded-[24px] p-4">
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Queue</p>
                   <div className="mt-4 space-y-2">
                     {queue.map((task) => (
                       <button
                         key={task.id}
-                        className="w-full rounded-[16px] border border-white/6 bg-white/[0.025] px-3 py-3 text-left transition hover:border-white/10 hover:bg-white/[0.04]"
+                        className="w-full rounded-[16px] border border-borderSoft/35 bg-panel/54 px-3 py-3 text-left transition hover:border-borderStrong/40 hover:bg-panel/68"
                         onClick={() => showTaskInHud(task)}
                         type="button"
                       >
@@ -721,7 +716,7 @@ export function HudApp() {
                       </button>
                     ))}
                     {queue.length === 0 ? (
-                      <div className="rounded-[16px] border border-dashed border-white/10 px-3 py-6 text-center text-sm text-text-muted">
+                      <div className="rounded-[16px] border border-dashed border-borderSoft/40 px-3 py-6 text-center text-sm text-text-muted">
                         Queue clear
                       </div>
                     ) : null}
@@ -730,7 +725,7 @@ export function HudApp() {
               </aside>
             </div>
 
-            <div className="border-t border-white/6 bg-black/18 px-5 py-4">
+            <div className="border-t border-borderSoft/35 bg-panel2/68 px-5 py-4">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-4">
                   <div className="rounded-full border border-accent/35 bg-accent/10 px-4 py-2 font-mono text-2xl text-accent">
@@ -746,7 +741,7 @@ export function HudApp() {
 
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <span className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Progress</span>
-                  <div className="h-1.5 flex-1 rounded-full bg-white/6">
+                  <div className="h-1.5 flex-1 rounded-full bg-borderSoft/40">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-accent/50 to-accent"
                       style={{ width: getProgressWidth(progressRatio) }}
@@ -794,14 +789,8 @@ export function HudApp() {
           <div
             className={cn(
               'hud-shell relative rounded-[28px] border px-3 py-3.5',
+              hudShellToneClass,
               useStableHudRendering && 'hud-shell--stable',
-              useStableHudRendering
-                ? hudTransparency === 'ghost'
-                  ? 'border-white/12 bg-[linear-gradient(180deg,rgba(11,16,19,0.94),rgba(8,12,15,0.9))]'
-                  : 'border-white/12 bg-[linear-gradient(180deg,rgba(11,16,19,0.98),rgba(8,12,15,0.95))]'
-                : hudTransparency === 'ghost'
-                  ? 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.38),rgba(8,12,15,0.22))]'
-                  : 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.68),rgba(8,12,15,0.52))]',
             )}
           >
             <WindowDragHandle className="absolute inset-x-0 top-0 z-10 h-5 rounded-t-[28px]" />
@@ -829,7 +818,7 @@ export function HudApp() {
                 >
                   {currentMission?.title ?? 'No mission selected'}
                 </button>
-                <div className="mt-2 h-[3px] rounded-full bg-white/6">
+                <div className="mt-2 h-[3px] rounded-full bg-borderSoft/40">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-accent/50 to-accent"
                     style={{ width: getProgressWidth(progressRatio) }}
@@ -837,7 +826,7 @@ export function HudApp() {
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-1 rounded-full border border-white/8 bg-black/20 p-1">
+              <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderStrong/25 bg-panel2/74 p-1">
                 <HudActionButton
                   className="h-8 w-8"
                   icon={<AppIcon />}

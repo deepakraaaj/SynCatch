@@ -42,11 +42,11 @@ const laneLabel: Record<TaskLane, string> = {
 };
 
 const laneAccent: Record<TaskLane, string> = {
-  inbox: 'bg-white/65',
+  inbox: 'bg-text-muted/80',
   now: 'bg-accent',
-  next: 'bg-sky-300/85',
-  later: 'bg-amber-300/80',
-  done: 'bg-emerald-300/85',
+  next: 'bg-accentSoft/85',
+  later: 'bg-warning/85',
+  done: 'bg-success/85',
 };
 
 const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -174,7 +174,7 @@ function SidebarNavButton({
         'w-full rounded-[20px] border px-4 py-3 text-left transition-all',
         active
           ? 'border-accent/40 bg-accent/12 shadow-glow'
-          : 'border-transparent bg-white/[0.02] hover:border-white/8 hover:bg-white/[0.04]',
+          : 'border-transparent bg-panel/38 hover:border-borderSoft/40 hover:bg-panel/58',
       )}
       onClick={onClick}
       type="button"
@@ -236,7 +236,7 @@ function TaskQueueItem({
         'rounded-[24px] border p-4 transition-all outline-none',
         active
           ? 'border-accent/45 bg-accent/10 shadow-glow'
-          : 'border-white/6 bg-white/[0.025] hover:border-white/10 hover:bg-white/[0.04]',
+          : 'border-borderSoft/35 bg-panel/54 hover:border-borderStrong/40 hover:bg-panel/68',
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -247,9 +247,9 @@ function TaskQueueItem({
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-text-muted">
             <span>{humanizeLane(task.lane)}</span>
-            <span className="h-1 w-1 rounded-full bg-white/20" />
+            <span className="h-1 w-1 rounded-full bg-borderStrong/60" />
             <span>{formatMinutes(task.estimated_minutes)}</span>
-            <span className="h-1 w-1 rounded-full bg-white/20" />
+            <span className="h-1 w-1 rounded-full bg-borderStrong/60" />
             <span>{formatRelativeTime(task.updated_at)}</span>
           </div>
           <p className="mt-3 line-clamp-2 text-sm leading-6 text-text-secondary">
@@ -301,7 +301,7 @@ function ThemeTile({
         'rounded-[24px] border p-4 text-left transition-all',
         active
           ? 'border-accent/45 bg-accent/10 shadow-glow'
-          : 'border-white/6 bg-white/[0.025] hover:border-white/10 hover:bg-white/[0.05]',
+          : 'border-borderSoft/35 bg-panel/54 hover:border-borderStrong/40 hover:bg-panel/68',
       )}
       onClick={onClick}
       type="button"
@@ -406,7 +406,7 @@ function RightRail({
           {focusQueue.map((task) => (
             <button
               key={task.id}
-              className="w-full rounded-[22px] border border-white/6 bg-white/[0.03] px-4 py-4 text-left transition hover:border-white/12 hover:bg-white/[0.05]"
+              className="w-full rounded-[22px] border border-borderSoft/35 bg-panel/58 px-4 py-4 text-left transition hover:border-borderStrong/40 hover:bg-panel/72"
               onClick={() => onOpenTask(task)}
               type="button"
             >
@@ -428,7 +428,7 @@ function RightRail({
             </button>
           ))}
           {focusQueue.length === 0 ? (
-            <div className="rounded-[24px] border border-dashed border-white/10 px-4 py-8 text-center text-sm text-text-muted">
+            <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-8 text-center text-sm text-text-muted">
               Queue clear
             </div>
           ) : null}
@@ -482,6 +482,7 @@ export function MainApp() {
 
   const themeId = useThemeStore((state) => state.themeId);
   const setTheme = useThemeStore((state) => state.setTheme);
+  const activeTheme = THEMES.find((theme) => theme.id === themeId) ?? THEMES[0];
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const setReduceMotion = useSettingsStore((state) => state.setReduceMotion);
   const focusPromptStyle = useSettingsStore((state) => state.focusPromptStyle);
@@ -610,7 +611,7 @@ export function MainApp() {
                   </p>
                 </div>
 
-                <div className="w-full max-w-[260px] rounded-[28px] border border-white/8 bg-black/20 p-5">
+                <div className="surface-muted-strong w-full max-w-[260px] rounded-[28px] p-5">
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Local time</p>
                   <p className="mt-3 font-mono text-[2.25rem] leading-none text-text-primary">{localTime}</p>
                   <p className="mt-3 text-sm text-text-secondary">
@@ -624,7 +625,7 @@ export function MainApp() {
               </div>
 
               <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)]">
-                <div className="rounded-[30px] border border-white/8 bg-black/20 p-5 lg:p-6">
+                <div className="surface-muted-strong rounded-[30px] p-5 lg:p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Focus volume</p>
@@ -636,7 +637,7 @@ export function MainApp() {
                     <Badge tone="accent">82% of goal</Badge>
                   </div>
                   <div className="mt-8">
-                    <div className="h-1.5 rounded-full bg-white/6">
+                    <div className="h-1.5 rounded-full bg-borderSoft/40">
                       <div className="h-full w-[82%] rounded-full bg-gradient-to-r from-accent/60 to-accent" />
                     </div>
                     <p className="mt-3 text-xs uppercase tracking-[0.24em] text-text-muted">
@@ -698,9 +699,9 @@ export function MainApp() {
 
                     return (
                       <div key={day.label} className="flex flex-1 flex-col items-center gap-3">
-                        <div className="flex h-52 w-full items-end rounded-[20px] border border-white/6 bg-black/15 px-2 py-3">
+                        <div className="flex h-52 w-full items-end rounded-[20px] border border-borderSoft/35 bg-panel2/60 px-2 py-3">
                           <div
-                            className="w-full rounded-[16px] bg-gradient-to-t from-accent/35 via-accent/55 to-accent shadow-[0_0_30px_rgba(125,231,220,0.16)]"
+                            className="accent-glow-soft w-full rounded-[16px] bg-gradient-to-t from-accent/35 via-accent/55 to-accent"
                             style={{ height: `${height}%` }}
                           />
                         </div>
@@ -717,7 +718,7 @@ export function MainApp() {
               <div className="grid gap-5">
                 <Card className="rounded-[28px] p-5">
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Current session</p>
-                  <div className="mt-5 rounded-[24px] border border-white/8 bg-black/20 p-4">
+                  <div className="surface-muted-strong mt-5 rounded-[24px] p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="h-10 w-10 rounded-full border border-accent/35 bg-accent/10 text-center font-mono text-[11px] leading-[2.4rem] text-accent">
                         {clock}
@@ -737,7 +738,7 @@ export function MainApp() {
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Lane signal</p>
                   <div className="mt-5 space-y-3">
                     {laneOrder.map((lane) => (
-                      <div key={lane} className="flex items-center justify-between gap-3 rounded-[18px] bg-white/[0.03] px-4 py-3">
+                      <div key={lane} className="flex items-center justify-between gap-3 rounded-[18px] bg-panel/58 px-4 py-3">
                         <div className="flex items-center gap-3">
                           <span className={cn('h-2.5 w-2.5 rounded-full', laneAccent[lane])} />
                           <span className="text-sm text-text-primary">{laneLabel[lane]}</span>
@@ -797,13 +798,13 @@ export function MainApp() {
             <Card className="rounded-[32px] p-6">
               <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">System status</p>
               <div className="mt-5 space-y-4">
-                <div className="rounded-[22px] border border-white/8 bg-black/20 p-4">
+                <div className="surface-muted-strong rounded-[22px] p-4">
                   <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Active task</p>
                   <p className="mt-3 text-lg font-medium text-text-primary">
                     {currentMission?.title ?? 'No mission selected'}
                   </p>
                 </div>
-                <div className="rounded-[22px] border border-white/8 bg-black/20 p-4">
+                <div className="surface-muted-strong rounded-[22px] p-4">
                   <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Completion rate</p>
                   <p className="mt-3 text-3xl font-semibold text-accent">{completionRate}%</p>
                 </div>
@@ -847,7 +848,7 @@ export function MainApp() {
                     />
                   ))}
                   {lane.tasks.length === 0 ? (
-                    <div className="rounded-[24px] border border-dashed border-white/10 px-4 py-10 text-center text-sm text-text-muted">
+                    <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
                       No missions here yet
                     </div>
                   ) : null}
@@ -862,7 +863,7 @@ export function MainApp() {
         <div className="flex flex-col gap-5">
           <Card className="rounded-[34px] p-0">
             <div className="grid min-h-[620px] gap-0 xl:grid-cols-[minmax(0,1.28fr)_360px]">
-              <div className="border-b border-white/6 p-6 xl:border-b-0 xl:border-r">
+              <div className="border-b border-borderSoft/35 p-6 xl:border-b-0 xl:border-r">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <button
@@ -902,7 +903,7 @@ export function MainApp() {
                               'flex items-center gap-3 rounded-[18px] border px-4 py-3',
                               index === 0
                                 ? 'border-accent/35 bg-accent/10 text-text-primary'
-                                : 'border-white/6 bg-white/[0.03] text-text-secondary',
+                                : 'border-borderSoft/35 bg-panel/58 text-text-secondary',
                             )}
                           >
                             <span
@@ -910,7 +911,7 @@ export function MainApp() {
                                 'flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold',
                                 index === 0
                                   ? 'border-accent/45 bg-accent/20 text-accent'
-                                  : 'border-white/12 text-text-muted',
+                                  : 'border-borderStrong/30 text-text-muted',
                               )}
                             >
                               {index + 1}
@@ -956,7 +957,7 @@ export function MainApp() {
                     </div>
                   </div>
 
-                  <div className="rounded-[28px] border border-white/6 bg-black/18 p-5">
+                  <div className="surface-muted rounded-[28px] p-5">
                     <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Session thoughts</p>
                     <Textarea
                       className="mt-4 min-h-[128px] resize-none"
@@ -982,7 +983,7 @@ export function MainApp() {
                       {resourceLinks.map((resource) => (
                         <span
                           key={resource}
-                          className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-2 text-xs text-text-secondary"
+                          className="rounded-full border border-borderSoft/40 bg-panel/62 px-3 py-2 text-xs text-text-secondary"
                         >
                           {resource}
                         </span>
@@ -1042,7 +1043,7 @@ export function MainApp() {
                           'flex w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-left transition',
                           task.id === focusMission?.id
                             ? 'border-accent/40 bg-accent/10'
-                            : 'border-white/6 bg-white/[0.03] hover:border-white/12 hover:bg-white/[0.05]',
+                            : 'border-borderSoft/35 bg-panel/58 hover:border-borderStrong/40 hover:bg-panel/72',
                         )}
                         onClick={() => {
                           void openHud(task);
@@ -1112,7 +1113,7 @@ export function MainApp() {
               <Card className="rounded-[28px] p-5">
                 <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Motion</p>
                 <button
-                  className="mt-5 flex w-full items-center justify-between rounded-[22px] border border-white/6 bg-white/[0.03] px-4 py-4"
+                  className="mt-5 flex w-full items-center justify-between rounded-[22px] border border-borderSoft/35 bg-panel/60 px-4 py-4"
                   onClick={() => setReduceMotion(!reduceMotion)}
                   type="button"
                 >
@@ -1126,7 +1127,7 @@ export function MainApp() {
               <Card className="rounded-[28px] p-5">
                 <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Prompt style</p>
                 <button
-                  className="mt-5 flex w-full items-center justify-between rounded-[22px] border border-white/6 bg-white/[0.03] px-4 py-4"
+                  className="mt-5 flex w-full items-center justify-between rounded-[22px] border border-borderSoft/35 bg-panel/60 px-4 py-4"
                   onClick={() => setFocusPromptStyle(focusPromptStyle === 'gentle' ? 'direct' : 'gentle')}
                   type="button"
                 >
@@ -1139,16 +1140,15 @@ export function MainApp() {
 
           <div className="space-y-5">
             <StudioMetricCard
-              caption="What the HUD should feel like when the room gets busy."
+              caption={activeTheme.eyebrow}
               label="Primary mode"
               tone="neutral"
-              value="Studio Dark"
+              value={activeTheme.name}
             />
             <Card className="rounded-[28px] p-5">
               <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Notes</p>
               <p className="mt-4 text-sm leading-7 text-text-secondary">
-                The current visual direction is optimized around the Stitch reference: matte charcoal
-                surfaces, teal focus accents, strong hierarchy, and a workspace that can collapse into a HUD.
+                {activeTheme.description} This palette now flows through the main workspace, HUD, and quick add surfaces.
               </p>
             </Card>
           </div>
@@ -1159,9 +1159,9 @@ export function MainApp() {
 
   return (
     <div className="h-full p-3 sm:p-4 lg:p-5">
-      <div className="app-frame relative flex h-full w-full overflow-hidden rounded-[36px] border border-white/8">
-        <aside className="sidebar-shell hidden w-[248px] shrink-0 border-r border-white/6 p-5 lg:flex lg:flex-col">
-          <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+      <div className="app-frame relative flex h-full w-full overflow-hidden rounded-[36px] border border-borderStrong/25">
+        <aside className="sidebar-shell hidden w-[248px] shrink-0 border-r border-borderSoft/35 p-5 lg:flex lg:flex-col">
+          <div className="surface-muted rounded-[24px] p-4">
             <p className="text-[10px] uppercase tracking-[0.34em] text-accent/80">Deep Focus</p>
             <h1 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-text-primary">Work</h1>
             <p className="mt-2 text-sm text-text-secondary">Level 4 flow</p>
@@ -1183,7 +1183,7 @@ export function MainApp() {
             <Card className="rounded-[24px] p-4">
               <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Operator</p>
               <div className="mt-4 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#f5d3be] to-[#c69e84] text-sm font-semibold text-slate-900">
+                <div className="accent-avatar flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold">
                   AC
                 </div>
                 <div>
@@ -1200,7 +1200,7 @@ export function MainApp() {
 
         <div className="flex min-w-0 flex-1">
           <main className="flex min-w-0 flex-1 flex-col p-5 lg:p-7">
-            <div className="mb-5 flex flex-col gap-3 border-b border-white/6 pb-5 xl:flex-row xl:items-end xl:justify-between">
+            <div className="mb-5 flex flex-col gap-3 border-b border-borderSoft/35 pb-5 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
                   {navItems.find((item) => item.id === activeView)?.eyebrow}
