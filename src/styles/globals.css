@@ -239,12 +239,12 @@
 
   .hud-shell--solid {
     border-color: rgb(var(--border-strong) / 0.22);
-    background: linear-gradient(180deg, rgb(var(--surface-1) / 0.96), rgb(var(--surface-2) / 0.94));
+    background: linear-gradient(180deg, rgb(var(--surface-1)), rgb(var(--surface-2)));
   }
 
   .hud-shell--ghost {
     border-color: rgb(var(--border-subtle) / 0.34);
-    background: linear-gradient(180deg, rgb(var(--surface-1) / 0.84), rgb(var(--surface-2) / 0.68));
+    background: linear-gradient(180deg, rgb(var(--surface-1) / 0.94), rgb(var(--surface-2) / 0.9));
   }
 
   .hud-shell--stable {

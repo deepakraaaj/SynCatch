@@ -333,7 +333,8 @@ export function HudApp() {
   const resources = buildResources(currentMission);
   const focusStatusLabel = getFocusStatusLabel(focusStatus);
   const useStableHudRendering = isTauriApp() && isLinuxPlatform();
-  const hudShellToneClass = hudTransparency === 'ghost' ? 'hud-shell--ghost' : 'hud-shell--solid';
+  const effectiveHudTransparency = hudMode === 'compact' ? 'standard' : hudTransparency;
+  const hudShellToneClass = effectiveHudTransparency === 'ghost' ? 'hud-shell--ghost' : 'hud-shell--solid';
   const isSessionRunning = Boolean(focusSessionStart);
   const hasPausedProgress = !isSessionRunning && focusElapsedSeconds > 0;
   const sessionToggleLabel = isSessionRunning

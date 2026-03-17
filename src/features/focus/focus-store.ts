@@ -30,7 +30,7 @@ const DEFAULT_FOCUS_STATE: FocusSyncState = {
   manualFocusReset: 0,
   status: 'idle',
   hudMode: 'compact',
-  hudTransparency: 'ghost',
+  hudTransparency: 'standard',
 };
 
 interface FocusState extends FocusSyncState {
