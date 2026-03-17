@@ -17,6 +17,24 @@ const HUD_EXPANDED_SIZE = { width: 1180, height: 720 };
 const HUD_MARGIN_X = 26;
 const HUD_MARGIN_Y = 26;
 
+function isLinuxPlatform() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const platform = `${window.navigator.platform} ${window.navigator.userAgent}`;
+  return /linux/i.test(platform);
+}
+
+function getHudWindowSize(mode: 'expanded' | 'compact', workWidth: number, workHeight: number) {
+  const requestedSize = mode === 'expanded' ? HUD_EXPANDED_SIZE : HUD_COMPACT_SIZE;
+
+  return {
+    width: Math.min(requestedSize.width, Math.max(1, workWidth - HUD_MARGIN_X * 2)),
+    height: Math.min(requestedSize.height, Math.max(1, workHeight - HUD_MARGIN_Y * 2)),
+  };
+}
+
 function formatDigitalClock(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -258,6 +276,7 @@ export function HudApp() {
   const checklist = buildChecklist(currentMission);
   const resources = buildResources(currentMission);
   const focusStatusLabel = getFocusStatusLabel(focusStatus);
+  const useStableHudRendering = isTauriApp() && isLinuxPlatform();
   const isSessionRunning = Boolean(focusSessionStart);
   const hasPausedProgress = !isSessionRunning && focusElapsedSeconds > 0;
   const sessionToggleLabel = isSessionRunning
@@ -293,10 +312,6 @@ export function HudApp() {
       }
 
       const currentWindow = getCurrentWindow();
-      const targetSize = hudMode === 'expanded' ? HUD_EXPANDED_SIZE : HUD_COMPACT_SIZE;
-
-      await currentWindow.setSize(new LogicalSize(targetSize.width, targetSize.height));
-
       const monitor = await currentMonitor();
       if (!monitor || cancelled) {
         return;
@@ -308,6 +323,11 @@ export function HudApp() {
       const workY = workArea.position.y / scaleFactor;
       const workWidth = workArea.size.width / scaleFactor;
       const workHeight = workArea.size.height / scaleFactor;
+      const targetSize = getHudWindowSize(hudMode, workWidth, workHeight);
+
+      await currentWindow.setSize(
+        new LogicalSize(Math.round(targetSize.width), Math.round(targetSize.height)),
+      );
 
       const x =
         hudMode === 'expanded'
@@ -318,7 +338,7 @@ export function HudApp() {
           ? workY + Math.max(24, (workHeight - targetSize.height) / 2)
           : workY + workHeight - targetSize.height - HUD_MARGIN_Y;
 
-      await currentWindow.setPosition(new LogicalPosition(x, y));
+      await currentWindow.setPosition(new LogicalPosition(Math.round(x), Math.round(y)));
     });
 
     return () => {
@@ -367,16 +387,21 @@ export function HudApp() {
     <div
       className={cn(
         'overlay-root',
-        hudMode === 'expanded' ? 'items-center justify-center p-4' : 'items-end justify-end p-3',
+        hudMode === 'expanded' ? 'items-center justify-center' : 'items-end justify-end',
       )}
     >
       {hudMode === 'expanded' ? (
         <div
           className={cn(
-            'hud-shell flex h-[720px] w-[1180px] overflow-hidden rounded-[34px] border',
-            hudTransparency === 'ghost'
-              ? 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.46),rgba(8,12,15,0.3))]'
-              : 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.78),rgba(8,12,15,0.6))]',
+            'hud-shell flex h-full w-full max-h-[720px] max-w-[1180px] overflow-hidden rounded-[34px] border',
+            useStableHudRendering && 'hud-shell--stable',
+            useStableHudRendering
+              ? hudTransparency === 'ghost'
+                ? 'border-white/12 bg-[linear-gradient(180deg,rgba(11,16,19,0.94),rgba(8,12,15,0.9))]'
+                : 'border-white/12 bg-[linear-gradient(180deg,rgba(11,16,19,0.98),rgba(8,12,15,0.95))]'
+              : hudTransparency === 'ghost'
+                ? 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.46),rgba(8,12,15,0.3))]'
+                : 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.78),rgba(8,12,15,0.6))]',
           )}
         >
           <aside className="flex w-[74px] flex-col items-center border-r border-white/6 bg-black/18 px-4 py-5">
@@ -433,12 +458,17 @@ export function HudApp() {
               </div>
             </WindowDragHandle>
 
-            <div className="flex min-h-0 flex-1">
-              <div className="flex min-w-0 flex-1 flex-col p-6">
-                <div className="rounded-[30px] border border-white/6 bg-[radial-gradient(circle_at_20%_18%,rgba(123,232,220,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01))] p-6">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+              <div
+                className={cn(
+                  'hud-scroll-region scrollbar-hidden flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto p-6',
+                  useStableHudRendering && 'hud-scroll-region--stable',
+                )}
+              >
+                <div className="shrink-0 rounded-[30px] border border-white/6 bg-[radial-gradient(circle_at_20%_18%,rgba(123,232,220,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01))] p-6">
                   <p className="text-[10px] uppercase tracking-[0.3em] text-accent/80">Focusing now</p>
                   <button
-                    className="mt-4 max-w-[540px] text-left text-4xl font-semibold tracking-[-0.05em] text-text-primary transition hover:text-accent"
+                    className="mt-4 max-w-[540px] text-left text-[clamp(2.1rem,4vw,3rem)] font-semibold tracking-[-0.05em] text-text-primary transition hover:text-accent"
                     onClick={() => {
                       if (currentMission) {
                         showTaskInHud(currentMission);
@@ -449,7 +479,7 @@ export function HudApp() {
                     {currentMission?.title ?? 'No mission selected'}
                   </button>
                   <div className="mt-8">
-                    <p className="font-mono text-[5rem] leading-none tracking-[-0.08em] text-text-primary">
+                    <p className="font-mono text-[clamp(3.8rem,8vw,5rem)] leading-none tracking-[-0.08em] text-text-primary">
                       {displayClock}
                     </p>
                     <p className="mt-3 text-[10px] uppercase tracking-[0.28em] text-text-muted">
@@ -487,7 +517,7 @@ export function HudApp() {
                   </div>
                 </div>
 
-                <div className="mt-6 flex min-h-0 flex-1 flex-col rounded-[28px] border border-white/6 bg-black/15 p-5">
+                <div className="flex min-h-[260px] flex-1 flex-col rounded-[28px] border border-white/6 bg-black/15 p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Session thoughts</p>
@@ -498,16 +528,21 @@ export function HudApp() {
                     <Badge tone="neutral">{focusStatusLabel}</Badge>
                   </div>
                   <Textarea
-                    className="mt-5 min-h-0 flex-1 resize-none"
+                    className="mt-5 min-h-[220px] flex-1 resize-none"
                     onChange={(event) => setSessionNotes(event.target.value)}
                     placeholder="Capture transient thoughts, decisions, and anything you should not keep in your head..."
-                    rows={10}
+                    rows={8}
                     value={sessionNotes}
                   />
                 </div>
               </div>
 
-              <aside className="w-[340px] border-l border-white/6 bg-black/12 p-5">
+              <aside
+                className={cn(
+                  'hud-scroll-region scrollbar-hidden flex w-full shrink-0 flex-col gap-5 overflow-y-auto border-t border-white/6 bg-black/12 p-5 lg:w-[340px] lg:border-l lg:border-t-0',
+                  useStableHudRendering && 'hud-scroll-region--stable',
+                )}
+              >
                 <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[10px] uppercase tracking-[0.28em] text-accent/80">System active</span>
@@ -521,7 +556,7 @@ export function HudApp() {
                   </p>
                 </div>
 
-                <div className="mt-5 rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+                <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Sub-tasks</p>
                     <span className="text-[10px] uppercase tracking-[0.28em] text-accent/80">
@@ -546,7 +581,7 @@ export function HudApp() {
                   </div>
                 </div>
 
-                <div className="mt-5 rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+                <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Inbox / idea drop</p>
                   <Input
                     className="mt-4"
@@ -569,7 +604,7 @@ export function HudApp() {
                   </div>
                 </div>
 
-                <div className="mt-5 rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+                <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Queue</p>
                   <div className="mt-4 space-y-2">
                     {queue.map((task) => (
@@ -596,7 +631,7 @@ export function HudApp() {
             </div>
 
             <div className="border-t border-white/6 bg-black/18 px-5 py-4">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-4">
                   <div className="rounded-full border border-accent/35 bg-accent/10 px-4 py-2 font-mono text-2xl text-accent">
                     {displayClock}
@@ -655,13 +690,18 @@ export function HudApp() {
           </div>
         </div>
       ) : (
-        <div className="w-[620px]">
+        <div className="w-full max-w-[620px]">
           <WindowDragHandle
             className={cn(
               'hud-shell rounded-[28px] border px-3 py-3.5',
-              hudTransparency === 'ghost'
-                ? 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.38),rgba(8,12,15,0.22))]'
-                : 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.68),rgba(8,12,15,0.52))]',
+              useStableHudRendering && 'hud-shell--stable',
+              useStableHudRendering
+                ? hudTransparency === 'ghost'
+                  ? 'border-white/12 bg-[linear-gradient(180deg,rgba(11,16,19,0.94),rgba(8,12,15,0.9))]'
+                  : 'border-white/12 bg-[linear-gradient(180deg,rgba(11,16,19,0.98),rgba(8,12,15,0.95))]'
+                : hudTransparency === 'ghost'
+                  ? 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.38),rgba(8,12,15,0.22))]'
+                  : 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.68),rgba(8,12,15,0.52))]',
             )}
           >
             <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">

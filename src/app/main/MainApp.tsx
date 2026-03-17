@@ -402,7 +402,7 @@ function RightRail({
           <Badge tone={focusStatusTone}>{focusStatusLabel}</Badge>
         </div>
 
-        <div className="mt-5 min-h-0 space-y-3 overflow-y-auto pr-1">
+        <div className="scrollbar-hidden mt-5 min-h-0 space-y-3 overflow-y-auto pr-1">
           {focusQueue.map((task) => (
             <button
               key={task.id}
@@ -588,13 +588,13 @@ export function MainApp() {
   const page = (
     <motion.div
       animate={{ opacity: 1, y: 0 }}
-      className="h-full min-h-0"
+      className="min-h-full"
       initial={{ opacity: 0, y: 12 }}
       key={activeView}
       transition={{ duration: 0.28, ease: 'easeOut' }}
     >
       {activeView === 'inbox' ? (
-        <div className="grid h-full min-h-0 gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)]">
           <div className="flex min-h-0 flex-col gap-5">
             <Card className="relative overflow-hidden rounded-[34px] p-7 lg:p-8">
               <div className="absolute inset-x-6 top-5 h-px bg-gradient-to-r from-accent/0 via-accent/25 to-accent/0" />
@@ -768,7 +768,7 @@ export function MainApp() {
       ) : null}
 
       {activeView === 'today' ? (
-        <div className="flex h-full min-h-0 flex-col gap-5">
+        <div className="flex flex-col gap-5">
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
             <Card className="rounded-[32px] p-6">
               <SectionHeading
@@ -824,7 +824,7 @@ export function MainApp() {
                   <Badge tone="neutral">{lane.tasks.length}</Badge>
                 </div>
 
-                <div className="mt-5 min-h-0 space-y-3 overflow-y-auto pr-1">
+                <div className="scrollbar-hidden mt-5 min-h-0 space-y-3 overflow-y-auto pr-1">
                   {lane.tasks.map((task) => (
                     <TaskQueueItem
                       active={task.id === selectedTask?.id}
@@ -859,7 +859,7 @@ export function MainApp() {
       ) : null}
 
       {activeView === 'focus' ? (
-        <div className="flex h-full min-h-0 flex-col gap-5">
+        <div className="flex flex-col gap-5">
           <Card className="rounded-[34px] p-0">
             <div className="grid min-h-[620px] gap-0 xl:grid-cols-[minmax(0,1.28fr)_360px]">
               <div className="border-b border-white/6 p-6 xl:border-b-0 xl:border-r">
@@ -1091,7 +1091,7 @@ export function MainApp() {
       ) : null}
 
       {activeView === 'settings' ? (
-        <div className="grid h-full min-h-0 gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
           <div className="space-y-5">
             <Card className="rounded-[32px] p-6">
               <SectionHeading label="Visual system" title="Theme direction" />
@@ -1217,7 +1217,7 @@ export function MainApp() {
               </div>
             </div>
 
-            <div className="min-h-0 flex-1">
+            <div className="scrollbar-hidden min-h-0 flex-1 overflow-y-auto pr-1">
               <AnimatePresence mode="wait">{page}</AnimatePresence>
             </div>
           </main>
