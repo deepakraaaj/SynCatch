@@ -6,6 +6,10 @@ type WindowDragHandleProps = HTMLAttributes<HTMLDivElement>;
 
 export function WindowDragHandle({ className, ...props }: WindowDragHandleProps) {
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+
     const target = event.target as HTMLElement | null;
 
     if (target?.closest('button, input, textarea, a, select')) {
@@ -16,8 +20,8 @@ export function WindowDragHandle({ className, ...props }: WindowDragHandleProps)
       return;
     }
 
-    void import('@tauri-apps/api/webviewWindow').then(({ WebviewWindow }) => {
-      void WebviewWindow.getCurrent().startDragging();
+    void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+      void getCurrentWindow().startDragging();
     });
   };
 

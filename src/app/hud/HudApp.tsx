@@ -16,6 +16,10 @@ const HUD_COMPACT_SIZE = { width: 620, height: 104 };
 const HUD_EXPANDED_SIZE = { width: 1180, height: 720 };
 const HUD_MARGIN_X = 26;
 const HUD_MARGIN_Y = 26;
+const HUD_POSITION_STORAGE_KEY = 'missioncontrol:hud-window-positions';
+
+type HudWindowPosition = { x: number; y: number };
+type HudStoredPosition = HudWindowPosition | null;
 
 function isLinuxPlatform() {
   if (typeof window === 'undefined') {
@@ -24,6 +28,54 @@ function isLinuxPlatform() {
 
   const platform = `${window.navigator.platform} ${window.navigator.userAgent}`;
   return /linux/i.test(platform);
+}
+
+function readStoredHudPosition(): HudStoredPosition {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(HUD_POSITION_STORAGE_KEY);
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsedValue = JSON.parse(rawValue) as Partial<HudWindowPosition>;
+    if (typeof parsedValue.x !== 'number' || typeof parsedValue.y !== 'number') {
+      return null;
+    }
+
+    return { x: parsedValue.x, y: parsedValue.y };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredHudPosition(position: HudWindowPosition) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(HUD_POSITION_STORAGE_KEY, JSON.stringify(position));
+}
+
+function clampHudWindowPosition(
+  position: HudWindowPosition,
+  width: number,
+  height: number,
+  workX: number,
+  workY: number,
+  workWidth: number,
+  workHeight: number,
+) {
+  const maxX = Math.max(workX, workX + workWidth - width);
+  const maxY = Math.max(workY, workY + workHeight - height);
+
+  return {
+    x: Math.min(Math.max(position.x, workX), maxX),
+    y: Math.min(Math.max(position.y, workY), maxY),
+  };
 }
 
 function getHudWindowSize(mode: 'expanded' | 'compact', workWidth: number, workHeight: number) {
@@ -324,27 +376,71 @@ export function HudApp() {
       const workWidth = workArea.size.width / scaleFactor;
       const workHeight = workArea.size.height / scaleFactor;
       const targetSize = getHudWindowSize(hudMode, workWidth, workHeight);
+      const storedPosition = readStoredHudPosition();
+      const currentScaleFactor = await currentWindow.scaleFactor();
+      const currentOuterPosition = await currentWindow.outerPosition();
+      const basePosition = storedPosition ?? {
+        x: currentOuterPosition.x / currentScaleFactor,
+        y: currentOuterPosition.y / currentScaleFactor,
+      };
 
       await currentWindow.setSize(
         new LogicalSize(Math.round(targetSize.width), Math.round(targetSize.height)),
       );
 
-      const x =
-        hudMode === 'expanded'
-          ? workX + Math.max(24, (workWidth - targetSize.width) / 2)
-          : workX + workWidth - targetSize.width - HUD_MARGIN_X;
-      const y =
-        hudMode === 'expanded'
-          ? workY + Math.max(24, (workHeight - targetSize.height) / 2)
-          : workY + workHeight - targetSize.height - HUD_MARGIN_Y;
+      const nextPosition = clampHudWindowPosition(
+        basePosition,
+        targetSize.width,
+        targetSize.height,
+        workX,
+        workY,
+        workWidth,
+        workHeight,
+      );
 
-      await currentWindow.setPosition(new LogicalPosition(Math.round(x), Math.round(y)));
+      await currentWindow.setPosition(
+        new LogicalPosition(Math.round(nextPosition.x), Math.round(nextPosition.y)),
+      );
     });
 
     return () => {
       cancelled = true;
     };
   }, [hudMode]);
+
+  useEffect(() => {
+    if (!isTauriApp()) {
+      return;
+    }
+
+    let cancelled = false;
+    let unlisten: undefined | (() => void);
+
+    void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
+      if (cancelled) {
+        return;
+      }
+
+      const currentWindow = getCurrentWindow();
+      unlisten = await currentWindow.onMoved(async ({ payload }) => {
+        const scaleFactor = await currentWindow.scaleFactor();
+
+        if (cancelled) {
+          return;
+        }
+
+        writeStoredHudPosition({
+          x: payload.x / scaleFactor,
+          y: payload.y / scaleFactor,
+        });
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   function showTaskInHud(task: Task, expand = false) {
     setCurrentMission(task.id, 'hud');
@@ -387,7 +483,7 @@ export function HudApp() {
     <div
       className={cn(
         'overlay-root',
-        hudMode === 'expanded' ? 'items-center justify-center' : 'items-end justify-end',
+        hudMode === 'expanded' ? 'items-center justify-center' : 'items-start justify-end',
       )}
     >
       {hudMode === 'expanded' ? (
@@ -691,9 +787,9 @@ export function HudApp() {
         </div>
       ) : (
         <div className="w-full max-w-[620px]">
-          <WindowDragHandle
+          <div
             className={cn(
-              'hud-shell rounded-[28px] border px-3 py-3.5',
+              'hud-shell relative rounded-[28px] border px-3 py-3.5',
               useStableHudRendering && 'hud-shell--stable',
               useStableHudRendering
                 ? hudTransparency === 'ghost'
@@ -704,6 +800,7 @@ export function HudApp() {
                   : 'border-white/12 bg-[linear-gradient(180deg,rgba(8,12,15,0.68),rgba(8,12,15,0.52))]',
             )}
           >
+            <WindowDragHandle className="absolute inset-x-0 top-0 z-10 h-5 rounded-t-[28px]" />
             <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
               <div className="rounded-[22px] border border-accent/35 bg-accent/10 px-3 py-2 font-mono text-[1.55rem] leading-none text-accent">
                 {displayClock}
@@ -770,7 +867,7 @@ export function HudApp() {
                 />
               </div>
             </div>
-          </WindowDragHandle>
+          </div>
         </div>
       )}
     </div>

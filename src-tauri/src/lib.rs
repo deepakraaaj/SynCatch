@@ -1,13 +1,8 @@
-use tauri::{Emitter, Manager, PhysicalPosition, Position};
+use tauri::{Emitter, Manager};
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 const DATABASE_PATH: &str = "sqlite:mission-control.db";
 const TOGGLE_HUD_TRANSPARENCY_EVENT: &str = "missioncontrol://toggle-hud-transparency";
-const HUD_WIDTH: u32 = 620;
-const HUD_HEIGHT: u32 = 104;
-const HUD_MARGIN_X: u32 = 26;
-const HUD_MARGIN_Y: u32 = 26;
-
 fn database_migrations() -> Vec<Migration> {
     vec![
         Migration {
@@ -97,19 +92,6 @@ fn show_quick_add(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-fn position_hud(app: &tauri::AppHandle) -> tauri::Result<()> {
-    if let Some(window) = app.get_webview_window("hud") {
-        if let Some(monitor) = window.current_monitor()? {
-            let size = monitor.size();
-            let x = size.width.saturating_sub(HUD_WIDTH + HUD_MARGIN_X) as i32;
-            let y = size.height.saturating_sub(HUD_HEIGHT + HUD_MARGIN_Y) as i32;
-            window.set_position(Position::Physical(PhysicalPosition::new(x, y)))?;
-        }
-    }
-
-    Ok(())
-}
-
 fn prepare_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("hud") {
         window.hide()?;
@@ -178,7 +160,6 @@ pub fn run() {
 
                 app.global_shortcut().register(quick_add_shortcut)?;
                 app.global_shortcut().register(hud_transparency_shortcut)?;
-                position_hud(&app.handle())?;
                 prepare_launch_windows(&app.handle())?;
             }
 
