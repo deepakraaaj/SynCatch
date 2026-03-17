@@ -283,7 +283,11 @@ function HudActionButton({
   return (
     <Button
       aria-label={label}
-      className={cn('h-9 w-9 rounded-full px-0', className)}
+      className={cn(
+        'h-9 w-9 rounded-full px-0',
+        variant === 'primary' && '!shadow-none focus:!shadow-none focus-visible:!shadow-none focus:!ring-0 focus-visible:!ring-0',
+        className,
+      )}
       disabled={disabled}
       onClick={onClick}
       size="sm"
