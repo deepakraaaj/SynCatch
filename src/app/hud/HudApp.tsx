@@ -167,6 +167,20 @@ function AppIcon() {
   );
 }
 
+function TasksIcon() {
+  return (
+    <Icon>
+      <rect height="16" rx="2.5" width="14" x="5" y="4" />
+      <path d="M9 8h6" />
+      <path d="M9 12h6" />
+      <path d="M9 16h6" />
+      <path d="M7 8h.01" />
+      <path d="M7 12h.01" />
+      <path d="M7 16h.01" />
+    </Icon>
+  );
+}
+
 function QuickAddIcon() {
   return (
     <Icon>
@@ -319,6 +333,7 @@ export function HudApp() {
   const tasks = useTaskStore((state) => state.tasks);
   const createTask = useTaskStore((state) => state.createTask);
   const markDone = useTaskStore((state) => state.markDone);
+  const moveTaskToLane = useTaskStore((state) => state.moveTaskToLane);
   const toggleSubtask = useTaskStore((state) => state.toggleSubtask);
   const [elapsedSeconds, setElapsedSeconds] = useState(
     getElapsedSeconds(focusSessionStart, focusElapsedSeconds),
@@ -330,6 +345,7 @@ export function HudApp() {
   const [hudTaskNextAction, setHudTaskNextAction] = useState('');
   const [hudTaskNotes, setHudTaskNotes] = useState('');
   const [showTaskDetails, setShowTaskDetails] = useState(false);
+  const [showCompactTaskPicker, setShowCompactTaskPicker] = useState(false);
   const [showCompactTaskComposer, setShowCompactTaskComposer] = useState(false);
   const [isSavingHudTask, setIsSavingHudTask] = useState(false);
   const [distractionTrigger, setDistractionTrigger] = useState('');
@@ -352,7 +368,7 @@ export function HudApp() {
   const effectiveHudTransparency = hudMode === 'compact' ? 'standard' : hudTransparency;
   const hudShellToneClass = effectiveHudTransparency === 'ghost' ? 'hud-shell--ghost' : 'hud-shell--solid';
   const compactDrawerOpen =
-    hudMode === 'compact' && (showCompactTaskComposer || showCompactDistractionComposer);
+    hudMode === 'compact' && (showCompactTaskPicker || showCompactTaskComposer || showCompactDistractionComposer);
   const isSessionRunning = Boolean(focusSessionStart);
   const hasPausedProgress = !isSessionRunning && focusElapsedSeconds > 0;
   const sessionToggleLabel = isSessionRunning
@@ -361,6 +377,7 @@ export function HudApp() {
       ? 'Resume session'
       : 'Start session';
   const sessionToggleIcon = isSessionRunning ? <PauseIcon /> : <PlayIcon />;
+  const selectableHudTasks = tasks.filter((task) => task.lane !== 'done' && task.status !== 'done');
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -433,11 +450,12 @@ export function HudApp() {
   }, [compactDrawerOpen, hudMode]);
 
   useEffect(() => {
-    if (hudMode === 'expanded' && (showCompactTaskComposer || showCompactDistractionComposer)) {
+    if (hudMode === 'expanded' && (showCompactTaskPicker || showCompactTaskComposer || showCompactDistractionComposer)) {
+      setShowCompactTaskPicker(false);
       setShowCompactTaskComposer(false);
       setShowCompactDistractionComposer(false);
     }
-  }, [hudMode, showCompactDistractionComposer, showCompactTaskComposer]);
+  }, [hudMode, showCompactDistractionComposer, showCompactTaskComposer, showCompactTaskPicker]);
 
   useEffect(() => {
     if (!isTauriApp()) {
@@ -527,14 +545,31 @@ export function HudApp() {
     setShowCompactDistractionComposer(false);
   }
 
+  function toggleCompactTaskPicker() {
+    setShowCompactTaskComposer(false);
+    setShowCompactDistractionComposer(false);
+    setShowCompactTaskPicker((current) => !current);
+  }
+
   function toggleCompactTaskComposer() {
+    setShowCompactTaskPicker(false);
     setShowCompactDistractionComposer(false);
     setShowCompactTaskComposer((current) => !current);
   }
 
   function toggleCompactDistractionComposer() {
+    setShowCompactTaskPicker(false);
     setShowCompactTaskComposer(false);
     setShowCompactDistractionComposer((current) => !current);
+  }
+
+  async function selectCompactHudTask(task: Task) {
+    if (task.lane !== 'now') {
+      await moveTaskToLane(task.id, 'now', 'hud');
+    }
+
+    setCurrentMission(task.id, 'hud');
+    setShowCompactTaskPicker(false);
   }
 
   async function captureHudTask() {
@@ -1203,11 +1238,18 @@ export function HudApp() {
                 <div
                   className={cn(
                     'flex items-center gap-1 overflow-hidden transition-[max-width,opacity,margin,transform] duration-200 ease-out',
-                    showCompactTaskComposer || showCompactDistractionComposer
-                      ? 'mr-1 max-w-[164px] opacity-100'
-                      : 'mr-0 max-w-0 translate-x-1 opacity-0 group-hover:mr-1 group-hover:max-w-[164px] group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:mr-1 group-focus-within:max-w-[164px] group-focus-within:translate-x-0 group-focus-within:opacity-100',
+                    showCompactTaskPicker || showCompactTaskComposer || showCompactDistractionComposer
+                      ? 'mr-1 max-w-[204px] opacity-100'
+                      : 'mr-0 max-w-0 translate-x-1 opacity-0 group-hover:mr-1 group-hover:max-w-[204px] group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:mr-1 group-focus-within:max-w-[204px] group-focus-within:translate-x-0 group-focus-within:opacity-100',
                   )}
                 >
+                  <HudActionButton
+                    className="h-8 w-8"
+                    icon={<TasksIcon />}
+                    label={showCompactTaskPicker ? 'Close task picker' : 'Select task'}
+                    onClick={toggleCompactTaskPicker}
+                    variant={showCompactTaskPicker ? 'primary' : 'secondary'}
+                  />
                   <HudActionButton
                     className="h-8 w-8"
                     icon={<AppIcon />}
@@ -1257,6 +1299,84 @@ export function HudApp() {
               </div>
             </div>
 
+            {showCompactTaskPicker ? (
+              <div className="mt-3 min-h-0 flex-1 border-t border-borderSoft/28 pt-3">
+                <div className="surface-muted flex h-full min-h-0 flex-col rounded-[22px] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Select task</p>
+                      <p className="mt-1 text-xs text-text-secondary">Pick any open task for the HUD.</p>
+                    </div>
+                    <Badge tone="neutral">Compact</Badge>
+                  </div>
+
+                  <div className="scrollbar-hidden mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+                    <div className="space-y-2">
+                      {selectableHudTasks.map((task) => {
+                        const isCurrent = task.id === currentMission?.id;
+                        const movesToActive = task.lane !== 'now';
+
+                        return (
+                          <button
+                            key={task.id}
+                            className={cn(
+                              'w-full rounded-[16px] border px-3 py-3 text-left transition',
+                              isCurrent
+                                ? 'border-accent/45 bg-accent/10 text-text-primary'
+                                : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
+                            )}
+                            onClick={() => {
+                              void selectCompactHudTask(task);
+                            }}
+                            type="button"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-text-primary">{task.title}</p>
+                                <p className="mt-1 text-xs text-current/80">
+                                  {task.lane === 'now'
+                                    ? 'Active'
+                                    : task.lane === 'next'
+                                      ? 'Next'
+                                      : task.lane === 'later'
+                                        ? 'Backlog'
+                                        : 'Queue'}
+                                  {' / '}
+                                  {formatMinutes(task.estimated_minutes)}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-text-muted">
+                                {isCurrent ? 'Current' : movesToActive ? 'Move to active' : 'Ready'}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                      {selectableHudTasks.length === 0 ? (
+                        <div className="rounded-[16px] border border-dashed border-borderSoft/40 px-3 py-6 text-center text-sm text-text-muted">
+                          No open tasks yet
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex shrink-0 flex-col gap-3 border-t border-borderSoft/24 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs leading-5 text-text-muted">
+                      Queue, Next, and Backlog tasks move into Active when selected.
+                    </p>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        onClick={() => setShowCompactTaskPicker(false)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {showCompactTaskComposer ? (
               <div className="mt-3 min-h-0 flex-1 border-t border-borderSoft/28 pt-3">
                 <div className="surface-muted flex h-full min-h-0 flex-col rounded-[22px] p-3">
