@@ -6,11 +6,13 @@
   "permissions": [
     "core:default",
     "core:window:allow-hide",
+    "core:window:allow-create",
     "core:window:allow-show",
     "core:window:allow-center",
     "core:window:allow-set-focus",
     "core:window:allow-set-size",
     "core:window:allow-start-dragging",
+    "core:webview:allow-create-webview-window",
     "sql:default",
     "sql:allow-execute",
     "global-shortcut:allow-is-registered",

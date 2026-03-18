@@ -10,6 +10,10 @@ const HUD_WIDTH = 360;
 const HUD_HEIGHT = 78;
 export const QUICK_ADD_WIDTH = 540;
 export const QUICK_ADD_HEIGHT = 560;
+const MAIN_WINDOW_WIDTH = 1480;
+const MAIN_WINDOW_HEIGHT = 940;
+const MAIN_WINDOW_MIN_WIDTH = 1180;
+const MAIN_WINDOW_MIN_HEIGHT = 760;
 
 function getEventStorageKey(eventName: string) {
   return `missioncontrol:event:${eventName}`;
@@ -147,8 +151,45 @@ export async function hideCurrentWindow() {
 
 export async function showMainWindow() {
   if (isTauriApp()) {
-    const { getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow');
-    const mainWindow = (await getAllWebviewWindows()).find((window) => window.label === 'main');
+    const { WebviewWindow, getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow');
+    let mainWindow = (await getAllWebviewWindows()).find((window) => window.label === 'main');
+
+    if (!mainWindow) {
+      const createdWindow = new WebviewWindow('main', {
+        url: 'index.html',
+        title: 'MissionControl',
+        width: MAIN_WINDOW_WIDTH,
+        height: MAIN_WINDOW_HEIGHT,
+        minWidth: MAIN_WINDOW_MIN_WIDTH,
+        minHeight: MAIN_WINDOW_MIN_HEIGHT,
+        center: true,
+        resizable: true,
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+
+        void createdWindow.once('tauri://created', () => {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          resolve();
+        });
+
+        void createdWindow.once('tauri://error', (event) => {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          reject(event.payload);
+        });
+      });
+
+      mainWindow = createdWindow;
+    }
 
     if (mainWindow) {
       await mainWindow.show();
