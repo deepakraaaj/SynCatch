@@ -149,12 +149,12 @@ function Icon({
   return (
     <svg
       aria-hidden="true"
-      className={cn('h-3.5 w-3.5', className)}
+      className={cn('h-4 w-4 shrink-0', className)}
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth="1.8"
+      strokeWidth="2"
       viewBox="0 0 24 24"
     >
       {children}
@@ -304,7 +304,7 @@ function HudActionButton({
     <Button
       aria-label={label}
       className={cn(
-        'h-9 w-9 rounded-full px-0',
+        'h-10 w-10 shrink-0 rounded-full px-0 [&>svg]:h-[17px] [&>svg]:w-[17px]',
         variant === 'primary' && '!shadow-none focus:!shadow-none focus-visible:!shadow-none focus:!ring-0 focus-visible:!ring-0',
         className,
       )}
@@ -1303,35 +1303,35 @@ export function HudApp() {
                     )}
                   >
                     <HudActionButton
-                      className="h-8 w-8"
+                      className="h-9 w-9"
                       icon={<TasksIcon />}
                       label={showCompactTaskPicker ? 'Close task picker' : 'Select task'}
                       onClick={toggleCompactTaskPicker}
                       variant={showCompactTaskPicker ? 'primary' : 'secondary'}
                     />
                     <HudActionButton
-                      className="h-8 w-8"
+                      className="h-9 w-9"
                       icon={<QuickAddIcon />}
                       label={showCompactTaskComposer ? 'Close add task' : 'Add task'}
                       onClick={toggleCompactTaskComposer}
                       variant={showCompactTaskComposer ? 'primary' : 'secondary'}
                     />
                     <HudActionButton
-                      className="h-8 w-8"
+                      className="h-9 w-9"
                       icon={<DistractionIcon />}
                       label={showCompactDistractionComposer ? 'Close distraction log' : 'Log distraction'}
                       onClick={toggleCompactDistractionComposer}
                       variant={showCompactDistractionComposer ? 'primary' : 'secondary'}
                     />
                     <HudActionButton
-                      className="h-8 w-8"
+                      className="h-9 w-9"
                       icon={<ExpandIcon />}
                       label="Expand HUD"
                       onClick={() => toggleHudMode('hud')}
                     />
                   </div>
                   <HudActionButton
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     icon={<AppIcon />}
                     label="Open app"
                     onClick={() => {
@@ -1339,20 +1339,20 @@ export function HudApp() {
                     }}
                   />
                   <HudActionButton
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     icon={<ChevronIcon expanded={compactHudExpanded} />}
                     label="Collapse compact HUD"
                     onClick={toggleCompactHudExpanded}
                   />
                   <HudActionButton
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     disabled={!currentMission}
                     icon={sessionToggleIcon}
                     label={sessionToggleLabel}
                     onClick={handleSessionToggle}
                   />
                   <HudActionButton
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     disabled={!currentMission}
                     icon={<CompleteIcon />}
                     label="Complete task"
@@ -1397,7 +1397,7 @@ export function HudApp() {
 
                 <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderStrong/25 bg-panel2/74 p-1">
                   <HudActionButton
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     icon={<AppIcon />}
                     label="Open app"
                     onClick={() => {
@@ -1405,20 +1405,20 @@ export function HudApp() {
                     }}
                   />
                   <HudActionButton
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     icon={<ChevronIcon expanded={compactHudExpanded} />}
                     label="Expand compact HUD"
                     onClick={toggleCompactHudExpanded}
                   />
                   <HudActionButton
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     disabled={!currentMission}
                     icon={sessionToggleIcon}
                     label={sessionToggleLabel}
                     onClick={handleSessionToggle}
                   />
                   <HudActionButton
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     disabled={!currentMission}
                     icon={<CompleteIcon />}
                     label="Complete task"
