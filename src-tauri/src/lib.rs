@@ -108,7 +108,9 @@ fn show_quick_add(app: &tauri::AppHandle) -> tauri::Result<()> {
 
 fn prepare_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("hud") {
-        window.hide()?;
+        window.show()?;
+        window.unminimize()?;
+        window.set_focus()?;
     }
 
     if let Some(window) = app.get_webview_window("quick-add") {
@@ -116,9 +118,7 @@ fn prepare_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     }
 
     if let Some(window) = app.get_webview_window("main") {
-        window.show()?;
-        window.unminimize()?;
-        window.set_focus()?;
+        window.hide()?;
     }
 
     Ok(())

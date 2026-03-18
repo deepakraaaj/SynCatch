@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { logActivity } from '../../features/activity/activity-repository';
 import {
   distractionCategoryOptions,
@@ -327,10 +327,12 @@ export function HudApp() {
   const focusStatus = useFocusStore((state) => state.status);
   const hudMode = useFocusStore((state) => state.hudMode);
   const hudTransparency = useFocusStore((state) => state.hudTransparency);
+  const focusHydrated = useFocusStore((state) => state.hydrated);
   const setCurrentMission = useFocusStore((state) => state.setCurrentMission);
   const startSession = useFocusStore((state) => state.startSession);
   const resumeSession = useFocusStore((state) => state.resumeSession);
   const pauseSession = useFocusStore((state) => state.pauseSession);
+  const setHudMode = useFocusStore((state) => state.setHudMode);
   const toggleHudMode = useFocusStore((state) => state.toggleHudMode);
   const toggleHudTransparency = useFocusStore((state) => state.toggleHudTransparency);
   const resetSession = useFocusStore((state) => state.resetSession);
@@ -359,6 +361,7 @@ export function HudApp() {
   const [showCompactDistractionComposer, setShowCompactDistractionComposer] = useState(false);
   const [isSavingDistraction, setIsSavingDistraction] = useState(false);
   const [customTime, setCustomTime] = useState('');
+  const hasNormalizedLaunchHudMode = useRef(false);
 
   const currentMission =
     tasks.find((task) => task.id === currentMissionId && task.lane === 'now') ?? tasks.find((task) => task.lane === 'now') ?? null;
@@ -394,6 +397,15 @@ export function HudApp() {
       window.clearInterval(interval);
     };
   }, [focusElapsedSeconds, focusSessionStart]);
+
+  useEffect(() => {
+    if (!focusHydrated || hasNormalizedLaunchHudMode.current) {
+      return;
+    }
+
+    hasNormalizedLaunchHudMode.current = true;
+    setHudMode('compact');
+  }, [focusHydrated, setHudMode]);
 
   useEffect(() => {
     if (!isTauriApp()) {
@@ -1214,10 +1226,17 @@ export function HudApp() {
           </div>
         </div>
       ) : (
-        <div className={cn('h-full w-full', compactHudExpanded ? 'max-w-[560px]' : 'max-w-[360px]')}>
+        <div
+          className={cn(
+            'w-full',
+            compactDrawerOpen ? 'h-full' : 'h-auto',
+            compactHudExpanded ? 'max-w-[560px]' : 'max-w-[360px]',
+          )}
+        >
           <div
             className={cn(
-              'hud-shell relative flex h-full flex-col border',
+              'hud-shell relative flex flex-col border',
+              compactDrawerOpen ? 'h-full' : 'h-auto',
               compactHudExpanded ? 'rounded-[28px] px-3 py-3' : 'rounded-[24px] px-2.5 py-2.5',
               hudShellToneClass,
               useStableHudRendering && 'hud-shell--stable',
@@ -1292,14 +1311,6 @@ export function HudApp() {
                     />
                     <HudActionButton
                       className="h-8 w-8"
-                      icon={<AppIcon />}
-                      label="Open app"
-                      onClick={() => {
-                        void showMainWindow();
-                      }}
-                    />
-                    <HudActionButton
-                      className="h-8 w-8"
                       icon={<QuickAddIcon />}
                       label={showCompactTaskComposer ? 'Close add task' : 'Add task'}
                       onClick={toggleCompactTaskComposer}
@@ -1319,6 +1330,14 @@ export function HudApp() {
                       onClick={() => toggleHudMode('hud')}
                     />
                   </div>
+                  <HudActionButton
+                    className="h-8 w-8"
+                    icon={<AppIcon />}
+                    label="Open app"
+                    onClick={() => {
+                      void showMainWindow();
+                    }}
+                  />
                   <HudActionButton
                     className="h-8 w-8"
                     icon={<ChevronIcon expanded={compactHudExpanded} />}
@@ -1377,6 +1396,14 @@ export function HudApp() {
                 </button>
 
                 <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderStrong/25 bg-panel2/74 p-1">
+                  <HudActionButton
+                    className="h-8 w-8"
+                    icon={<AppIcon />}
+                    label="Open app"
+                    onClick={() => {
+                      void showMainWindow();
+                    }}
+                  />
                   <HudActionButton
                     className="h-8 w-8"
                     icon={<ChevronIcon expanded={compactHudExpanded} />}

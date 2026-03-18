@@ -42,6 +42,7 @@ interface FocusState extends FocusSyncState {
   pauseSession: (source?: ActivitySource) => void;
   setStatus: (status: FocusStatus, source?: ActivitySource) => void;
   resetSession: (source?: ActivitySource) => void;
+  setHudMode: (mode: HudMode) => void;
   toggleHudMode: (source?: ActivitySource) => void;
   toggleHudTransparency: (source?: ActivitySource) => void;
   syncFromExternal: (state: FocusSyncState) => void;
@@ -240,6 +241,16 @@ export const useFocusStore = create<FocusState>((set, get) => {
           },
         });
       }
+    },
+    setHudMode: (hudMode) => {
+      if (get().hudMode === hudMode) {
+        return;
+      }
+
+      set(() => ({
+        hudMode,
+      }));
+      commitFocusUpdate();
     },
     toggleHudMode: (source = 'system') => {
       const nextMode = get().hudMode === 'expanded' ? 'compact' : 'expanded';

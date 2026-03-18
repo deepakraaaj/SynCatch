@@ -6,8 +6,8 @@ export const ACTIVITY_CHANGED_EVENT = 'missioncontrol://activity-changed';
 export const THEME_CHANGED_EVENT = 'missioncontrol://theme-changed';
 export const SETTINGS_CHANGED_EVENT = 'missioncontrol://settings-changed';
 export const TOGGLE_HUD_TRANSPARENCY_EVENT = 'missioncontrol://toggle-hud-transparency';
-const HUD_WIDTH = 620;
-const HUD_HEIGHT = 104;
+const HUD_WIDTH = 360;
+const HUD_HEIGHT = 78;
 export const QUICK_ADD_WIDTH = 540;
 export const QUICK_ADD_HEIGHT = 560;
 
