@@ -1,7 +1,12 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useEffect, useReducer, useState } from 'react';
-import { logActivity } from '../../features/activity/activity-repository';
+import {
+  listRecentActivity,
+  logActivity,
+  type ActivityLogEntry,
+} from '../../features/activity/activity-repository';
+import { buildDistractionReport } from '../../features/activity/distraction-insights';
 import { getTaskAiAssistant } from '../../features/ai/mock-ai-provider';
 import {
   getFocusStatusLabel,
@@ -22,7 +27,12 @@ import { useTaskStore } from '../../features/tasks/task-store';
 import { THEMES } from '../../features/themes/themes';
 import { useThemeStore } from '../../features/themes/theme-store';
 import { formatElapsedClock, formatMinutes, formatRelativeTime } from '../../lib/date';
-import { showHudWindow, showQuickAddWindow } from '../../lib/tauri';
+import {
+  ACTIVITY_CHANGED_EVENT,
+  showHudWindow,
+  showQuickAddWindow,
+  subscribeAppEvent,
+} from '../../lib/tauri';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -472,6 +482,7 @@ export function MainApp() {
   const [isRefreshingBrief, setIsRefreshingBrief] = useState(false);
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [isSavingWorkspaceNotes, setIsSavingWorkspaceNotes] = useState(false);
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
 
   const tasks = useTaskStore((state) => state.tasks);
   const selectedTaskId = useTaskStore((state) => state.selectedTaskId);
@@ -518,6 +529,7 @@ export function MainApp() {
   const focusStatusTone = getFocusStatusTone(focusStatus);
   const focusStatusLabel = getFocusStatusLabel(focusStatus);
   const weeklyActivity = getWeeklyActivity(tasks);
+  const distractionReport = buildDistractionReport(activityLog);
 
   const dailyFocusHours = ((doneTasks.length * 50 + nowTasks.length * 35 + nextTasks.length * 20) / 60).toFixed(1);
   const streakDays = Math.max(4, doneTasks.length * 4 + nowTasks.length * 2 + 6);
@@ -531,6 +543,11 @@ export function MainApp() {
     { lane: 'now' as TaskLane, label: 'Active', tasks: nowTasks, hint: 'One task at a time' },
     { lane: 'next' as TaskLane, label: 'Next', tasks: nextTasks, hint: 'Ready after current work' },
     { lane: 'later' as TaskLane, label: 'Backlog', tasks: laterTasks, hint: 'Keep but do not touch yet' },
+  ];
+  const distractionPeriods = [
+    { label: 'Today', summary: distractionReport.today },
+    { label: '7 days', summary: distractionReport.week },
+    { label: '30 days', summary: distractionReport.month },
   ];
   const focusChecklistCompleted = focusMission ? getCompletedSubtasks(focusMission) : 0;
   const focusOpenQuestions = focusMission ? getOpenQuestionCount(focusMission) : 0;
@@ -565,6 +582,29 @@ export function MainApp() {
 
     return () => {
       window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadActivity = async () => {
+      const nextActivity = await listRecentActivity(2000);
+
+      if (!cancelled) {
+        setActivityLog(nextActivity);
+      }
+    };
+
+    void loadActivity();
+
+    const unsubscribe = subscribeAppEvent(ACTIVITY_CHANGED_EVENT, () => {
+      void loadActivity();
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
     };
   }, []);
 
@@ -891,6 +931,64 @@ export function MainApp() {
                         <span className="text-sm text-text-secondary">{laneTasks(tasks, lane).length}</span>
                       </div>
                     ))}
+                  </div>
+                </Card>
+
+                <Card className="rounded-[28px] p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Distraction report</p>
+                      <p className="mt-2 text-sm text-text-secondary">Daily, weekly, and monthly pull-away patterns.</p>
+                    </div>
+                    <Badge tone={distractionReport.month.total > 0 ? 'warning' : 'neutral'}>
+                      {distractionReport.month.total} / 30d
+                    </Badge>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {distractionPeriods.map((period) => (
+                      <div
+                        key={period.label}
+                        className="flex items-center justify-between gap-3 rounded-[18px] bg-panel/58 px-4 py-3"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">{period.label}</p>
+                          <p className="mt-1 text-xs text-text-secondary">
+                            {period.summary.topCategory
+                              ? `${period.summary.topCategory.label} leads`
+                              : 'No distractions logged'}
+                          </p>
+                        </div>
+                        <p className="text-lg font-semibold text-text-primary">{period.summary.total}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="surface-muted-strong mt-5 rounded-[22px] p-4">
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Main pattern</p>
+                    <p className="mt-3 text-sm font-medium text-text-primary">
+                      {distractionReport.month.topTrigger?.label ?? 'Nothing recurring yet'}
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-text-secondary">{distractionReport.avoidanceTip}</p>
+                  </div>
+
+                  <div className="mt-5 space-y-2">
+                    {distractionReport.recent.slice(0, 3).map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="rounded-[18px] border border-borderSoft/35 bg-panel/54 px-4 py-3"
+                      >
+                        <p className="text-sm font-medium text-text-primary">{entry.trigger}</p>
+                        <p className="mt-1 text-xs text-text-secondary">
+                          {entry.categoryLabel} · {entry.taskTitle || 'No active task'} · {formatRelativeTime(entry.createdAt)}
+                        </p>
+                      </div>
+                    ))}
+                    {distractionReport.recent.length === 0 ? (
+                      <div className="rounded-[18px] border border-dashed border-borderSoft/40 px-4 py-6 text-center text-sm text-text-muted">
+                        Log distractions from the HUD to build these reports.
+                      </div>
+                    ) : null}
                   </div>
                 </Card>
               </div>

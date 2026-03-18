@@ -2,6 +2,7 @@ import { isTauri } from '@tauri-apps/api/core';
 
 export const TASKS_CHANGED_EVENT = 'missioncontrol://tasks-changed';
 export const FOCUS_CHANGED_EVENT = 'missioncontrol://focus-changed';
+export const ACTIVITY_CHANGED_EVENT = 'missioncontrol://activity-changed';
 export const THEME_CHANGED_EVENT = 'missioncontrol://theme-changed';
 export const SETTINGS_CHANGED_EVENT = 'missioncontrol://settings-changed';
 export const TOGGLE_HUD_TRANSPARENCY_EVENT = 'missioncontrol://toggle-hud-transparency';

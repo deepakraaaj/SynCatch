@@ -1,5 +1,5 @@
 import { getSqlDatabase } from '../../lib/database';
-import { isTauriApp } from '../../lib/tauri';
+import { ACTIVITY_CHANGED_EVENT, emitAppEvent, isTauriApp } from '../../lib/tauri';
 
 const LOCAL_STORAGE_KEY = 'missioncontrol-activity-log-v1';
 
@@ -15,7 +15,8 @@ export type ActivityAction =
   | 'focus_paused'
   | 'focus_status_changed'
   | 'hud_mode_toggled'
-  | 'hud_transparency_toggled';
+  | 'hud_transparency_toggled'
+  | 'distraction_logged';
 
 export type ActivitySource = 'main' | 'hud' | 'quick-add' | 'system';
 
@@ -77,10 +78,30 @@ function normalizeDraft(draft: ActivityLogDraft) {
   };
 }
 
+function parseStoredEntries(raw: string | null) {
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Array<
+      Omit<ActivityLogEntry, 'details'> & { details?: Record<string, unknown> | string }
+    >;
+
+    return parsed.map((entry) => ({
+      ...entry,
+      details:
+        typeof entry.details === 'string' ? parseDetails(entry.details) : (entry.details ?? {}),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 class BrowserActivityRepository implements ActivityRepository {
   async logActivity(draft: ActivityLogDraft) {
     const nextEntry = normalizeDraft(draft);
-    const existing = await this.listRecentActivity();
+    const existing = parseStoredEntries(localStorage.getItem(LOCAL_STORAGE_KEY));
     localStorage.setItem(
       LOCAL_STORAGE_KEY,
       JSON.stringify([{ ...nextEntry, details: parseDetails(nextEntry.details) }, ...existing]),
@@ -88,27 +109,7 @@ class BrowserActivityRepository implements ActivityRepository {
   }
 
   async listRecentActivity(limit = 50) {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as Array<
-        Omit<ActivityLogEntry, 'details'> & { details?: Record<string, unknown> | string }
-      >;
-
-      return parsed
-        .map((entry) => ({
-          ...entry,
-          details:
-            typeof entry.details === 'string' ? parseDetails(entry.details) : (entry.details ?? {}),
-        }))
-        .slice(0, limit);
-    } catch {
-      return [];
-    }
+    return parseStoredEntries(localStorage.getItem(LOCAL_STORAGE_KEY)).slice(0, limit);
   }
 }
 
@@ -165,6 +166,11 @@ export function getActivityRepository() {
 export async function logActivity(draft: ActivityLogDraft) {
   const repository = await getActivityRepository();
   await repository.logActivity(draft);
+  await emitAppEvent(ACTIVITY_CHANGED_EVENT, {
+    action: draft.action,
+    taskId: draft.taskId ?? null,
+    at: new Date().toISOString(),
+  });
 }
 
 export async function listRecentActivity(limit?: number) {
