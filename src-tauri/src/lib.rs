@@ -79,6 +79,20 @@ fn database_migrations() -> Vec<Migration> {
             "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "expand_tasks_with_brief_fields",
+            sql: r#"
+              ALTER TABLE tasks ADD COLUMN goal TEXT NOT NULL DEFAULT '';
+              ALTER TABLE tasks ADD COLUMN definition_of_done TEXT NOT NULL DEFAULT '';
+              ALTER TABLE tasks ADD COLUMN next_action TEXT NOT NULL DEFAULT '';
+              ALTER TABLE tasks ADD COLUMN why_it_matters TEXT NOT NULL DEFAULT '';
+              ALTER TABLE tasks ADD COLUMN workspace_notes TEXT NOT NULL DEFAULT '';
+              ALTER TABLE tasks ADD COLUMN subtasks_json TEXT NOT NULL DEFAULT '[]';
+              ALTER TABLE tasks ADD COLUMN clarifying_questions_json TEXT NOT NULL DEFAULT '[]';
+            "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

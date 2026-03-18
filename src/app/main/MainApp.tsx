@@ -2,14 +2,21 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useEffect, useReducer, useState } from 'react';
 import { logActivity } from '../../features/activity/activity-repository';
+import { getTaskAiAssistant } from '../../features/ai/mock-ai-provider';
 import {
   getFocusStatusLabel,
   getFocusStatusTone,
-  getFocusToggleLabel,
 } from '../../features/focus/focus-presenter';
 import { useFocusStore } from '../../features/focus/focus-store';
 import { useSettingsStore } from '../../features/settings/settings-store';
-import { humanizeLane, humanizePriority } from '../../features/tasks/task-helpers';
+import { generateTaskBrief } from '../../features/tasks/task-intelligence';
+import {
+  deriveStatusFromLane,
+  getCompletedSubtasks,
+  getOpenQuestionCount,
+  humanizeLane,
+  humanizePriority,
+} from '../../features/tasks/task-helpers';
 import type { Task, TaskLane, TaskPriority } from '../../features/tasks/task-types';
 import { useTaskStore } from '../../features/tasks/task-store';
 import { THEMES } from '../../features/themes/themes';
@@ -22,22 +29,23 @@ import { Card } from '../../components/ui/card';
 import { Input, Textarea } from '../../components/ui/input';
 import { cn } from '../../lib/cn';
 
-type MainView = 'inbox' | 'today' | 'focus' | 'settings';
+type NavigationView = 'inbox' | 'today' | 'focus' | 'settings';
+type MainView = NavigationView | 'task';
 
-const navItems: Array<{ id: MainView; label: string; eyebrow: string }> = [
-  { id: 'inbox', label: 'Dashboard', eyebrow: 'Deep focus' },
-  { id: 'today', label: 'Tasks', eyebrow: 'Today queue' },
-  { id: 'focus', label: 'Workspace', eyebrow: 'Flow state' },
-  { id: 'settings', label: 'Settings', eyebrow: 'System tune' },
+const navItems: Array<{ id: NavigationView; label: string; eyebrow: string }> = [
+  { id: 'inbox', label: 'Overview', eyebrow: 'Home' },
+  { id: 'today', label: 'Tasks', eyebrow: 'Board' },
+  { id: 'focus', label: 'Workspace', eyebrow: 'Current task' },
+  { id: 'settings', label: 'Settings', eyebrow: 'Preferences' },
 ];
 
 const laneOrder: TaskLane[] = ['inbox', 'now', 'next', 'later', 'done'];
 
 const laneLabel: Record<TaskLane, string> = {
   inbox: 'Inbox',
-  now: 'Do First (Frog)',
-  next: 'Schedule (Next)',
-  later: 'Delegate / Defer',
+  now: 'Active',
+  next: 'Next',
+  later: 'Later',
   done: 'Complete',
 };
 
@@ -123,38 +131,48 @@ function getLocalTime() {
   }).format(new Date());
 }
 
-function buildWorkspaceChecklist(task: Task | null) {
-  if (!task) {
-    return [
-      'Choose one mission to turn the workspace live',
-      'Capture the one proof point that matters',
-      'Decide what finished looks like before starting',
-    ];
-  }
-
-  const firstWord = task.title.split(' ')[0] ?? 'mission';
-
-  return [
-    `Lock the concrete deliverable for ${firstWord.toLowerCase()}`,
-    'Clear one blocker before opening a second thread',
-    'Leave a handoff note before closing the session',
-  ];
+function cloneTask(task: Task) {
+  return {
+    ...task,
+    subtasks: task.subtasks.map((subtask) => ({ ...subtask })),
+    clarifying_questions: task.clarifying_questions.map((question) => ({ ...question })),
+  };
 }
 
-function buildResourceLinks(task: Task | null) {
-  if (!task) {
-    return ['Design notes', 'Brief', 'Review checklist'];
-  }
+function sanitizeTask(task: Task): Task {
+  const title =
+    task.title.trim() ||
+    task.raw_input
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 72) ||
+    'Untitled task';
 
-  if (task.title.toLowerCase().includes('deck')) {
-    return ['Narrative outline', 'Metrics appendix', 'Review comments'];
-  }
-
-  if (task.title.toLowerCase().includes('customer')) {
-    return ['Account notes', 'Renewal metrics', 'Call agenda'];
-  }
-
-  return ['Working doc', 'Reference context', 'Handoff draft'];
+  return {
+    ...task,
+    title,
+    raw_input: task.raw_input.trim(),
+    description: task.description.trim(),
+    goal: task.goal.trim(),
+    definition_of_done: task.definition_of_done.trim(),
+    next_action: task.next_action.trim(),
+    why_it_matters: task.why_it_matters.trim(),
+    workspace_notes: task.workspace_notes,
+    estimated_minutes: Math.max(5, Number(task.estimated_minutes) || 25),
+    subtasks: task.subtasks
+      .map((subtask) => ({
+        ...subtask,
+        title: subtask.title.trim(),
+      }))
+      .filter((subtask) => subtask.title.length > 0),
+    clarifying_questions: task.clarifying_questions
+      .map((question) => ({
+        ...question,
+        question: question.question.trim(),
+        answer: question.answer.trim(),
+      }))
+      .filter((question) => question.question.length > 0),
+  };
 }
 
 function SidebarNavButton({
@@ -216,21 +234,16 @@ function TaskQueueItem({
   task,
   active,
   onSelect,
-  onPrimary,
-  onSecondary,
-  secondaryLabel,
-  primaryLabel,
   isFrog,
 }: {
   task: Task;
   active: boolean;
   onSelect: () => void;
-  onPrimary: () => void;
-  onSecondary: () => void;
-  secondaryLabel: string;
-  primaryLabel: string;
   isFrog?: boolean;
 }) {
+  const completedSubtasks = getCompletedSubtasks(task);
+  const openQuestions = getOpenQuestionCount(task);
+
   return (
     <div
       {...pressable(onSelect)}
@@ -260,30 +273,16 @@ function TaskQueueItem({
         </div>
         <div className="flex flex-col items-end gap-2">
           <Badge tone={priorityTone(task.priority)}>{humanizePriority(task.priority)}</Badge>
-          {isFrog ? <Badge tone="accent">Eat the frog 🐸</Badge> : null}
+          {isFrog ? <Badge tone="accent">Top</Badge> : null}
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button
-          onClick={(event) => {
-            event.stopPropagation();
-            onPrimary();
-          }}
-          size="sm"
-        >
-          {primaryLabel}
-        </Button>
-        <Button
-          onClick={(event) => {
-            event.stopPropagation();
-            onSecondary();
-          }}
-          size="sm"
-          variant="secondary"
-        >
-          {secondaryLabel}
-        </Button>
+      <div className="mt-4 flex items-center justify-between gap-3 text-xs text-text-muted">
+        <span>Drag to move lanes</span>
+        <span>
+          {completedSubtasks}/{task.subtasks.length || 0} steps
+          {openQuestions > 0 ? ` · ${openQuestions} open` : ''}
+        </span>
       </div>
     </div>
   );
@@ -374,27 +373,27 @@ function RightRail({
       <Card className="rounded-[28px] p-5">
         <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">New objective</p>
         <h3 className="mt-3 text-lg font-semibold text-text-primary">
-          Capture what should move next.
+          Capture what needs to be tracked.
         </h3>
         <p className="mt-2 text-sm leading-6 text-text-secondary">
-          Keep the queue tight. One clear objective beats five vague intentions.
+          Keep capture fast. Clean it up only when needed.
         </p>
         <Button className="mt-5 w-full" onClick={onOpenQuickAdd}>
-          Add to Queue
+          Add Task
         </Button>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-1">
         <Card className="rounded-[24px] p-5">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Session goal</p>
+          <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Time load</p>
           <p className="mt-4 text-3xl font-semibold text-text-primary">{sessionGoalHours}</p>
-          <p className="mt-2 text-sm text-text-secondary">Estimated load across active and next missions.</p>
+          <p className="mt-2 text-sm text-text-secondary">Estimated load across active and next tasks.</p>
         </Card>
 
         <Card className="rounded-[24px] p-5">
           <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Completed today</p>
           <p className="mt-4 text-3xl font-semibold text-accent">{String(completedTasks).padStart(2, '0')}</p>
-          <p className="mt-2 text-sm text-text-secondary">Closed loops create the momentum.</p>
+          <p className="mt-2 text-sm text-text-secondary">Completed work for today.</p>
         </Card>
       </div>
 
@@ -402,7 +401,7 @@ function RightRail({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Task manager</p>
-            <h3 className="mt-2 text-lg font-semibold text-text-primary">Today&apos;s missions</h3>
+            <h3 className="mt-2 text-lg font-semibold text-text-primary">Current tasks</h3>
           </div>
           <Badge tone={focusStatusTone}>{focusStatusLabel}</Badge>
         </div>
@@ -427,7 +426,7 @@ function RightRail({
               <div className="mt-4 flex items-center justify-between gap-3">
                 <span className="text-xs text-text-secondary">{formatRelativeTime(task.updated_at)}</span>
                 <span className="text-xs font-medium uppercase tracking-[0.22em] text-accent">
-                  Focus
+                  Open brief
                 </span>
               </div>
             </button>
@@ -445,7 +444,7 @@ function RightRail({
         <div className="mt-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-text-primary">
-              {currentMission?.title ?? 'No mission selected'}
+              {currentMission?.title ?? 'No task selected'}
             </p>
             <p className="mt-1 text-xs text-text-secondary">
               {currentMission ? formatMinutes(currentMission.estimated_minutes) : 'Pick a task to begin'}
@@ -464,14 +463,24 @@ function RightRail({
 
 export function MainApp() {
   const [activeView, setActiveView] = useState<MainView>('inbox');
+  const [taskReturnView, setTaskReturnView] = useState<NavigationView>('today');
   const [clockTick, bumpClockTick] = useReducer((count: number) => count + 1, 0);
-  const [workspaceNotes, setWorkspaceNotes] = useState('');
   const [captureDraft, setCaptureDraft] = useState('');
+  const [workspaceNotesDraft, setWorkspaceNotesDraft] = useState('');
+  const [taskDraft, setTaskDraft] = useState<Task | null>(null);
+  const [taskEditorMode, setTaskEditorMode] = useState<'simple' | 'advanced'>('simple');
+  const [isRefreshingBrief, setIsRefreshingBrief] = useState(false);
+  const [isSavingTask, setIsSavingTask] = useState(false);
+  const [isSavingWorkspaceNotes, setIsSavingWorkspaceNotes] = useState(false);
 
   const tasks = useTaskStore((state) => state.tasks);
   const selectedTaskId = useTaskStore((state) => state.selectedTaskId);
+  const createTask = useTaskStore((state) => state.createTask);
   const selectTask = useTaskStore((state) => state.selectTask);
+  const saveTask = useTaskStore((state) => state.saveTask);
   const moveTaskToLane = useTaskStore((state) => state.moveTaskToLane);
+  const toggleSubtask = useTaskStore((state) => state.toggleSubtask);
+  const answerQuestion = useTaskStore((state) => state.answerQuestion);
   const markDone = useTaskStore((state) => state.markDone);
 
   const currentMissionId = useFocusStore((state) => state.currentMissionId);
@@ -483,7 +492,6 @@ export function MainApp() {
   const resumeSession = useFocusStore((state) => state.resumeSession);
   const pauseSession = useFocusStore((state) => state.pauseSession);
   const resetSession = useFocusStore((state) => state.resetSession);
-  const setFocusStatus = useFocusStore((state) => state.setStatus);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
 
   const themeId = useThemeStore((state) => state.themeId);
@@ -500,6 +508,7 @@ export function MainApp() {
     tasks.find((task) => task.lane === 'now') ??
     null;
   const focusMission = currentMission ?? selectedTask;
+  const detailTask = taskDraft ?? selectedTask;
   const inboxTasks = laneTasks(tasks, 'inbox');
   const nowTasks = laneTasks(tasks, 'now');
   const nextTasks = laneTasks(tasks, 'next');
@@ -518,19 +527,36 @@ export function MainApp() {
   const clock = clockTick >= 0 ? formatElapsedClock(focusSessionStart, focusElapsedSeconds) : '00:00';
   const hasPausedFocus = !focusSessionStart && focusElapsedSeconds > 0;
   const laneCards = [
-    { lane: 'inbox' as TaskLane, label: 'Queue', tasks: inboxTasks, moveTo: 'next' as TaskLane, moveLabel: 'Next' },
-    { lane: 'now' as TaskLane, label: 'Active', tasks: nowTasks, moveTo: 'done' as TaskLane, moveLabel: 'Complete' },
-    { lane: 'next' as TaskLane, label: 'Next', tasks: nextTasks, moveTo: 'now' as TaskLane, moveLabel: 'Activate' },
-    { lane: 'later' as TaskLane, label: 'Backlog', tasks: laterTasks, moveTo: 'inbox' as TaskLane, moveLabel: 'Queue' },
+    { lane: 'inbox' as TaskLane, label: 'Queue', tasks: inboxTasks, hint: 'Capture and clarify' },
+    { lane: 'now' as TaskLane, label: 'Active', tasks: nowTasks, hint: 'One task at a time' },
+    { lane: 'next' as TaskLane, label: 'Next', tasks: nextTasks, hint: 'Ready after current work' },
+    { lane: 'later' as TaskLane, label: 'Backlog', tasks: laterTasks, hint: 'Keep but do not touch yet' },
   ];
-  const checklistItems = buildWorkspaceChecklist(focusMission);
-  const resourceLinks = buildResourceLinks(focusMission);
+  const focusChecklistCompleted = focusMission ? getCompletedSubtasks(focusMission) : 0;
+  const focusOpenQuestions = focusMission ? getOpenQuestionCount(focusMission) : 0;
+  const detailChecklistCompleted = detailTask ? getCompletedSubtasks(detailTask) : 0;
+  const taskDraftChanged =
+    Boolean(detailTask && selectedTask) &&
+    JSON.stringify(detailTask) !== JSON.stringify(selectedTask);
 
   useEffect(() => {
     if (!selectedTaskId && tasks[0]) {
       selectTask(tasks[0].id);
     }
   }, [selectedTaskId, selectTask, tasks]);
+
+  useEffect(() => {
+    if (!selectedTask) {
+      setTaskDraft(null);
+      return;
+    }
+
+    setTaskDraft(cloneTask(selectedTask));
+  }, [selectedTask]);
+
+  useEffect(() => {
+    setWorkspaceNotesDraft(focusMission?.workspace_notes ?? '');
+  }, [focusMission]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -561,6 +587,75 @@ export function MainApp() {
     });
   };
 
+  const openTaskDetail = (task: Task, nextReturnView?: NavigationView) => {
+    selectTask(task.id);
+    setTaskEditorMode('simple');
+    setTaskReturnView(nextReturnView ?? (activeView === 'task' ? taskReturnView : (activeView as NavigationView)));
+    setActiveView('task');
+  };
+
+  const saveTaskDetail = async (task: Task) => {
+    setIsSavingTask(true);
+
+    try {
+      const generated =
+        taskEditorMode === 'simple'
+          ? generateTaskBrief(task.raw_input, {
+              subtasks: task.subtasks,
+              clarifyingQuestions: task.clarifying_questions,
+              priority: task.priority,
+              estimatedMinutes: task.estimated_minutes,
+            })
+          : null;
+      const sanitized = sanitizeTask(
+        generated
+          ? {
+              ...task,
+              title: generated.suggestedTitle,
+              description: generated.description,
+              goal: generated.goal,
+              definition_of_done: generated.definitionOfDone,
+              next_action: generated.nextAction,
+              why_it_matters: generated.whyItMatters,
+              subtasks: generated.subtasks,
+            }
+          : task,
+      );
+      await saveTask(sanitized, 'main');
+    } finally {
+      setIsSavingTask(false);
+    }
+  };
+
+  const refreshTaskBrief = async () => {
+    if (!detailTask) {
+      return;
+    }
+
+    setIsRefreshingBrief(true);
+
+    try {
+      const clarified = await getTaskAiAssistant().clarifyTask(detailTask.raw_input || detailTask.title);
+      setTaskDraft((current) =>
+        current
+          ? {
+              ...current,
+              title: clarified.suggestedTitle,
+              description: clarified.description,
+              goal: clarified.goal,
+              definition_of_done: clarified.definitionOfDone,
+              next_action: clarified.nextAction,
+              why_it_matters: clarified.whyItMatters,
+              subtasks: clarified.subtasks,
+              clarifying_questions: clarified.questions,
+            }
+          : current,
+      );
+    } finally {
+      setIsRefreshingBrief(false);
+    }
+  };
+
   const activateFocusTask = async (task: Task) => {
     selectTask(task.id);
     setCurrentMission(task.id, 'main');
@@ -574,23 +669,64 @@ export function MainApp() {
     await openHud(task, false);
   };
 
+  const saveWorkspaceNotes = async () => {
+    if (!focusMission) {
+      return;
+    }
+
+    setIsSavingWorkspaceNotes(true);
+
+    try {
+      await saveTask(
+        {
+          ...focusMission,
+          workspace_notes: workspaceNotesDraft.trim(),
+        },
+        'main',
+      );
+    } finally {
+      setIsSavingWorkspaceNotes(false);
+    }
+  };
+
+  const captureWorkspaceTask = async () => {
+    if (!captureDraft.trim()) {
+      return;
+    }
+
+    await createTask(
+      {
+        rawInput: captureDraft,
+        lane: 'inbox',
+        priority: 'normal',
+        status: 'captured',
+      },
+      'main',
+    );
+    setCaptureDraft('');
+  };
+
   const pageHeaderTitle =
     activeView === 'inbox'
-      ? 'Focus Flow.'
+      ? 'Overview'
       : activeView === 'today'
-        ? "Today's Missions"
+        ? 'Tasks'
         : activeView === 'focus'
           ? 'Task Workspace'
-          : 'Studio Settings';
+          : activeView === 'task'
+            ? 'Task Detail'
+          : 'Settings';
 
   const pageHeaderDescription =
     activeView === 'inbox'
-      ? 'Keep the surface calm, the queue sharp, and your active mission obvious.'
+      ? 'See what is active, what is next, and what can wait.'
       : activeView === 'today'
-        ? 'Prioritize clarity over completion. Move tasks deliberately.'
+        ? 'Drag tasks between lanes and open any task to edit it.'
         : activeView === 'focus'
-          ? 'A dedicated workspace for one mission, one clock, and one next move.'
-          : 'Tune the visual system and interaction pace for your working style.';
+          ? 'Keep one task in front of you while the rest stays out of the way.'
+          : activeView === 'task'
+            ? 'Use the simple view by default. Open advanced edit only when you actually need it.'
+          : 'Adjust the app to match how you like to work.';
 
   const page = (
     <motion.div
@@ -607,13 +743,12 @@ export function MainApp() {
               <div className="absolute inset-x-6 top-5 h-px bg-gradient-to-r from-accent/0 via-accent/25 to-accent/0" />
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="max-w-2xl">
-                  <p className="text-[10px] uppercase tracking-[0.34em] text-accent/80">Productivity dashboard</p>
+                  <p className="text-[10px] uppercase tracking-[0.34em] text-accent/80">Task overview</p>
                   <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-text-primary lg:text-[4.4rem]">
-                    Focus Flow.
+                    Overview
                   </h2>
                   <p className="mt-4 max-w-xl text-sm leading-7 text-text-secondary lg:text-base">
-                    You&apos;ve maintained your streak by staying specific. Keep one mission active,
-                    let the rest wait in order, and use the HUD when you want the interface to fade away.
+                    Keep the active task obvious, keep new work easy to capture, and move the rest without adding unnecessary overhead.
                   </p>
                 </div>
 
@@ -625,7 +760,7 @@ export function MainApp() {
                       ? 'Session live.'
                       : hasPausedFocus
                         ? 'Session paused.'
-                        : 'Standby until you choose a mission.'}
+                        : 'Standby until you choose a task.'}
                   </p>
                 </div>
               </div>
@@ -654,13 +789,13 @@ export function MainApp() {
 
                 <div className="grid gap-4">
                   <StudioMetricCard
-                    caption="Personal best: 18 days"
-                    label="Consistency"
+                    caption="Recent activity"
+                    label="Streak"
                     tone="warning"
                     value={`${streakDays} Days`}
                   />
                   <StudioMetricCard
-                    caption={`${doneTasks.length} missions landed cleanly`}
+                    caption={`${doneTasks.length} tasks completed`}
                     label="Efficiency"
                     tone="neutral"
                     value={`${String(doneTasks.length).padStart(2, '0')} / ${String(tasks.length).padStart(2, '0')}`}
@@ -676,7 +811,7 @@ export function MainApp() {
                     }
                   }}
                 >
-                  Start Deep Work
+                  Start Task
                 </Button>
                 <Button
                   onClick={() => {
@@ -687,7 +822,7 @@ export function MainApp() {
                   Open HUD
                 </Button>
                 <Button onClick={() => void showQuickAddWindow()} variant="secondary">
-                  Capture Objective
+                  New Task
                 </Button>
                 <span className="kbd-badge ml-1">
                   <span className="pulse-dot" />
@@ -727,7 +862,7 @@ export function MainApp() {
 
               <div className="grid gap-5">
                 <Card className="rounded-[28px] p-5">
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Current session</p>
+                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Current task</p>
                   <div className="surface-muted-strong mt-5 rounded-[24px] p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="h-10 w-10 rounded-full border border-accent/35 bg-accent/10 text-center font-mono text-[11px] leading-[2.4rem] text-accent">
@@ -736,16 +871,16 @@ export function MainApp() {
                       <Badge tone={focusStatusTone}>{focusStatusLabel}</Badge>
                     </div>
                     <p className="mt-4 text-base font-medium text-text-primary">
-                      {focusMission?.title ?? 'No mission live'}
+                      {focusMission?.title ?? 'No active task'}
                     </p>
                     <p className="mt-2 text-sm text-text-secondary">
-                      {focusMission ? focusMission.description || focusMission.raw_input : 'Pick a mission to start.'}
+                      {focusMission ? focusMission.description || focusMission.raw_input : 'Pick a task to start.'}
                     </p>
                   </div>
                 </Card>
 
                 <Card className="rounded-[28px] p-5">
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Lane signal</p>
+                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Lane counts</p>
                   <div className="mt-5 space-y-3">
                     {laneOrder.map((lane) => (
                       <div key={lane} className="flex items-center justify-between gap-3 rounded-[18px] bg-panel/58 px-4 py-3">
@@ -770,7 +905,7 @@ export function MainApp() {
             focusStatusTone={focusStatusTone}
             onOpenQuickAdd={() => void showQuickAddWindow()}
             onOpenTask={(task) => {
-              void openHud(task);
+              openTaskDetail(task, 'inbox');
             }}
             onStartFocus={(task) => void activateFocusTask(task)}
             sessionGoalHours={`${sessionGoalHours} hours`}
@@ -785,13 +920,13 @@ export function MainApp() {
               <SectionHeading
                 action={<Badge tone="neutral">{tasks.length} total</Badge>}
                 label="Task manager"
-                title="Choose what matters, then move it cleanly"
+                title="Drag to change lanes. Click to edit the task."
               />
               <p className="mt-4 max-w-2xl text-sm leading-7 text-text-secondary">
-                The task layer stays simple on purpose: promote, complete, or push back. The lane is the decision.
+                The board should stay quiet. Drag to move work. Click a card only when the task needs more detail.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Button onClick={() => void showQuickAddWindow()}>New Objective</Button>
+                <Button onClick={() => void showQuickAddWindow()}>New Task</Button>
                 <Button
                   onClick={() => {
                     if (focusMission) {
@@ -800,7 +935,7 @@ export function MainApp() {
                   }}
                   variant="secondary"
                 >
-                  Start Current Mission
+                  Start Current Task
                 </Button>
               </div>
             </Card>
@@ -811,7 +946,7 @@ export function MainApp() {
                 <div className="surface-muted-strong rounded-[22px] p-4">
                   <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Active task</p>
                   <p className="mt-3 text-lg font-medium text-text-primary">
-                    {currentMission?.title ?? 'No mission selected'}
+                    {currentMission?.title ?? 'No task selected'}
                   </p>
                 </div>
                 <div className="surface-muted-strong rounded-[22px] p-4">
@@ -831,6 +966,7 @@ export function MainApp() {
                       {humanizeLane(lane.lane)}
                     </p>
                     <h3 className="mt-2 text-xl font-semibold text-text-primary">{lane.label}</h3>
+                    <p className="mt-2 text-xs text-text-secondary">{lane.hint}</p>
                   </div>
                   <Badge tone="neutral">{lane.tasks.length}</Badge>
                 </div>
@@ -869,20 +1005,9 @@ export function MainApp() {
                     >
                       <TaskQueueItem
                         active={task.id === selectedTask?.id}
-                        onPrimary={() => {
-                          if (lane.moveTo === 'done') {
-                            void markDone(task.id, 'main');
-                            return;
-                          }
-
-                          void moveTaskToLane(task.id, lane.moveTo, 'main');
-                        }}
-                        onSecondary={() => void activateFocusTask(task)}
                         onSelect={() => {
-                          void openHud(task);
+                          openTaskDetail(task, 'today');
                         }}
-                        primaryLabel={lane.moveLabel}
-                        secondaryLabel="Focus"
                         task={task}
                         isFrog={lane.lane === 'now' && lane.tasks.indexOf(task) === 0}
                       />
@@ -890,7 +1015,7 @@ export function MainApp() {
                   ))}
                   {lane.tasks.length === 0 ? (
                     <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
-                      No missions here yet
+                      No tasks here yet
                     </div>
                   ) : null}
                 </div>
@@ -900,179 +1025,984 @@ export function MainApp() {
         </div>
       ) : null}
 
+      {activeView === 'task' ? (
+        detailTask ? (
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.18fr)_360px]">
+            <div className="space-y-5">
+              <Card className="rounded-[34px] p-6 lg:p-7">
+                <div className="flex flex-col gap-4 border-b border-borderSoft/35 pb-6 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <button
+                      className="text-[11px] uppercase tracking-[0.28em] text-text-muted transition hover:text-text-primary"
+                      onClick={() => setActiveView(taskReturnView)}
+                      type="button"
+                    >
+                      Back to {taskReturnView === 'inbox' ? 'dashboard' : taskReturnView}
+                    </button>
+                    <p className="mt-4 text-[10px] uppercase tracking-[0.3em] text-accent/80">Task detail</p>
+                    <p className="mt-2 max-w-xl text-sm leading-7 text-text-secondary">
+                      Use this page only when the task needs more context than a quick capture.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      onClick={() => setTaskEditorMode(taskEditorMode === 'simple' ? 'advanced' : 'simple')}
+                      variant="ghost"
+                    >
+                      {taskEditorMode === 'simple' ? 'Advanced Edit' : 'Simple Mode'}
+                    </Button>
+                    <Button
+                      disabled={isRefreshingBrief}
+                      onClick={() => void refreshTaskBrief()}
+                      variant="secondary"
+                    >
+                      {isRefreshingBrief ? 'Clarifying' : 'Refresh Brief'}
+                    </Button>
+                    <Button
+                      disabled={!taskDraftChanged || isSavingTask}
+                      onClick={() => void saveTaskDetail(detailTask)}
+                    >
+                      {isSavingTask ? 'Saving' : 'Save Task'}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_220px]">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Title</p>
+                    <Input
+                      className="mt-3"
+                      onChange={(event) =>
+                        setTaskDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                title: event.target.value,
+                              }
+                            : current,
+                        )
+                      }
+                      value={detailTask.title}
+                    />
+
+                    <p className="mt-5 text-[10px] uppercase tracking-[0.28em] text-text-muted">Summary</p>
+                    <Textarea
+                      className="mt-3 min-h-[110px] resize-none"
+                      onChange={(event) =>
+                        setTaskDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                description: event.target.value,
+                              }
+                            : current,
+                        )
+                      }
+                      rows={4}
+                      value={detailTask.description}
+                    />
+                  </div>
+
+                  <div className="grid gap-4">
+                    <Card className="rounded-[24px] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Checklist progress</p>
+                      <p className="mt-4 text-3xl font-semibold text-text-primary">
+                        {detailChecklistCompleted}/{detailTask.subtasks.length || 0}
+                      </p>
+                      <p className="mt-2 text-sm text-text-secondary">Subtasks with a visible done state.</p>
+                    </Card>
+                    <Card className="rounded-[24px] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Open questions</p>
+                      <p className="mt-4 text-3xl font-semibold text-warning">
+                        {getOpenQuestionCount(detailTask)}
+                      </p>
+                      <p className="mt-2 text-sm text-text-secondary">Questions still blocking clarity.</p>
+                    </Card>
+                  </div>
+                </div>
+              </Card>
+
+              {taskEditorMode === 'simple' ? (
+                <>
+                  <Card className="rounded-[32px] p-6">
+                    <SectionHeading label="Assistant summary" title="Read this first, edit only if needed" />
+                    <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                      <div className="rounded-[24px] border border-borderSoft/35 bg-panel/56 p-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Goal</p>
+                        <p className="mt-3 text-sm leading-6 text-text-primary">{detailTask.goal}</p>
+                      </div>
+                      <div className="rounded-[24px] border border-borderSoft/35 bg-panel/56 p-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Definition of done</p>
+                        <p className="mt-3 text-sm leading-6 text-text-primary">{detailTask.definition_of_done}</p>
+                      </div>
+                      <div className="rounded-[24px] border border-borderSoft/35 bg-panel/56 p-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Next action</p>
+                        <p className="mt-3 text-sm leading-6 text-text-primary">{detailTask.next_action}</p>
+                      </div>
+                      <div className="rounded-[24px] border border-borderSoft/35 bg-panel/56 p-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Why it matters</p>
+                        <p className="mt-3 text-sm leading-6 text-text-primary">{detailTask.why_it_matters}</p>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="rounded-[32px] p-6">
+                    <SectionHeading label="Clarifications" title="Answer only the missing context" />
+                    <div className="mt-6 space-y-4">
+                      {detailTask.clarifying_questions.map((question) => (
+                        <div key={question.id} className="rounded-[24px] border border-borderSoft/35 bg-panel/58 p-4">
+                          <p className="text-sm font-medium text-text-primary">{question.question}</p>
+                          <Textarea
+                            className="mt-3 min-h-[96px] resize-none"
+                            onChange={(event) =>
+                              setTaskDraft((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      clarifying_questions: current.clarifying_questions.map((item) =>
+                                        item.id === question.id ? { ...item, answer: event.target.value } : item,
+                                      ),
+                                    }
+                                  : current,
+                              )
+                            }
+                            placeholder="If you know the answer, add it here and refresh the brief."
+                            rows={4}
+                            value={question.answer}
+                          />
+                        </div>
+                      ))}
+                      {!detailTask.clarifying_questions.length ? (
+                        <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
+                          No clarification prompts right now.
+                        </div>
+                      ) : null}
+                    </div>
+                  </Card>
+
+                  <Card className="rounded-[32px] p-6">
+                    <SectionHeading label="Execution plan" title="Suggested steps" />
+                    <div className="mt-6 space-y-3">
+                      {detailTask.subtasks.map((subtask, index) => (
+                        <button
+                          key={subtask.id}
+                          className={cn(
+                            'flex w-full items-center gap-3 rounded-[22px] border px-4 py-4 text-left transition',
+                            subtask.completed
+                              ? 'border-success/30 bg-success/10'
+                              : 'border-borderSoft/35 bg-panel/56 hover:border-borderStrong/40 hover:bg-panel/72',
+                          )}
+                          onClick={() =>
+                            setTaskDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    subtasks: current.subtasks.map((item) =>
+                                      item.id === subtask.id ? { ...item, completed: !item.completed } : item,
+                                    ),
+                                  }
+                                : current,
+                            )
+                          }
+                          type="button"
+                        >
+                          <span
+                            className={cn(
+                              'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
+                              subtask.completed
+                                ? 'border-success/40 bg-success/20 text-success'
+                                : 'border-borderStrong/30 text-text-muted',
+                            )}
+                          >
+                            {index + 1}
+                          </span>
+                          <span className={cn('text-sm', subtask.completed ? 'line-through text-text-secondary' : 'text-text-primary')}>
+                            {subtask.title}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </Card>
+                </>
+              ) : (
+                <>
+                  <Card className="rounded-[32px] p-6">
+                    <SectionHeading label="Outcome" title="Make the goal and finish line unmissable" />
+                    <div className="mt-6 grid gap-5">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Goal</p>
+                        <Textarea
+                          className="mt-3 min-h-[96px] resize-none"
+                          onChange={(event) =>
+                            setTaskDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    goal: event.target.value,
+                                  }
+                                : current,
+                            )
+                          }
+                          rows={4}
+                          value={detailTask.goal}
+                        />
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Definition of done</p>
+                        <Textarea
+                          className="mt-3 min-h-[96px] resize-none"
+                          onChange={(event) =>
+                            setTaskDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    definition_of_done: event.target.value,
+                                  }
+                                : current,
+                            )
+                          }
+                          rows={4}
+                          value={detailTask.definition_of_done}
+                        />
+                      </div>
+
+                      <div className="grid gap-5 lg:grid-cols-2">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Next action</p>
+                          <Textarea
+                            className="mt-3 min-h-[96px] resize-none"
+                            onChange={(event) =>
+                              setTaskDraft((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      next_action: event.target.value,
+                                    }
+                                  : current,
+                              )
+                            }
+                            rows={4}
+                            value={detailTask.next_action}
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Why it matters</p>
+                          <Textarea
+                            className="mt-3 min-h-[96px] resize-none"
+                            onChange={(event) =>
+                              setTaskDraft((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      why_it_matters: event.target.value,
+                                    }
+                                  : current,
+                              )
+                            }
+                            rows={4}
+                            value={detailTask.why_it_matters}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="rounded-[32px] p-6">
+                    <SectionHeading
+                      action={
+                        <Button
+                          onClick={() =>
+                            setTaskDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    subtasks: [
+                                      ...current.subtasks,
+                                      {
+                                        id: `subtask-${Date.now()}`,
+                                        title: 'New subtask',
+                                        completed: false,
+                                      },
+                                    ],
+                                  }
+                                : current,
+                            )
+                          }
+                          size="sm"
+                          variant="secondary"
+                        >
+                          Add Step
+                        </Button>
+                      }
+                      label="Execution plan"
+                      title="Subtasks that move the task forward"
+                    />
+                    <div className="mt-6 space-y-3">
+                      {detailTask.subtasks.map((subtask, index) => (
+                        <div
+                          key={subtask.id}
+                          className={cn(
+                            'rounded-[22px] border p-4 transition-all',
+                            subtask.completed
+                              ? 'border-success/30 bg-success/10'
+                              : 'border-borderSoft/35 bg-panel/56',
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <button
+                              className={cn(
+                                'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold transition',
+                                subtask.completed
+                                  ? 'border-success/40 bg-success/20 text-success'
+                                  : 'border-borderStrong/30 text-text-muted hover:border-accent/40 hover:text-accent',
+                              )}
+                              onClick={() =>
+                                setTaskDraft((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        subtasks: current.subtasks.map((item) =>
+                                          item.id === subtask.id ? { ...item, completed: !item.completed } : item,
+                                        ),
+                                      }
+                                    : current,
+                                )
+                              }
+                              type="button"
+                            >
+                              {index + 1}
+                            </button>
+                            <Input
+                              className={cn(
+                                'h-11',
+                                subtask.completed ? 'border-success/25 bg-success/10 text-text-primary line-through' : '',
+                              )}
+                              onChange={(event) =>
+                                setTaskDraft((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        subtasks: current.subtasks.map((item) =>
+                                          item.id === subtask.id ? { ...item, title: event.target.value } : item,
+                                        ),
+                                      }
+                                    : current,
+                                )
+                              }
+                              value={subtask.title}
+                            />
+                            <Button
+                              onClick={() =>
+                                setTaskDraft((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        subtasks: current.subtasks.filter((item) => item.id !== subtask.id),
+                                      }
+                                    : current,
+                                )
+                              }
+                              size="sm"
+                              variant="ghost"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+
+                  <Card className="rounded-[32px] p-6">
+                    <SectionHeading
+                      action={
+                        <Button
+                          onClick={() =>
+                            setTaskDraft((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    clarifying_questions: [
+                                      ...current.clarifying_questions,
+                                      {
+                                        id: `question-${Date.now()}`,
+                                        question: 'New clarification question',
+                                        answer: '',
+                                      },
+                                    ],
+                                  }
+                                : current,
+                            )
+                          }
+                          size="sm"
+                          variant="secondary"
+                        >
+                          Add Question
+                        </Button>
+                      }
+                      label="Clarifications"
+                      title="Ask the questions a good task brief should answer"
+                    />
+                    <div className="mt-6 space-y-4">
+                      {detailTask.clarifying_questions.map((question) => (
+                        <div key={question.id} className="rounded-[24px] border border-borderSoft/35 bg-panel/58 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <Input
+                              className="h-11"
+                              onChange={(event) =>
+                                setTaskDraft((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        clarifying_questions: current.clarifying_questions.map((item) =>
+                                          item.id === question.id ? { ...item, question: event.target.value } : item,
+                                        ),
+                                      }
+                                    : current,
+                                )
+                              }
+                              value={question.question}
+                            />
+                            <Button
+                              onClick={() =>
+                                setTaskDraft((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        clarifying_questions: current.clarifying_questions.filter(
+                                          (item) => item.id !== question.id,
+                                        ),
+                                      }
+                                    : current,
+                                )
+                              }
+                              size="sm"
+                              variant="ghost"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                          <Textarea
+                            className="mt-3 min-h-[96px] resize-none"
+                            onChange={(event) =>
+                              setTaskDraft((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      clarifying_questions: current.clarifying_questions.map((item) =>
+                                        item.id === question.id ? { ...item, answer: event.target.value } : item,
+                                      ),
+                                    }
+                                  : current,
+                              )
+                            }
+                            placeholder="Answer this so the task becomes easier to execute."
+                            rows={4}
+                            value={question.answer}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </>
+              )}
+            </div>
+
+            <div className="space-y-5">
+              <Card className="rounded-[28px] p-5">
+              <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Task controls</p>
+                <div className="mt-5">
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Lane</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {(['inbox', 'now', 'next', 'later', 'done'] as TaskLane[]).map((lane) => (
+                      <button
+                        key={lane}
+                        className={cn(
+                          'rounded-[18px] border px-3 py-3 text-left text-sm transition',
+                          detailTask.lane === lane
+                            ? 'border-accent/40 bg-accent/10 text-text-primary'
+                            : 'border-borderSoft/35 bg-panel/56 text-text-secondary hover:border-borderStrong/40 hover:text-text-primary',
+                        )}
+                        onClick={() =>
+                          setTaskDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  lane,
+                                  status: deriveStatusFromLane(lane, current.status),
+                                }
+                              : current,
+                          )
+                        }
+                        type="button"
+                      >
+                        {laneLabel[lane]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Priority</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {(['critical', 'high', 'normal', 'low'] as TaskPriority[]).map((priority) => (
+                      <button
+                        key={priority}
+                        className={cn(
+                          'rounded-[18px] border px-3 py-3 text-left text-sm transition',
+                          detailTask.priority === priority
+                            ? 'border-accent/40 bg-accent/10 text-text-primary'
+                            : 'border-borderSoft/35 bg-panel/56 text-text-secondary hover:border-borderStrong/40 hover:text-text-primary',
+                        )}
+                        onClick={() =>
+                          setTaskDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  priority,
+                                }
+                              : current,
+                          )
+                        }
+                        type="button"
+                      >
+                        {humanizePriority(priority)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Estimate (minutes)</p>
+                  <Input
+                    className="mt-3"
+                    min={5}
+                    onChange={(event) =>
+                      setTaskDraft((current) =>
+                        current
+                          ? {
+                              ...current,
+                              estimated_minutes: Number(event.target.value) || 25,
+                            }
+                          : current,
+                      )
+                    }
+                    type="number"
+                    value={detailTask.estimated_minutes}
+                  />
+                </div>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Button
+                    onClick={async () => {
+                      const nextTask = sanitizeTask(detailTask);
+                      await saveTaskDetail(nextTask);
+                      await activateFocusTask(nextTask);
+                    }}
+                  >
+                    Start in Workspace
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      const nextTask = sanitizeTask(detailTask);
+                      await saveTaskDetail(nextTask);
+                      selectTask(nextTask.id);
+                      setCurrentMission(nextTask.id, 'main');
+                      setActiveView('focus');
+                    }}
+                    variant="secondary"
+                  >
+                    Open Workspace
+                  </Button>
+                  <Button onClick={() => void markDone(detailTask.id, 'main')} variant="ghost">
+                    Mark Done
+                  </Button>
+                </div>
+              </Card>
+
+              {taskEditorMode === 'simple' ? (
+                <>
+                  <Card className="rounded-[28px] p-5">
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Captured request</p>
+                    <p className="mt-4 text-sm leading-7 text-text-primary">{detailTask.raw_input}</p>
+                    <p className="mt-3 text-sm leading-6 text-text-secondary">
+                      Stay in simple mode unless the original wording itself needs to change.
+                    </p>
+                  </Card>
+
+                  <Card className="rounded-[28px] p-5">
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Mission notes</p>
+                    <Textarea
+                      className="mt-4 min-h-[180px] resize-none"
+                      onChange={(event) =>
+                        setTaskDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                workspace_notes: event.target.value,
+                              }
+                            : current,
+                        )
+                      }
+                      placeholder="Useful context, decisions, or links for the person doing the work."
+                      rows={8}
+                      value={detailTask.workspace_notes}
+                    />
+                  </Card>
+                </>
+              ) : (
+                <>
+                  <Card className="rounded-[28px] p-5">
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Captured request</p>
+                    <Textarea
+                      className="mt-4 min-h-[160px] resize-none"
+                      onChange={(event) =>
+                        setTaskDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                raw_input: event.target.value,
+                              }
+                            : current,
+                        )
+                      }
+                      rows={7}
+                      value={detailTask.raw_input}
+                    />
+                    <p className="mt-3 text-sm leading-6 text-text-secondary">
+                      Keep the original request here. Use refresh if you want the assistant summary rebuilt from the latest wording.
+                    </p>
+                  </Card>
+
+                  <Card className="rounded-[28px] p-5">
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Mission notes</p>
+                    <Textarea
+                      className="mt-4 min-h-[180px] resize-none"
+                      onChange={(event) =>
+                        setTaskDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                workspace_notes: event.target.value,
+                              }
+                            : current,
+                        )
+                      }
+                      placeholder="Useful context, decisions, or links for the person doing the work."
+                      rows={8}
+                      value={detailTask.workspace_notes}
+                    />
+                  </Card>
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          <Card className="rounded-[32px] p-8 text-center">
+            <h2 className="text-2xl font-semibold text-text-primary">No task selected</h2>
+            <p className="mt-3 text-sm text-text-secondary">
+              Open a task from the board to see its details.
+            </p>
+          </Card>
+        )
+      ) : null}
+
       {activeView === 'focus' ? (
         <div className="flex flex-col gap-5">
           <Card className="rounded-[34px] p-0">
             <div className="grid min-h-[620px] gap-0 xl:grid-cols-[minmax(0,1.28fr)_360px]">
               <div className="border-b border-borderSoft/35 p-6 xl:border-b-0 xl:border-r">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <button
-                      className="text-[11px] uppercase tracking-[0.28em] text-text-muted transition hover:text-text-primary"
-                      onClick={() => setActiveView('inbox')}
-                      type="button"
-                    >
-                      Back to studio
-                    </button>
-                  </div>
+                  <button
+                    className="text-[11px] uppercase tracking-[0.28em] text-text-muted transition hover:text-text-primary"
+                    onClick={() => setActiveView('today')}
+                    type="button"
+                  >
+                    Back to tasks
+                  </button>
                   <Badge tone={focusStatusTone}>{focusStatusLabel}</Badge>
                 </div>
 
-                <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_260px]">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-accent/80">Focusing now</p>
-                    <h2 className="mt-4 max-w-xl text-4xl font-semibold tracking-[-0.04em] text-text-primary lg:text-5xl">
-                      {focusMission?.title ?? 'Implement your next move'}
-                    </h2>
+                {focusMission ? (
+                  <div className="mt-8 space-y-6">
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_260px]">
+                      <div>
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-accent/80">Current task</p>
+                        <h2 className="mt-4 max-w-2xl text-4xl font-semibold tracking-[-0.04em] text-text-primary lg:text-5xl">
+                          {focusMission.title}
+                        </h2>
+                        <p className="mt-5 max-w-2xl text-base leading-8 text-text-secondary">
+                          {focusMission.goal}
+                        </p>
 
-                    <div className="mt-8">
-                      <p className="font-mono text-[4rem] leading-none tracking-[-0.06em] text-text-primary lg:text-[5rem]">
-                        {clock}
-                      </p>
-                      <p className="mt-3 text-[10px] uppercase tracking-[0.28em] text-text-muted">
-                        Elapsed session time
-                      </p>
-                    </div>
+                        <div className="mt-8 flex flex-wrap gap-3">
+                          <Badge tone="neutral">{humanizeLane(focusMission.lane)}</Badge>
+                          <Badge tone={priorityTone(focusMission.priority)}>{humanizePriority(focusMission.priority)}</Badge>
+                          <Badge tone="neutral">{formatMinutes(focusMission.estimated_minutes)}</Badge>
+                        </div>
 
-                    <div className="mt-10">
-                      <p className="text-sm font-medium text-text-primary">Sub-tasks</p>
-                      <div className="mt-4 space-y-3">
-                        {checklistItems.map((item, index) => (
-                          <div
-                            key={item}
-                            className={cn(
-                              'flex items-center gap-3 rounded-[18px] border px-4 py-3',
-                              index === 0
-                                ? 'border-accent/35 bg-accent/10 text-text-primary'
-                                : 'border-borderSoft/35 bg-panel/58 text-text-secondary',
-                            )}
+                        <div className="mt-10 flex flex-wrap gap-3">
+                          <Button
+                            onClick={async () => {
+                              setCurrentMission(focusMission.id, 'main');
+                              if (hasPausedFocus) {
+                                resumeSession('main');
+                              } else {
+                                startSession(undefined, 'main');
+                              }
+                              await openHud(focusMission, false);
+                            }}
                           >
-                            <span
-                              className={cn(
-                                'flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold',
-                                index === 0
-                                  ? 'border-accent/45 bg-accent/20 text-accent'
-                                  : 'border-borderStrong/30 text-text-muted',
-                              )}
-                            >
-                              {index + 1}
-                            </span>
-                            <span className="text-sm">{item}</span>
+                            {focusSessionStart ? 'Restart Session' : hasPausedFocus ? 'Resume Session' : 'Start Session'}
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              void openHud(focusMission);
+                            }}
+                            variant="secondary"
+                          >
+                            Open HUD
+                          </Button>
+                          <Button onClick={() => pauseSession('main')} variant="secondary">
+                            Pause Session
+                          </Button>
+                          <Button onClick={() => openTaskDetail(focusMission, 'focus')} variant="ghost">
+                            View / Edit Brief
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="surface-muted rounded-[28px] p-5">
+                        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Session clock</p>
+                        <p className="mt-4 font-mono text-[4rem] leading-none tracking-[-0.06em] text-text-primary">
+                          {clock}
+                        </p>
+                        <p className="mt-3 text-sm leading-6 text-text-secondary">
+                        Keep the next action visible and let the rest wait until this task is done or moved.
+                        </p>
+                        <div className="mt-6 grid gap-3">
+                          <div className="rounded-[20px] border border-borderSoft/35 bg-panel/54 p-4">
+                            <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Next action</p>
+                            <p className="mt-3 text-sm leading-6 text-text-primary">{focusMission.next_action}</p>
                           </div>
-                        ))}
+                          <div className="rounded-[20px] border border-borderSoft/35 bg-panel/54 p-4">
+                            <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Definition of done</p>
+                            <p className="mt-3 text-sm leading-6 text-text-primary">{focusMission.definition_of_done}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="mt-10 flex flex-wrap gap-3">
-                      <Button
-                        onClick={async () => {
-                          if (focusMission) {
-                            setCurrentMission(focusMission.id, 'main');
-                          }
-                          if (hasPausedFocus) {
-                            resumeSession('main');
-                          } else {
-                            startSession(undefined, 'main');
-                          }
-                          await openHud(focusMission, false);
-                        }}
-                      >
-                        {focusSessionStart ? 'Restart Session' : hasPausedFocus ? 'Resume Session' : 'Start Session'}
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          void openHud(focusMission);
-                        }}
-                        variant="secondary"
-                      >
-                        Open HUD
-                      </Button>
-                      <Button onClick={() => pauseSession('main')} variant="secondary">
-                        Pause Session
-                      </Button>
-                      {focusMission ? (
-                        <Button onClick={() => void markDone(focusMission.id, 'main')} variant="ghost">
-                          Finish Mission
-                        </Button>
-                      ) : null}
+                    <div className="grid gap-5 lg:grid-cols-2">
+                      <Card className="rounded-[30px] p-5">
+                        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Task summary</p>
+                        <div className="mt-5 space-y-4">
+                          <div className="rounded-[22px] border border-borderSoft/35 bg-panel/56 p-4">
+                            <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Summary</p>
+                            <p className="mt-3 text-sm leading-6 text-text-primary">{focusMission.description}</p>
+                          </div>
+                          <div className="rounded-[22px] border border-borderSoft/35 bg-panel/56 p-4">
+                            <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Why it matters</p>
+                            <p className="mt-3 text-sm leading-6 text-text-primary">{focusMission.why_it_matters}</p>
+                          </div>
+                        </div>
+                      </Card>
+
+                      <Card className="rounded-[30px] p-5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Execution checklist</p>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              Check off the work that actually moves the task.
+                            </p>
+                          </div>
+                          <Badge tone="neutral">
+                            {focusChecklistCompleted}/{focusMission.subtasks.length || 0}
+                          </Badge>
+                        </div>
+                        <div className="mt-5 space-y-3">
+                          {focusMission.subtasks.map((subtask, index) => (
+                            <button
+                              key={subtask.id}
+                              className={cn(
+                                'flex w-full items-center gap-3 rounded-[20px] border px-4 py-3 text-left transition',
+                                subtask.completed
+                                  ? 'border-success/30 bg-success/10'
+                                  : 'border-borderSoft/35 bg-panel/58 hover:border-borderStrong/40 hover:bg-panel/72',
+                              )}
+                              onClick={() => void toggleSubtask(focusMission.id, subtask.id, 'main')}
+                              type="button"
+                            >
+                              <span
+                                className={cn(
+                                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
+                                  subtask.completed
+                                    ? 'border-success/40 bg-success/20 text-success'
+                                    : 'border-borderStrong/30 text-text-muted',
+                                )}
+                              >
+                                {index + 1}
+                              </span>
+                              <span
+                                className={cn(
+                                  'text-sm',
+                                  subtask.completed ? 'text-text-secondary line-through' : 'text-text-primary',
+                                )}
+                              >
+                                {subtask.title}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </Card>
+                    </div>
+
+                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+                      <Card className="rounded-[30px] p-5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Working notes</p>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              Keep short notes so you do not have to reload context later.
+                            </p>
+                          </div>
+                          <Button
+                            disabled={isSavingWorkspaceNotes}
+                            onClick={() => void saveWorkspaceNotes()}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            {isSavingWorkspaceNotes ? 'Saving' : 'Save Notes'}
+                          </Button>
+                        </div>
+                        <Textarea
+                          className="mt-5 min-h-[190px] resize-none"
+                          onChange={(event) => setWorkspaceNotesDraft(event.target.value)}
+                          placeholder="Capture the useful thinking, not every thought."
+                          rows={8}
+                          value={workspaceNotesDraft}
+                        />
+                      </Card>
+
+                      <Card className="rounded-[30px] p-5">
+                        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Instant inbox</p>
+                        <Input
+                          className="mt-4"
+                          onChange={(event) => setCaptureDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              void captureWorkspaceTask();
+                            }
+                          }}
+                          placeholder="Capture a new task without leaving the session..."
+                          value={captureDraft}
+                        />
+                        <p className="mt-3 text-sm leading-6 text-text-secondary">
+                          Captured items go to Inbox so the current task stays protected.
+                        </p>
+                        <div className="mt-5 flex flex-wrap gap-3">
+                          <Button
+                            disabled={!captureDraft.trim()}
+                            onClick={() => void captureWorkspaceTask()}
+                            size="sm"
+                          >
+                            Add to Inbox
+                          </Button>
+                          <Button onClick={() => void showQuickAddWindow()} size="sm" variant="ghost">
+                            Open Quick Add
+                          </Button>
+                        </div>
+                      </Card>
                     </div>
                   </div>
-
-                  <div className="surface-muted rounded-[28px] p-5">
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Session thoughts</p>
-                    <Textarea
-                      className="mt-4 min-h-[128px] resize-none"
-                      onChange={(event) => setWorkspaceNotes(event.target.value)}
-                      placeholder="Capture a decision, blocker, or reminder for your future self..."
-                      rows={6}
-                      value={workspaceNotes}
-                    />
-
-                    <p className="mt-6 text-[10px] uppercase tracking-[0.28em] text-text-muted">Instant inbox</p>
-                    <Input
-                      className="mt-4"
-                      onChange={(event) => setCaptureDraft(event.target.value)}
-                      placeholder="Capture idea or task..."
-                      value={captureDraft}
-                    />
-                    <p className="mt-2 text-xs text-text-muted">
-                      Items added here can be cleaned up after the session.
-                    </p>
-
-                    <p className="mt-6 text-[10px] uppercase tracking-[0.28em] text-text-muted">Resources</p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {resourceLinks.map((resource) => (
-                        <span
-                          key={resource}
-                          className="rounded-full border border-borderSoft/40 bg-panel/62 px-3 py-2 text-xs text-text-secondary"
-                        >
-                          {resource}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      <Button onClick={() => void showQuickAddWindow()} size="sm" variant="secondary">
-                        Open Quick Add
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          setFocusStatus(
-                            focusStatus === 'drifting' ? 'locked-in' : 'drifting',
-                            'main',
-                          )
-                        }
-                        size="sm"
-                        variant="ghost"
-                      >
-                        {getFocusToggleLabel(focusStatus)}
+                ) : (
+                  <div className="flex h-full min-h-[420px] items-center justify-center">
+                    <div className="max-w-md text-center">
+                      <h2 className="text-3xl font-semibold text-text-primary">Choose one task</h2>
+                      <p className="mt-4 text-sm leading-7 text-text-secondary">
+                        The workspace becomes useful only when one task owns the screen. Open a task and move it to Active when you are ready.
+                      </p>
+                      <Button className="mt-6" onClick={() => setActiveView('today')}>
+                        Open Task Board
                       </Button>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="p-6">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Session summary</p>
+                <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Mission signal</p>
                 <div className="mt-6 grid gap-4">
                   <StudioMetricCard
-                    caption="How aligned the session feels with the chosen mission."
-                    label="Deep work score"
-                    value={`${Math.max(76, completionRate)}%`}
+                    caption="Steps already completed for the current task."
+                    label="Progress"
+                    value={
+                      focusMission
+                        ? `${String(focusChecklistCompleted).padStart(2, '0')} / ${String(focusMission.subtasks.length || 0).padStart(2, '0')}`
+                        : '00 / 00'
+                    }
                   />
                   <StudioMetricCard
-                    caption="Tasks actively pulled into this workspace."
-                    label="Tasks progressed"
-                    tone="neutral"
-                    value={String(focusQueue.length).padStart(2, '0')}
-                  />
-                  <StudioMetricCard
-                    caption="Use this as a proxy for how often context tried to interrupt you."
-                    label="Distractions blocked"
+                    caption="Questions still open enough to slow the task down."
+                    label="Open gaps"
                     tone="warning"
-                    value={String(Math.max(8, focusQueue.length * 4)).padStart(2, '0')}
+                    value={String(focusOpenQuestions).padStart(2, '0')}
+                  />
+                  <StudioMetricCard
+                    caption="Current estimate for the selected task."
+                    label="Time budget"
+                    tone="neutral"
+                    value={focusMission ? formatMinutes(focusMission.estimated_minutes) : 'No task'}
                   />
                 </div>
+
+                <Card className="mt-5 rounded-[26px] p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Questions</p>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        Answer only the gaps that still matter.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        if (focusMission) {
+                          openTaskDetail(focusMission, 'focus');
+                        }
+                      }}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      Full Edit
+                    </Button>
+                  </div>
+                  <div className="mt-5 space-y-3">
+                    {focusMission?.clarifying_questions.length ? (
+                      focusMission.clarifying_questions.map((question) => (
+                        <div key={`${question.id}-${question.answer}`} className="rounded-[20px] border border-borderSoft/35 bg-panel/58 p-4">
+                          <p className="text-sm font-medium text-text-primary">{question.question}</p>
+                          <Textarea
+                            className="mt-3 min-h-[88px] resize-none"
+                            defaultValue={question.answer}
+                            onBlur={(event) =>
+                              void answerQuestion(focusMission.id, question.id, event.target.value, 'main')
+                            }
+                            placeholder="Answer here when you know it."
+                            rows={3}
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-[20px] border border-dashed border-borderSoft/40 px-4 py-8 text-center text-sm text-text-muted">
+                        No extra questions for this task.
+                      </div>
+                    )}
+                  </div>
+                </Card>
 
                 <Card className="mt-5 rounded-[26px] p-5">
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Queue in view</p>
@@ -1087,7 +2017,7 @@ export function MainApp() {
                             : 'border-borderSoft/35 bg-panel/58 hover:border-borderStrong/40 hover:bg-panel/72',
                         )}
                         onClick={() => {
-                          void openHud(task);
+                          openTaskDetail(task, 'focus');
                         }}
                         type="button"
                       >
@@ -1115,7 +2045,7 @@ export function MainApp() {
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Active task</p>
                   <p className="truncate text-sm font-medium text-text-primary">
-                    {focusMission?.title ?? 'No mission selected'}
+                    {focusMission?.title ?? 'No task selected'}
                   </p>
                 </div>
               </div>
@@ -1234,7 +2164,7 @@ export function MainApp() {
               </div>
             </Card>
             <Button className="w-full" onClick={() => void showQuickAddWindow()}>
-              Start Deep Work
+              Start Task
             </Button>
           </div>
         </aside>
@@ -1244,7 +2174,9 @@ export function MainApp() {
             <div className="mb-5 flex flex-col gap-3 border-b border-borderSoft/35 pb-5 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
-                  {navItems.find((item) => item.id === activeView)?.eyebrow}
+                  {activeView === 'task'
+                    ? 'Mission detail'
+                    : navItems.find((item) => item.id === activeView)?.eyebrow}
                 </p>
                 <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-text-primary lg:text-[3.4rem]">
                   {pageHeaderTitle}

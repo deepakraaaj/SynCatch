@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { getFocusStatusLabel } from '../../features/focus/focus-presenter';
 import { useFocusStore } from '../../features/focus/focus-store';
 import { useTaskStore } from '../../features/tasks/task-store';
-import type { Task } from '../../features/tasks/task-types';
+import type { Task, TaskLane } from '../../features/tasks/task-types';
 import { formatMinutes, getElapsedSeconds } from '../../lib/date';
 import { cn } from '../../lib/cn';
 import { hideCurrentWindow, isTauriApp, showMainWindow, showQuickAddWindow } from '../../lib/tauri';
@@ -13,13 +13,25 @@ import { Input, Textarea } from '../../components/ui/input';
 import { WindowDragHandle } from '../../components/ui/window-drag-handle';
 
 const HUD_COMPACT_SIZE = { width: 620, height: 104 };
+const HUD_COMPACT_DRAWER_SIZE = { width: 620, height: 420 };
 const HUD_EXPANDED_SIZE = { width: 1180, height: 720 };
 const HUD_MARGIN_X = 26;
 const HUD_MARGIN_Y = 26;
 const HUD_POSITION_STORAGE_KEY = 'missioncontrol:hud-window-positions';
+const hudCaptureOptions: Array<{
+  lane: Exclude<TaskLane, 'done'>;
+  label: string;
+  hint: string;
+}> = [
+  { lane: 'inbox', label: 'Queue', hint: 'Capture it for the kanban queue' },
+  { lane: 'now', label: 'Active', hint: 'Make it the live HUD task now' },
+  { lane: 'next', label: 'Next', hint: 'Ready after the current task' },
+  { lane: 'later', label: 'Backlog', hint: 'Keep it, but not right now' },
+];
 
 type HudWindowPosition = { x: number; y: number };
 type HudStoredPosition = HudWindowPosition | null;
+type HudCaptureLane = Exclude<TaskLane, 'done'>;
 
 function isLinuxPlatform() {
   if (typeof window === 'undefined') {
@@ -78,8 +90,18 @@ function clampHudWindowPosition(
   };
 }
 
-function getHudWindowSize(mode: 'expanded' | 'compact', workWidth: number, workHeight: number) {
-  const requestedSize = mode === 'expanded' ? HUD_EXPANDED_SIZE : HUD_COMPACT_SIZE;
+function getHudWindowSize(
+  mode: 'expanded' | 'compact',
+  workWidth: number,
+  workHeight: number,
+  compactDrawerOpen: boolean,
+) {
+  const requestedSize =
+    mode === 'expanded'
+      ? HUD_EXPANDED_SIZE
+      : compactDrawerOpen
+        ? HUD_COMPACT_DRAWER_SIZE
+        : HUD_COMPACT_SIZE;
 
   return {
     width: Math.min(requestedSize.width, Math.max(1, workWidth - HUD_MARGIN_X * 2)),
@@ -106,40 +128,6 @@ function getActiveQueue(tasks: Task[], currentMissionId: string | null) {
   return [...tasks]
     .filter((task) => task.id !== currentMissionId && task.lane === 'now' && task.status !== 'done')
     .slice(0, 5);
-}
-
-function buildChecklist(task: Task | null) {
-  if (!task) {
-    return [
-      'Choose a single task to activate the workspace',
-      'Capture one success condition before starting',
-      'Use the instant inbox for anything unrelated',
-    ];
-  }
-
-  const subject = (task.title.split(' ')[0] ?? 'mission').toLowerCase();
-
-  return [
-    `Define the concrete deliverable for ${subject}`,
-    'Clear the first blocker before branching',
-    'Leave a review note before closing the session',
-  ];
-}
-
-function buildResources(task: Task | null) {
-  if (!task) {
-    return ['Brief', 'Checklist', 'Notes'];
-  }
-
-  if (task.title.toLowerCase().includes('deck')) {
-    return ['Slides', 'Metrics', 'Feedback'];
-  }
-
-  if (task.title.toLowerCase().includes('customer')) {
-    return ['Account', 'Agenda', 'Renewal'];
-  }
-
-  return ['Working doc', 'Reference', 'Handoff'];
 }
 
 function Icon({
@@ -256,6 +244,14 @@ function CloseIcon() {
   );
 }
 
+function ChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <Icon className={cn('transition-transform duration-200', expanded && 'rotate-180')}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  );
+}
+
 function HudActionButton({
   icon,
   label,
@@ -306,14 +302,22 @@ export function HudApp() {
   const toggleHudTransparency = useFocusStore((state) => state.toggleHudTransparency);
   const resetSession = useFocusStore((state) => state.resetSession);
   const tasks = useTaskStore((state) => state.tasks);
+  const createTask = useTaskStore((state) => state.createTask);
   const markDone = useTaskStore((state) => state.markDone);
+  const toggleSubtask = useTaskStore((state) => state.toggleSubtask);
   const [elapsedSeconds, setElapsedSeconds] = useState(
     getElapsedSeconds(focusSessionStart, focusElapsedSeconds),
   );
   const [sessionNotes, setSessionNotes] = useState('');
-  const [instantInbox, setInstantInbox] = useState('');
+  const [hudTaskInput, setHudTaskInput] = useState('');
+  const [hudTaskLane, setHudTaskLane] = useState<HudCaptureLane>('inbox');
+  const [hudTaskTitle, setHudTaskTitle] = useState('');
+  const [hudTaskNextAction, setHudTaskNextAction] = useState('');
+  const [hudTaskNotes, setHudTaskNotes] = useState('');
+  const [showTaskDetails, setShowTaskDetails] = useState(false);
+  const [showCompactTaskComposer, setShowCompactTaskComposer] = useState(false);
+  const [isSavingHudTask, setIsSavingHudTask] = useState(false);
   const [customTime, setCustomTime] = useState('');
-  const [completedSubtasks, setCompletedSubtasks] = useState<string[]>([]);
 
   const currentMission =
     tasks.find((task) => task.id === currentMissionId && task.lane === 'now') ?? tasks.find((task) => task.lane === 'now') ?? null;
@@ -322,12 +326,12 @@ export function HudApp() {
   const displayClock = formatDigitalClock(remainingSeconds);
   const progressRatio = Math.min(1, elapsedSeconds / Math.max(totalSessionSeconds, 1));
   const activeQueue = getActiveQueue(tasks, currentMission?.id ?? null);
-  const checklist = buildChecklist(currentMission);
-  const resources = buildResources(currentMission);
+  const checklist = currentMission?.subtasks ?? [];
   const focusStatusLabel = getFocusStatusLabel(focusStatus);
   const useStableHudRendering = isTauriApp() && isLinuxPlatform();
   const effectiveHudTransparency = hudMode === 'compact' ? 'standard' : hudTransparency;
   const hudShellToneClass = effectiveHudTransparency === 'ghost' ? 'hud-shell--ghost' : 'hud-shell--solid';
+  const compactDrawerOpen = hudMode === 'compact' && showCompactTaskComposer;
   const isSessionRunning = Boolean(focusSessionStart);
   const hasPausedProgress = !isSessionRunning && focusElapsedSeconds > 0;
   const sessionToggleLabel = isSessionRunning
@@ -374,7 +378,7 @@ export function HudApp() {
       const workY = workArea.position.y / scaleFactor;
       const workWidth = workArea.size.width / scaleFactor;
       const workHeight = workArea.size.height / scaleFactor;
-      const targetSize = getHudWindowSize(hudMode, workWidth, workHeight);
+      const targetSize = getHudWindowSize(hudMode, workWidth, workHeight, compactDrawerOpen);
       const storedPosition = readStoredHudPosition();
       const currentScaleFactor = await currentWindow.scaleFactor();
       const currentOuterPosition = await currentWindow.outerPosition();
@@ -405,7 +409,13 @@ export function HudApp() {
     return () => {
       cancelled = true;
     };
-  }, [hudMode]);
+  }, [compactDrawerOpen, hudMode]);
+
+  useEffect(() => {
+    if (hudMode === 'expanded' && showCompactTaskComposer) {
+      setShowCompactTaskComposer(false);
+    }
+  }, [hudMode, showCompactTaskComposer]);
 
   useEffect(() => {
     if (!isTauriApp()) {
@@ -478,6 +488,47 @@ export function HudApp() {
     resetSession('hud');
   }
 
+  function resetHudTaskComposer() {
+    setHudTaskInput('');
+    setHudTaskLane('inbox');
+    setHudTaskTitle('');
+    setHudTaskNextAction('');
+    setHudTaskNotes('');
+    setShowTaskDetails(false);
+    setShowCompactTaskComposer(false);
+  }
+
+  async function captureHudTask() {
+    if (!hudTaskInput.trim()) {
+      return;
+    }
+
+    setIsSavingHudTask(true);
+
+    try {
+      const task = await createTask(
+        {
+          rawInput: hudTaskInput,
+          title: hudTaskTitle.trim() || undefined,
+          nextAction: hudTaskNextAction.trim() || undefined,
+          workspaceNotes: hudTaskNotes.trim() || undefined,
+          lane: hudTaskLane,
+          priority: hudTaskLane === 'now' ? 'high' : 'normal',
+          status: 'captured',
+        },
+        'hud',
+      );
+
+      if (hudTaskLane === 'now') {
+        setCurrentMission(task.id, 'hud');
+      }
+
+      resetHudTaskComposer();
+    } finally {
+      setIsSavingHudTask(false);
+    }
+  }
+
   return (
     <div
       className={cn(
@@ -495,22 +546,28 @@ export function HudApp() {
         >
           <aside className="flex w-[74px] flex-col items-center border-r border-borderSoft/35 bg-panel2/68 px-4 py-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-borderStrong/25 bg-panel/70 text-[11px] font-semibold uppercase tracking-[0.22em] text-text-primary">
-              DW
+              MC
             </div>
             <div className="mt-8 space-y-3">
-              {['Projects', 'Areas', 'Resources', 'Archive'].map((item, index) => (
-                <div
-                  key={item}
-                  className={cn(
-                    'flex h-11 w-11 items-center justify-center rounded-2xl border text-[10px] uppercase tracking-[0.2em]',
-                    index === 0
-                      ? 'border-accent/35 bg-accent/12 text-accent'
-                      : 'border-borderSoft/35 bg-panel/58 text-text-muted',
-                  )}
-                >
-                  {item.slice(0, 1)}
-                </div>
-              ))}
+              <HudActionButton
+                icon={<AppIcon />}
+                label="Open app"
+                onClick={() => {
+                  void showMainWindow();
+                }}
+              />
+              <HudActionButton
+                icon={<QuickAddIcon />}
+                label="Open quick add"
+                onClick={() => {
+                  void showQuickAddWindow();
+                }}
+              />
+              <HudActionButton
+                icon={<ExpandIcon />}
+                label="Toggle compact mode"
+                onClick={() => toggleHudMode('hud')}
+              />
             </div>
             <div className="mt-auto">
               <HudActionButton
@@ -526,13 +583,7 @@ export function HudApp() {
           <div className="flex min-w-0 flex-1 flex-col">
             <WindowDragHandle className="flex items-center justify-between border-b border-borderSoft/35 px-6 py-4">
               <div className="flex items-center gap-4">
-                <span className="text-sm font-semibold text-text-primary">Work</span>
-                <div className="hidden items-center gap-5 text-[10px] uppercase tracking-[0.28em] text-text-muted md:flex">
-                  <span className="text-accent">Projects</span>
-                  <span>Areas</span>
-                  <span>Resources</span>
-                  <span>Archive</span>
-                </div>
+                <span className="text-sm font-semibold text-text-primary">Focus</span>
               </div>
               <div className="flex items-center gap-2">
                 <HudActionButton
@@ -556,7 +607,7 @@ export function HudApp() {
                 )}
               >
                 <div className="hud-focus-panel shrink-0 rounded-[30px] p-6">
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-accent/80">Focusing now</p>
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-accent/80">Current task</p>
                   <button
                     className="mt-4 max-w-[540px] text-left text-[clamp(2.1rem,4vw,3rem)] font-semibold tracking-[-0.05em] text-text-primary transition hover:text-accent"
                     onClick={() => {
@@ -566,7 +617,7 @@ export function HudApp() {
                     }}
                     type="button"
                   >
-                    {currentMission?.title ?? 'No mission selected'}
+                    {currentMission?.title ?? 'No task selected'}
                   </button>
                   <div className="mt-8">
                     <p className="font-mono text-[clamp(3.8rem,8vw,5rem)] leading-none tracking-[-0.08em] text-text-primary">
@@ -578,44 +629,43 @@ export function HudApp() {
                   </div>
 
                   <div className="mt-10">
-                    <p className="text-sm font-medium text-text-primary">Sub-tasks</p>
+                    <p className="text-sm font-medium text-text-primary">Steps</p>
                     <div className="mt-4 space-y-3">
-                      {checklist.map((item, index) => {
-                        const isCompleted = completedSubtasks.includes(item);
-                        return (
+                      {checklist.length ? (
+                        checklist.map((subtask, index) => (
                           <button
-                            key={item}
+                            key={subtask.id}
                             onClick={() => {
-                              setCompletedSubtasks(prev =>
-                                prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
-                              );
+                              if (currentMission) {
+                                void toggleSubtask(currentMission.id, subtask.id, 'hud');
+                              }
                             }}
                             className={cn(
                               'flex w-full items-center gap-3 rounded-[18px] border px-4 py-3 text-left transition',
-                              isCompleted
-                                ? 'border-success/35 bg-success/10 text-success line-through opacity-70'
-                                : index === 0 && completedSubtasks.length === 0
-                                  ? 'border-accent/35 bg-accent/10 text-text-primary'
-                                  : 'border-borderSoft/35 bg-panel/58 text-text-secondary hover:border-borderStrong/40',
+                              subtask.completed
+                                ? 'border-success/35 bg-success/10 text-success opacity-75'
+                                : 'border-borderSoft/35 bg-panel/58 text-text-secondary hover:border-borderStrong/40',
                             )}
                             type="button"
                           >
                             <span
                               className={cn(
                                 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold transition',
-                                isCompleted
+                                subtask.completed
                                   ? 'border-success/45 bg-success/20 text-success'
-                                  : index === 0 && completedSubtasks.length === 0
-                                    ? 'border-accent/45 bg-accent/20 text-accent'
-                                    : 'border-borderStrong/30 text-text-muted',
+                                  : 'border-borderStrong/30 text-text-muted',
                               )}
                             >
-                              {isCompleted ? '✓' : index + 1}
+                              {subtask.completed ? '✓' : index + 1}
                             </span>
-                            <span className="text-sm">{item}</span>
+                            <span className={cn('text-sm', subtask.completed ? 'line-through' : '')}>{subtask.title}</span>
                           </button>
-                        )
-                      })}
+                        ))
+                      ) : (
+                        <div className="rounded-[18px] border border-dashed border-borderSoft/40 px-4 py-8 text-sm text-text-muted">
+                          No steps added.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -625,7 +675,7 @@ export function HudApp() {
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Session thoughts</p>
                       <p className="mt-2 text-sm text-text-secondary">
-                        Leave a clean trail for the next pass through this mission.
+                        Keep short notes while you work.
                       </p>
                     </div>
                     <Badge tone="neutral">{focusStatusLabel}</Badge>
@@ -649,7 +699,7 @@ export function HudApp() {
                 <div className="surface-muted rounded-[24px] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[10px] uppercase tracking-[0.28em] text-accent/80">System active</span>
-                    <span className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Core 12.4</span>
+                    <span className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Live</span>
                   </div>
                   <p className="mt-4 text-base font-medium text-text-primary">
                     {currentMission?.title ?? 'No active task'}
@@ -675,8 +725,8 @@ export function HudApp() {
                       onClick={() => startSession(180, 'hud')}
                       type="button"
                     >
-                      <p className="text-sm font-medium text-text-primary">Deep Work</p>
-                      <p className="mt-1 text-[10px] text-text-secondary">3/3/3 Method</p>
+                      <p className="text-sm font-medium text-text-primary">Long Block</p>
+                      <p className="mt-1 text-[10px] text-text-secondary">180m focus</p>
                     </button>
                     <button
                       className="rounded-[16px] border border-borderSoft/35 bg-panel/54 px-3 py-3 text-left transition hover:border-accent/40 hover:bg-accent/10"
@@ -728,66 +778,154 @@ export function HudApp() {
 
                 <div className="surface-muted rounded-[24px] p-4">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Sub-tasks</p>
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Steps</p>
                     <span className="text-[10px] uppercase tracking-[0.28em] text-accent/80">
-                      {completedSubtasks.length}/{checklist.length} done
+                      {checklist.filter((item) => item.completed).length}/{checklist.length} done
                     </span>
                   </div>
                   <div className="mt-4 space-y-2">
-                    {checklist.map((item, index) => {
-                      const isCompleted = completedSubtasks.includes(item);
+                    {checklist.map((subtask) => {
                       return (
                         <button
-                          key={item}
+                          key={subtask.id}
                           onClick={() => {
-                            setCompletedSubtasks(prev =>
-                              prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
-                            );
+                            if (currentMission) {
+                              void toggleSubtask(currentMission.id, subtask.id, 'hud');
+                            }
                           }}
                           className={cn(
                             'w-full rounded-[16px] border px-3 py-3 text-left text-sm transition',
-                            isCompleted
+                            subtask.completed
                               ? 'border-success/35 bg-success/10 text-success line-through opacity-70'
-                              : index === 0 && completedSubtasks.length === 0
-                                ? 'border-accent/35 bg-accent/10 text-text-primary'
-                                : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
+                              : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
                           )}
                           type="button"
                         >
-                          {item}
+                          {subtask.title}
                         </button>
                       )
                     })}
+                    {checklist.length === 0 ? (
+                      <div className="rounded-[16px] border border-dashed border-borderSoft/40 px-3 py-6 text-center text-sm text-text-muted">
+                        No steps added
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
                 <div className="surface-muted rounded-[24px] p-4">
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Inbox / idea drop</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Add task</p>
+                      <p className="mt-2 text-sm text-text-secondary">Choose where the task should land in the board.</p>
+                    </div>
+                    <Badge tone="neutral">HUD</Badge>
+                  </div>
+
                   <Input
                     className="mt-4"
-                    onChange={(event) => setInstantInbox(event.target.value)}
-                    placeholder="Type and press enter..."
-                    value={instantInbox}
+                    onChange={(event) => setHudTaskInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void captureHudTask();
+                      }
+                    }}
+                    placeholder="What came up?"
+                    value={hudTaskInput}
                   />
-                  <p className="mt-2 text-xs text-text-muted">Anything here can be triaged later.</p>
 
-                  <p className="mt-5 text-[10px] uppercase tracking-[0.28em] text-text-muted">Resources</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {resources.map((resource) => (
-                      <span
-                        key={resource}
-                        className="rounded-full border border-borderSoft/40 bg-panel/62 px-3 py-2 text-xs text-text-secondary"
-                      >
-                        {resource}
-                      </span>
-                    ))}
+                  <div className="mt-4">
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted">Status</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {hudCaptureOptions.map((option) => (
+                        <button
+                          key={option.lane}
+                          className={cn(
+                            'rounded-[16px] border px-3 py-3 text-left text-sm transition',
+                            hudTaskLane === option.lane
+                              ? 'border-accent/45 bg-accent/10 text-text-primary'
+                              : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
+                          )}
+                          onClick={() => setHudTaskLane(option.lane)}
+                          type="button"
+                        >
+                          <p className="font-medium">{option.label}</p>
+                          <p className="mt-1 text-[10px] leading-4 text-current/80">{option.hint}</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+
+                  <button
+                    aria-expanded={showTaskDetails}
+                    className="mt-4 flex w-full items-center justify-between rounded-[16px] border border-borderSoft/35 bg-panel/40 px-3 py-3 text-left transition hover:border-borderStrong/40 hover:bg-panel/54"
+                    onClick={() => setShowTaskDetails((current) => !current)}
+                    type="button"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">Optional details</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-text-muted">
+                        Title, first step, notes
+                      </p>
+                    </div>
+                    <ChevronIcon expanded={showTaskDetails} />
+                  </button>
+
+                  {showTaskDetails ? (
+                    <div className="mt-3 space-y-3">
+                      <Input
+                        onChange={(event) => setHudTaskTitle(event.target.value)}
+                        placeholder="Title override"
+                        value={hudTaskTitle}
+                      />
+                      <Input
+                        onChange={(event) => setHudTaskNextAction(event.target.value)}
+                        placeholder="First step"
+                        value={hudTaskNextAction}
+                      />
+                      <Textarea
+                        className="min-h-[88px] resize-none"
+                        onChange={(event) => setHudTaskNotes(event.target.value)}
+                        placeholder="Notes you want to keep with the task"
+                        rows={3}
+                        value={hudTaskNotes}
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <p className="text-xs leading-5 text-text-muted">
+                      {hudTaskLane === 'now'
+                        ? 'This becomes the live HUD task immediately.'
+                        : hudTaskLane === 'next'
+                          ? 'This goes to Next in kanban and waits behind the active task.'
+                          : hudTaskLane === 'later'
+                            ? 'This goes to Backlog so you keep it without touching it now.'
+                            : 'This goes to Queue so you can clarify or schedule it later.'}
+                    </p>
+                    <Button
+                      disabled={isSavingHudTask || !hudTaskInput.trim()}
+                      onClick={() => {
+                        void captureHudTask();
+                      }}
+                    >
+                      {isSavingHudTask ? 'Adding' : 'Add task'}
+                    </Button>
+                  </div>
+
+                  {currentMission ? (
+                    <div className="mt-5 rounded-[16px] border border-borderSoft/35 bg-panel/54 px-3 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted">Current next action</p>
+                      <p className="mt-2 text-sm leading-6 text-text-primary">{currentMission.next_action}</p>
+                    </div>
+                  ) : null}
                 </div>
 
 
 
                 <div className="surface-muted rounded-[24px] p-4">
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Active Missions</p>
+                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Active tasks</p>
                   <div className="mt-4 space-y-2">
                     {activeQueue.map((task) => (
                       <button
@@ -804,7 +942,7 @@ export function HudApp() {
                     ))}
                     {activeQueue.length === 0 ? (
                       <div className="rounded-[16px] border border-dashed border-borderSoft/40 px-3 py-6 text-center text-sm text-text-muted">
-                        Queue clear
+                        Nothing else active
                       </div>
                     ) : null}
                   </div>
@@ -821,7 +959,7 @@ export function HudApp() {
                   <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Active task</p>
                     <p className="truncate text-sm font-medium text-text-primary">
-                      {currentMission?.title ?? 'No mission selected'}
+                      {currentMission?.title ?? 'No task selected'}
                     </p>
                   </div>
                 </div>
@@ -860,7 +998,7 @@ export function HudApp() {
                   <HudActionButton
                     disabled={!currentMission}
                     icon={<CompleteIcon />}
-                    label="Complete mission"
+                    label="Complete task"
                     onClick={() => {
                       void finishMission();
                     }}
@@ -872,10 +1010,10 @@ export function HudApp() {
           </div>
         </div>
       ) : (
-        <div className="w-full max-w-[620px]">
+        <div className="h-full w-full max-w-[620px]">
           <div
             className={cn(
-              'hud-shell relative rounded-[28px] border px-3 py-3.5',
+              'hud-shell relative flex h-full flex-col rounded-[28px] border px-3 py-3.5',
               hudShellToneClass,
               useStableHudRendering && 'hud-shell--stable',
             )}
@@ -903,7 +1041,7 @@ export function HudApp() {
                   }}
                   type="button"
                 >
-                  {currentMission?.title ?? 'No mission selected'}
+                  {currentMission?.title ?? 'No task selected'}
                 </button>
                 <div className="mt-2 h-[3px] rounded-full bg-borderSoft/40">
                   <div
@@ -913,23 +1051,30 @@ export function HudApp() {
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderStrong/25 bg-panel2/74 p-1">
-                <HudActionButton
-                  className="h-8 w-8"
-                  icon={<AppIcon />}
-                  label="Open app"
+                <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderStrong/25 bg-panel2/74 p-1">
+                  <HudActionButton
+                    className="h-8 w-8"
+                    icon={<AppIcon />}
+                    label="Open app"
                   onClick={() => {
                     void showMainWindow();
                   }}
-                />
-                <HudActionButton
-                  className="h-8 w-8"
-                  icon={<ExpandIcon />}
-                  label="Expand HUD"
-                  onClick={() => toggleHudMode('hud')}
-                />
-                <HudActionButton
-                  className="h-8 w-8"
+                  />
+                  <HudActionButton
+                    className="h-8 w-8"
+                    icon={<QuickAddIcon />}
+                    label={showCompactTaskComposer ? 'Hide add task' : 'Add task'}
+                    onClick={() => setShowCompactTaskComposer((current) => !current)}
+                    variant={showCompactTaskComposer ? 'primary' : 'secondary'}
+                  />
+                  <HudActionButton
+                    className="h-8 w-8"
+                    icon={<ExpandIcon />}
+                    label="Expand HUD"
+                    onClick={() => toggleHudMode('hud')}
+                  />
+                  <HudActionButton
+                    className="h-8 w-8"
                   disabled={!currentMission}
                   icon={sessionToggleIcon}
                   label={sessionToggleLabel}
@@ -939,14 +1084,133 @@ export function HudApp() {
                   className="h-8 w-8"
                   disabled={!currentMission}
                   icon={<CompleteIcon />}
-                  label="Complete mission"
+                  label="Complete task"
                   onClick={() => {
                     void finishMission();
                   }}
                   variant="primary"
-                />
-              </div>
+                  />
+                </div>
             </div>
+
+            {showCompactTaskComposer ? (
+              <div className="mt-3 min-h-0 flex-1 border-t border-borderSoft/28 pt-3">
+                <div className="surface-muted flex h-full min-h-0 flex-col rounded-[22px] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Add task</p>
+                      <p className="mt-1 text-xs text-text-secondary">Create it here, keep focus intact.</p>
+                    </div>
+                    <Badge tone="neutral">Compact</Badge>
+                  </div>
+
+                  <div className="scrollbar-hidden mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+                    <div className="space-y-3">
+                      <Input
+                        onChange={(event) => setHudTaskInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void captureHudTask();
+                          }
+                        }}
+                        placeholder="What came up?"
+                        value={hudTaskInput}
+                      />
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted">Status</p>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          {hudCaptureOptions.map((option) => (
+                            <button
+                              key={option.lane}
+                              className={cn(
+                                'rounded-[14px] border px-3 py-2.5 text-left text-sm transition',
+                                hudTaskLane === option.lane
+                                  ? 'border-accent/45 bg-accent/10 text-text-primary'
+                                  : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
+                              )}
+                              onClick={() => setHudTaskLane(option.lane)}
+                              type="button"
+                            >
+                              <p className="font-medium">{option.label}</p>
+                              <p className="mt-1 text-[10px] leading-4 text-current/80">{option.hint}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button
+                        aria-expanded={showTaskDetails}
+                        className="flex w-full items-center justify-between rounded-[14px] border border-borderSoft/35 bg-panel/40 px-3 py-3 text-left transition hover:border-borderStrong/40 hover:bg-panel/54"
+                        onClick={() => setShowTaskDetails((current) => !current)}
+                        type="button"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">Optional details</p>
+                          <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-text-muted">
+                            Title, first step, notes
+                          </p>
+                        </div>
+                        <ChevronIcon expanded={showTaskDetails} />
+                      </button>
+
+                      {showTaskDetails ? (
+                        <div className="space-y-3">
+                          <Input
+                            onChange={(event) => setHudTaskTitle(event.target.value)}
+                            placeholder="Title override"
+                            value={hudTaskTitle}
+                          />
+                          <Input
+                            onChange={(event) => setHudTaskNextAction(event.target.value)}
+                            placeholder="First step"
+                            value={hudTaskNextAction}
+                          />
+                          <Textarea
+                            className="min-h-[80px] resize-none"
+                            onChange={(event) => setHudTaskNotes(event.target.value)}
+                            placeholder="Notes you want to keep with the task"
+                            rows={3}
+                            value={hudTaskNotes}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex shrink-0 flex-col gap-3 border-t border-borderSoft/24 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs leading-5 text-text-muted">
+                      {hudTaskLane === 'now'
+                        ? 'Active starts in HUD immediately.'
+                        : hudTaskLane === 'next'
+                          ? 'Next waits behind the live task.'
+                          : hudTaskLane === 'later'
+                            ? 'Backlog keeps it out of the way.'
+                            : 'Queue keeps it ready for kanban review.'}
+                    </p>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        onClick={() => setShowCompactTaskComposer(false)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        Close
+                      </Button>
+                      <Button
+                        disabled={isSavingHudTask || !hudTaskInput.trim()}
+                        onClick={() => {
+                          void captureHudTask();
+                        }}
+                        size="sm"
+                      >
+                        {isSavingHudTask ? 'Adding' : 'Add task'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
 import { isTauriApp } from '../../lib/tauri';
 import { getSqlDatabase } from '../../lib/database';
 import { createSeedTasks } from './task-seed';
-import { normalizeTaskDraft, sortTasks } from './task-helpers';
+import { hydrateTaskRecord, normalizeTaskDraft, sortTasks } from './task-helpers';
 import type { Task, TaskDraft } from './task-types';
 
 const LOCAL_STORAGE_KEY = 'missioncontrol-tasks-v1';
@@ -13,7 +13,56 @@ interface TaskRepository {
   updateTask(task: Task): Promise<void>;
 }
 
-type SqlTaskRow = Task;
+interface SqlTaskRow {
+  id: string;
+  title: string;
+  raw_input: string;
+  description: string;
+  goal: string | null;
+  definition_of_done: string | null;
+  next_action: string | null;
+  why_it_matters: string | null;
+  workspace_notes: string | null;
+  subtasks_json: string | null;
+  clarifying_questions_json: string | null;
+  status: Task['status'];
+  priority: Task['priority'];
+  lane: Task['lane'];
+  estimated_minutes: number;
+  created_at: string;
+  updated_at: string;
+}
+
+function serializeTasks(tasks: Task[]) {
+  return JSON.stringify(sortTasks(tasks));
+}
+
+function parseJsonArray<T>(value: string | null | undefined) {
+  if (!value) {
+    return [] as T[];
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function toStoredTask(task: Task) {
+  return {
+    ...task,
+  };
+}
+
+function fromSqlRow(row: SqlTaskRow) {
+  return hydrateTaskRecord({
+    ...row,
+    subtasks: parseJsonArray(row.subtasks_json),
+    clarifying_questions: parseJsonArray(row.clarifying_questions_json),
+  });
+}
 
 class BrowserTaskRepository implements TaskRepository {
   async initialize() {
@@ -25,20 +74,23 @@ class BrowserTaskRepository implements TaskRepository {
   }
 
   async listTasks() {
-    return sortTasks(JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) ?? '[]') as Task[]);
+    const parsed = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) ?? '[]') as Task[];
+    const tasks = sortTasks(parsed.map((task) => hydrateTaskRecord(task)));
+    localStorage.setItem(LOCAL_STORAGE_KEY, serializeTasks(tasks));
+    return tasks;
   }
 
   async createTask(draft: TaskDraft) {
     const task = normalizeTaskDraft(draft);
     const tasks = await this.listTasks();
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sortTasks([task, ...tasks])));
+    localStorage.setItem(LOCAL_STORAGE_KEY, serializeTasks([task, ...tasks].map(toStoredTask)));
     return task;
   }
 
   async updateTask(task: Task) {
     const tasks = await this.listTasks();
     const nextTasks = tasks.map((existing) => (existing.id === task.id ? task : existing));
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sortTasks(nextTasks)));
+    localStorage.setItem(LOCAL_STORAGE_KEY, serializeTasks(nextTasks.map(toStoredTask)));
   }
 }
 
@@ -64,18 +116,32 @@ class SqlTaskRepository implements TaskRepository {
           title,
           raw_input,
           description,
+          goal,
+          definition_of_done,
+          next_action,
+          why_it_matters,
+          workspace_notes,
+          subtasks_json,
+          clarifying_questions_json,
           status,
           priority,
           lane,
           estimated_minutes,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           task.id,
           task.title,
           task.raw_input,
           task.description,
+          task.goal,
+          task.definition_of_done,
+          task.next_action,
+          task.why_it_matters,
+          task.workspace_notes,
+          JSON.stringify(task.subtasks),
+          JSON.stringify(task.clarifying_questions),
           task.status,
           task.priority,
           task.lane,
@@ -90,7 +156,7 @@ class SqlTaskRepository implements TaskRepository {
   async listTasks() {
     const db = await this.getDatabase();
     const rows = await db.select<SqlTaskRow>('SELECT * FROM tasks ORDER BY updated_at DESC');
-    return rows;
+    return rows.map(fromSqlRow);
   }
 
   async createTask(draft: TaskDraft) {
@@ -103,18 +169,32 @@ class SqlTaskRepository implements TaskRepository {
         title,
         raw_input,
         description,
+        goal,
+        definition_of_done,
+        next_action,
+        why_it_matters,
+        workspace_notes,
+        subtasks_json,
+        clarifying_questions_json,
         status,
         priority,
         lane,
         estimated_minutes,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         task.id,
         task.title,
         task.raw_input,
         task.description,
+        task.goal,
+        task.definition_of_done,
+        task.next_action,
+        task.why_it_matters,
+        task.workspace_notes,
+        JSON.stringify(task.subtasks),
+        JSON.stringify(task.clarifying_questions),
         task.status,
         task.priority,
         task.lane,
@@ -135,6 +215,13 @@ class SqlTaskRepository implements TaskRepository {
         title = ?,
         raw_input = ?,
         description = ?,
+        goal = ?,
+        definition_of_done = ?,
+        next_action = ?,
+        why_it_matters = ?,
+        workspace_notes = ?,
+        subtasks_json = ?,
+        clarifying_questions_json = ?,
         status = ?,
         priority = ?,
         lane = ?,
@@ -145,6 +232,13 @@ class SqlTaskRepository implements TaskRepository {
         task.title,
         task.raw_input,
         task.description,
+        task.goal,
+        task.definition_of_done,
+        task.next_action,
+        task.why_it_matters,
+        task.workspace_notes,
+        JSON.stringify(task.subtasks),
+        JSON.stringify(task.clarifying_questions),
         task.status,
         task.priority,
         task.lane,

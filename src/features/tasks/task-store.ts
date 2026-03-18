@@ -16,7 +16,10 @@ interface TaskStore {
   refresh: () => Promise<void>;
   createTask: (draft: TaskDraft, source?: ActivitySource) => Promise<Task>;
   selectTask: (taskId: string | null) => void;
+  saveTask: (task: Task, source?: ActivitySource) => Promise<void>;
   moveTaskToLane: (taskId: string, lane: TaskLane, source?: ActivitySource) => Promise<void>;
+  toggleSubtask: (taskId: string, subtaskId: string, source?: ActivitySource) => Promise<void>;
+  answerQuestion: (taskId: string, questionId: string, answer: string, source?: ActivitySource) => Promise<void>;
   markDone: (taskId: string, source?: ActivitySource) => Promise<void>;
 }
 
@@ -90,6 +93,29 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     return task;
   },
   selectTask: (selectedTaskId) => set({ selectedTaskId }),
+  saveTask: async (task, source = 'system') => {
+    const repository = await getTaskRepository();
+    const nextTask: Task = {
+      ...task,
+      updated_at: new Date().toISOString(),
+    };
+
+    await repository.updateTask(nextTask);
+    set({
+      tasks: sortTasks(get().tasks.map((item) => (item.id === task.id ? nextTask : item))),
+      selectedTaskId: task.id,
+    });
+    await logActivity({
+      action: 'task_updated',
+      source,
+      taskId: task.id,
+      details: {
+        lane: task.lane,
+        title: task.title,
+      },
+    });
+    await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'updated', taskId: task.id });
+  },
   moveTaskToLane: async (taskId, lane, source = 'system') => {
     const repository = await getTaskRepository();
     const task = get().tasks.find((item) => item.id === taskId);
@@ -119,6 +145,66 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       },
     });
     await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'moved', taskId, lane });
+  },
+  toggleSubtask: async (taskId, subtaskId, source = 'system') => {
+    const task = get().tasks.find((item) => item.id === taskId);
+
+    if (!task) {
+      return;
+    }
+
+    const nextTask: Task = {
+      ...task,
+      subtasks: task.subtasks.map((subtask) =>
+        subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask,
+      ),
+      updated_at: new Date().toISOString(),
+    };
+
+    const repository = await getTaskRepository();
+    await repository.updateTask(nextTask);
+    set({
+      tasks: sortTasks(get().tasks.map((item) => (item.id === taskId ? nextTask : item))),
+    });
+    await logActivity({
+      action: 'task_updated',
+      source,
+      taskId,
+      details: {
+        field: 'subtasks',
+      },
+    });
+    await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'updated', taskId });
+  },
+  answerQuestion: async (taskId, questionId, answer, source = 'system') => {
+    const task = get().tasks.find((item) => item.id === taskId);
+
+    if (!task) {
+      return;
+    }
+
+    const nextTask: Task = {
+      ...task,
+      clarifying_questions: task.clarifying_questions.map((question) =>
+        question.id === questionId ? { ...question, answer: answer.trim() } : question,
+      ),
+      updated_at: new Date().toISOString(),
+    };
+
+    const repository = await getTaskRepository();
+    await repository.updateTask(nextTask);
+    set({
+      tasks: sortTasks(get().tasks.map((item) => (item.id === taskId ? nextTask : item))),
+    });
+    await logActivity({
+      action: 'task_updated',
+      source,
+      taskId,
+      details: {
+        field: 'clarifying_questions',
+      },
+    });
+    await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'updated', taskId });
   },
   markDone: async (taskId, source = 'system') => {
     const repository = await getTaskRepository();

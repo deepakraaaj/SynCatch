@@ -7,8 +7,8 @@ export const SETTINGS_CHANGED_EVENT = 'missioncontrol://settings-changed';
 export const TOGGLE_HUD_TRANSPARENCY_EVENT = 'missioncontrol://toggle-hud-transparency';
 const HUD_WIDTH = 620;
 const HUD_HEIGHT = 104;
-const QUICK_ADD_WIDTH = 520;
-const QUICK_ADD_HEIGHT = 560;
+export const QUICK_ADD_WIDTH = 540;
+export const QUICK_ADD_HEIGHT = 560;
 
 function getEventStorageKey(eventName: string) {
   return `missioncontrol:event:${eventName}`;

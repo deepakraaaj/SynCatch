@@ -7,6 +7,7 @@ export type ActivityAction =
   | 'hud_opened'
   | 'task_selected'
   | 'task_created'
+  | 'task_updated'
   | 'task_lane_changed'
   | 'task_completed'
   | 'focus_started'
