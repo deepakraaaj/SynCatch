@@ -597,7 +597,7 @@ export function MainApp() {
       {activeView === 'inbox' ? (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)]">
           <div className="flex min-h-0 flex-col gap-5">
-            <Card className="relative overflow-hidden rounded-[34px] p-7 lg:p-8">
+            <Card className="hero-gradient relative overflow-hidden rounded-[34px] p-7 lg:p-8">
               <div className="absolute inset-x-6 top-5 h-px bg-gradient-to-r from-accent/0 via-accent/25 to-accent/0" />
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="max-w-2xl">
@@ -662,7 +662,7 @@ export function MainApp() {
                 </div>
               </div>
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Button
                   onClick={() => {
                     if (focusMission) {
@@ -683,6 +683,10 @@ export function MainApp() {
                 <Button onClick={() => void showQuickAddWindow()} variant="secondary">
                   Capture Objective
                 </Button>
+                <span className="kbd-badge ml-1">
+                  <span className="pulse-dot" />
+                  Ctrl+Shift+Space for Quick Add
+                </span>
               </div>
             </Card>
 
