@@ -102,18 +102,9 @@ function getProgressWidth(progressRatio: number) {
   return `${Math.max(8, progressRatio * 100)}%`;
 }
 
-function getQueue(tasks: Task[], currentMissionId: string | null) {
-  const laneRank: Record<Task['lane'], number> = {
-    now: 0,
-    next: 1,
-    inbox: 2,
-    later: 3,
-    done: 4,
-  };
-
+function getActiveQueue(tasks: Task[], currentMissionId: string | null) {
   return [...tasks]
-    .filter((task) => task.id !== currentMissionId && task.lane !== 'done')
-    .sort((left, right) => laneRank[left.lane] - laneRank[right.lane])
+    .filter((task) => task.id !== currentMissionId && task.lane === 'now' && task.status !== 'done')
     .slice(0, 5);
 }
 
@@ -321,14 +312,16 @@ export function HudApp() {
   );
   const [sessionNotes, setSessionNotes] = useState('');
   const [instantInbox, setInstantInbox] = useState('');
+  const [customTime, setCustomTime] = useState('');
+  const [completedSubtasks, setCompletedSubtasks] = useState<string[]>([]);
 
   const currentMission =
-    tasks.find((task) => task.id === currentMissionId) ?? tasks.find((task) => task.lane === 'now') ?? null;
+    tasks.find((task) => task.id === currentMissionId && task.lane === 'now') ?? tasks.find((task) => task.lane === 'now') ?? null;
   const totalSessionSeconds = Math.max(60, focusSessionDuration * 60);
   const remainingSeconds = Math.max(0, totalSessionSeconds - elapsedSeconds);
   const displayClock = formatDigitalClock(remainingSeconds);
   const progressRatio = Math.min(1, elapsedSeconds / Math.max(totalSessionSeconds, 1));
-  const queue = getQueue(tasks, currentMission?.id ?? null);
+  const activeQueue = getActiveQueue(tasks, currentMission?.id ?? null);
   const checklist = buildChecklist(currentMission);
   const resources = buildResources(currentMission);
   const focusStatusLabel = getFocusStatusLabel(focusStatus);
@@ -475,7 +468,7 @@ export function HudApp() {
   }
 
   async function finishMission() {
-    const nextTask = queue[0] ?? null;
+    const nextTask = activeQueue[0] ?? null;
 
     if (currentMission) {
       await markDone(currentMission.id, 'hud');
@@ -505,7 +498,7 @@ export function HudApp() {
               DW
             </div>
             <div className="mt-8 space-y-3">
-              {['Flow', 'Tasks', 'Notes', 'Archive'].map((item, index) => (
+              {['Projects', 'Areas', 'Resources', 'Archive'].map((item, index) => (
                 <div
                   key={item}
                   className={cn(
@@ -535,8 +528,9 @@ export function HudApp() {
               <div className="flex items-center gap-4">
                 <span className="text-sm font-semibold text-text-primary">Work</span>
                 <div className="hidden items-center gap-5 text-[10px] uppercase tracking-[0.28em] text-text-muted md:flex">
-                  <span className="text-accent">Flow</span>
-                  <span>Library</span>
+                  <span className="text-accent">Projects</span>
+                  <span>Areas</span>
+                  <span>Resources</span>
                   <span>Archive</span>
                 </div>
               </div>
@@ -586,29 +580,42 @@ export function HudApp() {
                   <div className="mt-10">
                     <p className="text-sm font-medium text-text-primary">Sub-tasks</p>
                     <div className="mt-4 space-y-3">
-                      {checklist.map((item, index) => (
-                        <div
-                          key={item}
-                          className={cn(
-                            'flex items-center gap-3 rounded-[18px] border px-4 py-3',
-                            index === 0
-                              ? 'border-accent/35 bg-accent/10 text-text-primary'
-                              : 'border-borderSoft/35 bg-panel/58 text-text-secondary',
-                          )}
-                        >
-                          <span
+                      {checklist.map((item, index) => {
+                        const isCompleted = completedSubtasks.includes(item);
+                        return (
+                          <button
+                            key={item}
+                            onClick={() => {
+                              setCompletedSubtasks(prev =>
+                                prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
+                              );
+                            }}
                             className={cn(
-                              'flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold',
-                              index === 0
-                                ? 'border-accent/45 bg-accent/20 text-accent'
-                                : 'border-borderStrong/30 text-text-muted',
+                              'flex w-full items-center gap-3 rounded-[18px] border px-4 py-3 text-left transition',
+                              isCompleted
+                                ? 'border-success/35 bg-success/10 text-success line-through opacity-70'
+                                : index === 0 && completedSubtasks.length === 0
+                                  ? 'border-accent/35 bg-accent/10 text-text-primary'
+                                  : 'border-borderSoft/35 bg-panel/58 text-text-secondary hover:border-borderStrong/40',
                             )}
+                            type="button"
                           >
-                            {index + 1}
-                          </span>
-                          <span className="text-sm">{item}</span>
-                        </div>
-                      ))}
+                            <span
+                              className={cn(
+                                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold transition',
+                                isCompleted
+                                  ? 'border-success/45 bg-success/20 text-success'
+                                  : index === 0 && completedSubtasks.length === 0
+                                    ? 'border-accent/45 bg-accent/20 text-accent'
+                                    : 'border-borderStrong/30 text-text-muted',
+                              )}
+                            >
+                              {isCompleted ? '✓' : index + 1}
+                            </span>
+                            <span className="text-sm">{item}</span>
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
@@ -653,27 +660,104 @@ export function HudApp() {
                 </div>
 
                 <div className="surface-muted rounded-[24px] p-4">
+                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Frameworks</p>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      className="rounded-[16px] border border-borderSoft/35 bg-panel/54 px-3 py-3 text-left transition hover:border-accent/40 hover:bg-accent/10"
+                      onClick={() => startSession(25, 'hud')}
+                      type="button"
+                    >
+                      <p className="text-sm font-medium text-text-primary">Pomodoro</p>
+                      <p className="mt-1 text-[10px] text-text-secondary">25m focus &middot; 5m break</p>
+                    </button>
+                    <button
+                      className="rounded-[16px] border border-borderSoft/35 bg-panel/54 px-3 py-3 text-left transition hover:border-accent/40 hover:bg-accent/10"
+                      onClick={() => startSession(180, 'hud')}
+                      type="button"
+                    >
+                      <p className="text-sm font-medium text-text-primary">Deep Work</p>
+                      <p className="mt-1 text-[10px] text-text-secondary">3/3/3 Method</p>
+                    </button>
+                    <button
+                      className="rounded-[16px] border border-borderSoft/35 bg-panel/54 px-3 py-3 text-left transition hover:border-accent/40 hover:bg-accent/10"
+                      onClick={() => startSession(45, 'hud')}
+                      type="button"
+                    >
+                      <p className="text-sm font-medium text-text-primary">Standard</p>
+                      <p className="mt-1 text-[10px] text-text-secondary">45m block</p>
+                    </button>
+                    <button
+                      className="rounded-[16px] border border-accent/35 bg-accent/10 px-3 py-3 text-left transition hover:border-accent/50 hover:bg-accent/20"
+                      onClick={() => startSession(5, 'hud')}
+                      type="button"
+                    >
+                      <p className="text-sm font-medium text-accent">Quick break</p>
+                      <p className="mt-1 text-[10px] text-accent/80">5m recharge</p>
+                    </button>
+                    <div className="col-span-2 mt-1 flex items-center gap-2 rounded-[16px] border border-borderSoft/35 bg-panel/30 p-1 pl-3 transition-colors focus-within:border-accent/40 focus-within:bg-panel/50">
+                      <Input
+                        className="h-8 flex-1 border-none bg-transparent px-0 text-sm focus-visible:ring-0"
+                        onChange={(event) => setCustomTime(event.target.value.replace(/\D/g, ''))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && customTime) {
+                            startSession(parseInt(customTime, 10), 'hud');
+                            setCustomTime('');
+                          }
+                        }}
+                        placeholder="Custom minutes..."
+                        value={customTime}
+                        type="text"
+                        maxLength={3}
+                      />
+                      <HudActionButton
+                        className="h-8 w-8 shrink-0"
+                        disabled={!customTime}
+                        icon={<PlayIcon />}
+                        label="Start custom timer"
+                        onClick={() => {
+                          if (customTime) {
+                            startSession(parseInt(customTime, 10), 'hud');
+                            setCustomTime('');
+                          }
+                        }}
+                        variant={customTime ? 'primary' : 'ghost'}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="surface-muted rounded-[24px] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Sub-tasks</p>
                     <span className="text-[10px] uppercase tracking-[0.28em] text-accent/80">
-                      {checklist.length} items
+                      {completedSubtasks.length}/{checklist.length} done
                     </span>
                   </div>
                   <div className="mt-4 space-y-2">
-                    {checklist.map((item, index) => (
-                      <button
-                        key={item}
-                        className={cn(
-                          'w-full rounded-[16px] border px-3 py-3 text-left text-sm transition',
-                          index === 0
-                            ? 'border-accent/35 bg-accent/10 text-text-primary'
-                            : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
-                        )}
-                        type="button"
-                      >
-                        {item}
-                      </button>
-                    ))}
+                    {checklist.map((item, index) => {
+                      const isCompleted = completedSubtasks.includes(item);
+                      return (
+                        <button
+                          key={item}
+                          onClick={() => {
+                            setCompletedSubtasks(prev =>
+                              prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
+                            );
+                          }}
+                          className={cn(
+                            'w-full rounded-[16px] border px-3 py-3 text-left text-sm transition',
+                            isCompleted
+                              ? 'border-success/35 bg-success/10 text-success line-through opacity-70'
+                              : index === 0 && completedSubtasks.length === 0
+                                ? 'border-accent/35 bg-accent/10 text-text-primary'
+                                : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
+                          )}
+                          type="button"
+                        >
+                          {item}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 
@@ -700,10 +784,12 @@ export function HudApp() {
                   </div>
                 </div>
 
+
+
                 <div className="surface-muted rounded-[24px] p-4">
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Queue</p>
+                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Active Missions</p>
                   <div className="mt-4 space-y-2">
-                    {queue.map((task) => (
+                    {activeQueue.map((task) => (
                       <button
                         key={task.id}
                         className="w-full rounded-[16px] border border-borderSoft/35 bg-panel/54 px-3 py-3 text-left transition hover:border-borderStrong/40 hover:bg-panel/68"
@@ -716,7 +802,7 @@ export function HudApp() {
                         </p>
                       </button>
                     ))}
-                    {queue.length === 0 ? (
+                    {activeQueue.length === 0 ? (
                       <div className="rounded-[16px] border border-dashed border-borderSoft/40 px-3 py-6 text-center text-sm text-text-muted">
                         Queue clear
                       </div>

@@ -22,7 +22,6 @@ export async function emitAppEvent<T>(eventName: string, payload: T) {
   if (isTauriApp()) {
     const { emit } = await import('@tauri-apps/api/event');
     await emit(eventName, payload);
-    return;
   }
 
   window.dispatchEvent(new CustomEvent(eventName, { detail: payload }));

@@ -34,10 +34,10 @@ const navItems: Array<{ id: MainView; label: string; eyebrow: string }> = [
 const laneOrder: TaskLane[] = ['inbox', 'now', 'next', 'later', 'done'];
 
 const laneLabel: Record<TaskLane, string> = {
-  inbox: 'Queue',
-  now: 'Active',
-  next: 'Next',
-  later: 'Backlog',
+  inbox: 'Inbox',
+  now: 'Do First (Frog)',
+  next: 'Schedule (Next)',
+  later: 'Delegate / Defer',
   done: 'Complete',
 };
 
@@ -220,6 +220,7 @@ function TaskQueueItem({
   onSecondary,
   secondaryLabel,
   primaryLabel,
+  isFrog,
 }: {
   task: Task;
   active: boolean;
@@ -228,6 +229,7 @@ function TaskQueueItem({
   onSecondary: () => void;
   secondaryLabel: string;
   primaryLabel: string;
+  isFrog?: boolean;
 }) {
   return (
     <div
@@ -256,7 +258,10 @@ function TaskQueueItem({
             {task.description || task.raw_input}
           </p>
         </div>
-        <Badge tone={priorityTone(task.priority)}>{humanizePriority(task.priority)}</Badge>
+        <div className="flex flex-col items-end gap-2">
+          <Badge tone={priorityTone(task.priority)}>{humanizePriority(task.priority)}</Badge>
+          {isFrog ? <Badge tone="accent">Eat the frog 🐸</Badge> : null}
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -479,6 +484,7 @@ export function MainApp() {
   const pauseSession = useFocusStore((state) => state.pauseSession);
   const resetSession = useFocusStore((state) => state.resetSession);
   const setFocusStatus = useFocusStore((state) => state.setStatus);
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
 
   const themeId = useThemeStore((state) => state.themeId);
   const setTheme = useThemeStore((state) => state.setTheme);
@@ -816,9 +822,9 @@ export function MainApp() {
             </Card>
           </div>
 
-          <div className="grid min-h-0 gap-5 2xl:grid-cols-4">
+          <div className="flex min-h-0 gap-5 overflow-x-auto pb-4 snap-x scrollbar-hidden">
             {laneCards.map((lane) => (
-              <Card key={lane.lane} className="flex min-h-0 flex-col rounded-[30px] p-5">
+              <Card key={lane.lane} className="flex min-h-0 w-[320px] shrink-0 flex-col rounded-[30px] p-5 snap-start xl:w-[350px]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">
@@ -829,27 +835,58 @@ export function MainApp() {
                   <Badge tone="neutral">{lane.tasks.length}</Badge>
                 </div>
 
-                <div className="scrollbar-hidden mt-5 min-h-0 space-y-3 overflow-y-auto pr-1">
+                <div
+                  className={cn(
+                    "scrollbar-hidden mt-5 min-h-0 space-y-3 overflow-y-auto pr-1 flex-1 transition-colors rounded-xl",
+                    draggingTaskId ? "bg-panel/20 outline-dashed outline-2 outline-borderSoft/30 outline-offset-4" : ""
+                  )}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDraggingTaskId(null);
+                    const taskId = e.dataTransfer.getData('text/plain');
+                    if (!taskId) return;
+                    void moveTaskToLane(taskId, lane.lane, 'main');
+                  }}
+                >
                   {lane.tasks.map((task) => (
-                    <TaskQueueItem
-                      active={task.id === selectedTask?.id}
+                    <div
                       key={task.id}
-                      onPrimary={() => {
-                        if (lane.moveTo === 'done') {
-                          void markDone(task.id, 'main');
-                          return;
-                        }
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggingTaskId(task.id);
+                        e.dataTransfer.setData('text/plain', task.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragEnd={() => setDraggingTaskId(null)}
+                      className={cn(
+                        "cursor-grab active:cursor-grabbing transition-opacity",
+                        draggingTaskId === task.id ? "opacity-50" : "opacity-100"
+                      )}
+                    >
+                      <TaskQueueItem
+                        active={task.id === selectedTask?.id}
+                        onPrimary={() => {
+                          if (lane.moveTo === 'done') {
+                            void markDone(task.id, 'main');
+                            return;
+                          }
 
-                        void moveTaskToLane(task.id, lane.moveTo, 'main');
-                      }}
-                      onSecondary={() => void activateFocusTask(task)}
-                      onSelect={() => {
-                        void openHud(task);
-                      }}
-                      primaryLabel={lane.moveLabel}
-                      secondaryLabel="Focus"
-                      task={task}
-                    />
+                          void moveTaskToLane(task.id, lane.moveTo, 'main');
+                        }}
+                        onSecondary={() => void activateFocusTask(task)}
+                        onSelect={() => {
+                          void openHud(task);
+                        }}
+                        primaryLabel={lane.moveLabel}
+                        secondaryLabel="Focus"
+                        task={task}
+                        isFrog={lane.lane === 'now' && lane.tasks.indexOf(task) === 0}
+                      />
+                    </div>
                   ))}
                   {lane.tasks.length === 0 ? (
                     <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
