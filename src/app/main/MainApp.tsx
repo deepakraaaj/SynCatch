@@ -13,6 +13,7 @@ import {
   getFocusStatusTone,
 } from '../../features/focus/focus-presenter';
 import { useFocusStore } from '../../features/focus/focus-store';
+import type { SyncMode } from '../../features/preferences/preferences-types';
 import { useSettingsStore } from '../../features/settings/settings-store';
 import { generateTaskBrief } from '../../features/tasks/task-intelligence';
 import {
@@ -50,6 +51,16 @@ const navItems: Array<{ id: NavigationView; label: string; eyebrow: string }> = 
 ];
 
 const laneOrder: TaskLane[] = ['inbox', 'now', 'next', 'later', 'done'];
+const syncModeContent: Record<SyncMode, { label: string; caption: string }> = {
+  local: {
+    label: 'Local only',
+    caption: 'Everything stays on this device until you choose to connect cloud sync later.',
+  },
+  cloud: {
+    label: 'Cloud option',
+    caption: 'Prepares the workspace for account sync, mobile visibility, and multi-device access.',
+  },
+};
 
 const laneLabel: Record<TaskLane, string> = {
   inbox: 'Inbox',
@@ -337,6 +348,39 @@ function ThemeTile({
   );
 }
 
+function SettingsChoiceCard({
+  title,
+  description,
+  active,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={cn(
+        'rounded-[24px] border p-5 text-left transition-all',
+        active
+          ? 'border-accent/45 bg-accent/10 shadow-glow'
+          : 'border-borderSoft/35 bg-panel/54 hover:border-borderStrong/40 hover:bg-panel/68',
+      )}
+      onClick={onClick}
+      type="button"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-text-primary">{title}</p>
+          <p className="mt-3 text-sm leading-6 text-text-secondary">{description}</p>
+        </div>
+        <Badge tone={active ? 'accent' : 'neutral'}>{active ? 'Active' : 'Available'}</Badge>
+      </div>
+    </button>
+  );
+}
+
 function SectionHeading({
   label,
   title,
@@ -512,6 +556,8 @@ export function MainApp() {
   const setReduceMotion = useSettingsStore((state) => state.setReduceMotion);
   const focusPromptStyle = useSettingsStore((state) => state.focusPromptStyle);
   const setFocusPromptStyle = useSettingsStore((state) => state.setFocusPromptStyle);
+  const syncMode = useSettingsStore((state) => state.syncMode);
+  const setSyncMode = useSettingsStore((state) => state.setSyncMode);
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
   const currentMission =
@@ -2178,6 +2224,32 @@ export function MainApp() {
               </div>
             </Card>
 
+            <Card className="rounded-[32px] p-6">
+              <SectionHeading
+                label="Data mode"
+                title="Choose how this workspace stores and shares data"
+                action={
+                  <Badge tone={syncMode === 'cloud' ? 'accent' : 'neutral'}>
+                    {syncModeContent[syncMode].label}
+                  </Badge>
+                }
+              />
+              <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                <SettingsChoiceCard
+                  active={syncMode === 'local'}
+                  description="Keep tasks, focus state, and preferences on this device only. Best for a private single-machine setup."
+                  onClick={() => setSyncMode('local')}
+                  title="Local only"
+                />
+                <SettingsChoiceCard
+                  active={syncMode === 'cloud'}
+                  description="Use this when you're ready for sign-in, mobile task access, and future sync across devices. Cloud wiring comes next."
+                  onClick={() => setSyncMode('cloud')}
+                  title="Cloud option"
+                />
+              </div>
+            </Card>
+
             <div className="grid gap-5 xl:grid-cols-2">
               <Card className="rounded-[28px] p-5">
                 <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Motion</p>
@@ -2209,15 +2281,23 @@ export function MainApp() {
 
           <div className="space-y-5">
             <StudioMetricCard
+              caption={syncModeContent[syncMode].caption}
+              label="Data mode"
+              tone={syncMode === 'cloud' ? 'accent' : 'neutral'}
+              value={syncModeContent[syncMode].label}
+            />
+            <StudioMetricCard
               caption={activeTheme.eyebrow}
-              label="Primary mode"
+              label="Theme"
               tone="neutral"
               value={activeTheme.name}
             />
             <Card className="rounded-[28px] p-5">
-              <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Notes</p>
+              <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">What changes</p>
               <p className="mt-4 text-sm leading-7 text-text-secondary">
-                {activeTheme.description} This palette now flows through the main workspace, HUD, and quick add surfaces.
+                {syncMode === 'local'
+                  ? 'Local only keeps the app fast and private on this machine. Nothing new leaves the device unless you switch to cloud later.'
+                  : 'Cloud option marks this workspace as ready for sign-in, mobile visibility, and central monitoring once the backend is connected.'}
               </p>
             </Card>
           </div>

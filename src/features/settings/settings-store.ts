@@ -3,6 +3,7 @@ import { emitAppEvent, SETTINGS_CHANGED_EVENT } from '../../lib/tauri';
 import { getPreferencesRepository } from '../preferences/preferences-repository';
 import {
   DEFAULT_SETTINGS_SNAPSHOT,
+  type SyncMode,
   type SettingsSnapshot,
 } from '../preferences/preferences-types';
 
@@ -11,6 +12,7 @@ interface SettingsState extends SettingsSnapshot {
   hydrate: () => Promise<void>;
   setReduceMotion: (reduceMotion: boolean) => void;
   setFocusPromptStyle: (style: 'gentle' | 'direct') => void;
+  setSyncMode: (mode: SyncMode) => void;
   syncFromExternal: (state: SettingsSnapshot) => void;
 }
 
@@ -29,6 +31,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       reduceMotion: get().reduceMotion,
       quickAddShortcut: get().quickAddShortcut,
       focusPromptStyle: get().focusPromptStyle,
+      syncMode: get().syncMode,
     };
 
     void persistSettings(snapshot);
@@ -58,6 +61,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     },
     setFocusPromptStyle: (focusPromptStyle) => {
       set({ focusPromptStyle });
+      commitSettingsUpdate();
+    },
+    setSyncMode: (syncMode) => {
+      set({ syncMode });
       commitSettingsUpdate();
     },
     syncFromExternal: (state) => {
