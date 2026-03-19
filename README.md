@@ -26,6 +26,20 @@
 
 ---
 
+## 🪟 Install On Windows
+
+If you just want to use MissionControl on Windows, start here:
+
+1. Open the [latest release](https://github.com/deepakraaaj/MissionControl/releases/latest).
+2. Under **Assets**, download the Windows installer (`.msi` or `.exe`).
+3. Double-click the installer and keep the default options.
+4. Open **MissionControl** from the Start menu.
+5. In **Settings**, enable **Launch at login** if you want the HUD ready when Windows starts.
+
+**No Node.js, Rust, or terminal setup required for normal use.**
+
+---
+
 ## ✨ What Makes MissionControl Different
 
 MissionControl isn't another task app. It's a **focus operating system** for your desktop.
@@ -148,7 +162,9 @@ MissionControl
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ Developer Setup
+
+If you want to run or build MissionControl from source, use the steps below.
 
 ### Prerequisites
 - **Node.js** ≥ 18
