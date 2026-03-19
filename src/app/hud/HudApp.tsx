@@ -12,8 +12,10 @@ import type { Task, TaskLane } from '../../features/tasks/task-types';
 import { formatMinutes, getElapsedSeconds } from '../../lib/date';
 import { cn } from '../../lib/cn';
 import {
+  emitAppEvent,
   hideCurrentWindow,
   isTauriApp,
+  OPEN_TASK_DETAIL_EVENT,
   SHOW_COMPACT_HUD_EVENT,
   showMainWindow,
   showQuickAddWindow,
@@ -342,10 +344,8 @@ export function HudApp() {
   const setHudMode = useFocusStore((state) => state.setHudMode);
   const toggleHudMode = useFocusStore((state) => state.toggleHudMode);
   const toggleHudTransparency = useFocusStore((state) => state.toggleHudTransparency);
-  const resetSession = useFocusStore((state) => state.resetSession);
   const tasks = useTaskStore((state) => state.tasks);
   const createTask = useTaskStore((state) => state.createTask);
-  const markDone = useTaskStore((state) => state.markDone);
   const moveTaskToLane = useTaskStore((state) => state.moveTaskToLane);
   const toggleSubtask = useTaskStore((state) => state.toggleSubtask);
   const [elapsedSeconds, setElapsedSeconds] = useState(
@@ -569,15 +569,17 @@ export function HudApp() {
     startSession(undefined, 'hud');
   }
 
-  async function finishMission() {
-    const nextTask = activeQueue[0] ?? null;
-
-    if (currentMission) {
-      await markDone(currentMission.id, 'hud');
-      setCurrentMission(nextTask?.id ?? null, 'hud');
+  async function openTaskCompletionReview() {
+    if (!currentMission) {
+      return;
     }
 
-    resetSession('hud');
+    await showMainWindow();
+    await emitAppEvent(OPEN_TASK_DETAIL_EVENT, {
+      taskId: currentMission.id,
+      mode: 'completion-review',
+    });
+    await hideCurrentWindow();
   }
 
   function resetHudTaskComposer() {
@@ -1238,7 +1240,7 @@ export function HudApp() {
                     icon={<CompleteIcon />}
                     label="Complete task"
                     onClick={() => {
-                      void finishMission();
+                      void openTaskCompletionReview();
                     }}
                     variant="primary"
                   />
@@ -1276,43 +1278,52 @@ export function HudApp() {
                   {displayClock}
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        'h-2 w-2 rounded-full',
-                        isSessionRunning
-                          ? 'bg-accent'
-                          : hasPausedProgress
-                            ? 'bg-warning/80'
-                            : 'bg-text-muted/45',
-                      )}
-                      title={focusStatusLabel}
-                    />
-                  </div>
-                  <button
-                    className="mt-1 block max-w-full truncate pr-1 text-left text-[15px] font-semibold leading-5 text-text-primary transition hover:text-accent"
-                    onClick={() => {
-                      if (currentMission) {
-                        showTaskInHud(currentMission, true);
-                        return;
-                      }
-
-                      toggleHudMode('hud');
-                    }}
-                    title={currentMission?.title ?? 'No task selected'}
-                    type="button"
-                  >
-                    {currentMission?.title ?? 'No task selected'}
-                  </button>
-                  {currentMission && (isSessionRunning || hasPausedProgress) ? (
-                    <div className="mt-2 h-[3px] rounded-full bg-borderSoft/40">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-accent/50 to-accent"
-                        style={{ width: getProgressWidth(progressRatio) }}
+                <div className="flex min-w-0 flex-1 items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          'h-2 w-2 rounded-full',
+                          isSessionRunning
+                            ? 'bg-accent'
+                            : hasPausedProgress
+                              ? 'bg-warning/80'
+                              : 'bg-text-muted/45',
+                        )}
+                        title={focusStatusLabel}
                       />
                     </div>
-                  ) : null}
+                    <button
+                      className="mt-1 block max-w-full truncate pr-1 text-left text-[15px] font-semibold leading-5 text-text-primary transition hover:text-accent"
+                      onClick={() => {
+                        if (currentMission) {
+                          showTaskInHud(currentMission, true);
+                          return;
+                        }
+
+                        toggleHudMode('hud');
+                      }}
+                      title={currentMission?.title ?? 'No task selected'}
+                      type="button"
+                    >
+                      {currentMission?.title ?? 'No task selected'}
+                    </button>
+                    {currentMission && (isSessionRunning || hasPausedProgress) ? (
+                      <div className="mt-2 h-[3px] rounded-full bg-borderSoft/40">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-accent/50 to-accent"
+                          style={{ width: getProgressWidth(progressRatio) }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <HudActionButton
+                    className="mt-1 h-8 w-8"
+                    icon={<ChevronIcon expanded={compactHudExpanded} />}
+                    label="Shrink compact HUD"
+                    onClick={toggleCompactHudExpanded}
+                    variant="ghost"
+                  />
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderStrong/25 bg-panel2/74 p-1">
@@ -1320,8 +1331,8 @@ export function HudApp() {
                     className={cn(
                       'flex items-center gap-1 overflow-hidden transition-[max-width,opacity,margin,transform] duration-200 ease-out',
                       showCompactTaskPicker || showCompactTaskComposer || showCompactDistractionComposer
-                        ? 'mr-1 max-w-[204px] opacity-100'
-                        : 'mr-0 max-w-0 translate-x-1 opacity-0 group-hover:mr-1 group-hover:max-w-[204px] group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:mr-1 group-focus-within:max-w-[204px] group-focus-within:translate-x-0 group-focus-within:opacity-100',
+                        ? 'mr-1 max-w-[320px] opacity-100'
+                        : 'mr-0 max-w-0 translate-x-1 opacity-0 group-hover:mr-1 group-hover:max-w-[320px] group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:mr-1 group-focus-within:max-w-[320px] group-focus-within:translate-x-0 group-focus-within:opacity-100',
                     )}
                   >
                     <HudActionButton
@@ -1351,21 +1362,15 @@ export function HudApp() {
                       label="Expand HUD"
                       onClick={() => toggleHudMode('hud')}
                     />
+                    <HudActionButton
+                      className="h-9 w-9"
+                      icon={<AppIcon />}
+                      label="Open app"
+                      onClick={() => {
+                        void showMainWindow();
+                      }}
+                    />
                   </div>
-                  <HudActionButton
-                    className="h-9 w-9"
-                    icon={<AppIcon />}
-                    label="Open app"
-                    onClick={() => {
-                      void showMainWindow();
-                    }}
-                  />
-                  <HudActionButton
-                    className="h-9 w-9"
-                    icon={<ChevronIcon expanded={compactHudExpanded} />}
-                    label="Collapse compact HUD"
-                    onClick={toggleCompactHudExpanded}
-                  />
                   <HudActionButton
                     className="h-9 w-9"
                     disabled={!currentMission}
@@ -1379,9 +1384,18 @@ export function HudApp() {
                     icon={<CompleteIcon />}
                     label="Complete task"
                     onClick={() => {
-                      void finishMission();
+                      void openTaskCompletionReview();
                     }}
                     variant="primary"
+                  />
+                  <HudActionButton
+                    className="h-8 w-8"
+                    icon={<CloseIcon />}
+                    label="Hide compact HUD"
+                    onClick={() => {
+                      void hideCurrentWindow();
+                    }}
+                    variant="ghost"
                   />
                 </div>
               </div>
@@ -1391,47 +1405,42 @@ export function HudApp() {
                   {displayClock}
                 </div>
 
-                <button
-                  className="min-w-0 pr-1 text-left"
-                  onClick={() => {
-                    toggleCompactHudExpanded();
-                  }}
-                  title={currentMission?.title ?? 'No task selected'}
-                  type="button"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        'h-2 w-2 shrink-0 rounded-full',
-                        isSessionRunning
-                          ? 'bg-accent'
-                          : hasPausedProgress
-                            ? 'bg-warning/80'
-                            : 'bg-text-muted/45',
-                      )}
-                      title={focusStatusLabel}
-                    />
-                    <span className="truncate text-[13px] font-semibold leading-4 text-text-primary">
-                      {currentMission?.title ?? 'No task selected'}
-                    </span>
-                  </div>
-                </button>
-
-                <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderStrong/25 bg-panel2/74 p-1">
-                  <HudActionButton
-                    className="h-9 w-9"
-                    icon={<AppIcon />}
-                    label="Open app"
+                <div className="flex min-w-0 items-center gap-1">
+                  <button
+                    className="min-w-0 flex-1 pr-1 text-left"
                     onClick={() => {
-                      void showMainWindow();
+                      toggleCompactHudExpanded();
                     }}
-                  />
+                    title={currentMission?.title ?? 'No task selected'}
+                    type="button"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          'h-2 w-2 shrink-0 rounded-full',
+                          isSessionRunning
+                            ? 'bg-accent'
+                            : hasPausedProgress
+                              ? 'bg-warning/80'
+                              : 'bg-text-muted/45',
+                        )}
+                        title={focusStatusLabel}
+                      />
+                      <span className="truncate text-[13px] font-semibold leading-4 text-text-primary">
+                        {currentMission?.title ?? 'No task selected'}
+                      </span>
+                    </div>
+                  </button>
                   <HudActionButton
-                    className="h-9 w-9"
+                    className="h-8 w-8"
                     icon={<ChevronIcon expanded={compactHudExpanded} />}
                     label="Expand compact HUD"
                     onClick={toggleCompactHudExpanded}
+                    variant="ghost"
                   />
+                </div>
+
+                <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderStrong/25 bg-panel2/74 p-1">
                   <HudActionButton
                     className="h-9 w-9"
                     disabled={!currentMission}
@@ -1445,9 +1454,18 @@ export function HudApp() {
                     icon={<CompleteIcon />}
                     label="Complete task"
                     onClick={() => {
-                      void finishMission();
+                      void openTaskCompletionReview();
                     }}
                     variant="primary"
+                  />
+                  <HudActionButton
+                    className="h-8 w-8"
+                    icon={<CloseIcon />}
+                    label="Hide compact HUD"
+                    onClick={() => {
+                      void hideCurrentWindow();
+                    }}
+                    variant="ghost"
                   />
                 </div>
               </div>

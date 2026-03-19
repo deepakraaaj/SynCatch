@@ -28,6 +28,24 @@ function isSnapBackedValue(value) {
   return typeof value === 'string' && (value.includes('/snap/') || value.includes('/var/lib/snapd/'));
 }
 
+function hasLinuxDisplay(sourceEnv) {
+  return Boolean(sourceEnv.DISPLAY || sourceEnv.WAYLAND_DISPLAY);
+}
+
+function normalizeLinuxDisplayBackend(sourceEnv) {
+  const hasX11Display = Boolean(sourceEnv.DISPLAY);
+  const hasWaylandDisplay = Boolean(sourceEnv.WAYLAND_DISPLAY);
+  const configuredBackend = sourceEnv.GDK_BACKEND?.trim().toLowerCase();
+
+  if (hasX11Display && !hasWaylandDisplay && (!configuredBackend || configuredBackend === 'wayland')) {
+    sourceEnv.GDK_BACKEND = 'x11';
+  }
+
+  if (hasWaylandDisplay && !hasX11Display && (!configuredBackend || configuredBackend === 'x11')) {
+    sourceEnv.GDK_BACKEND = 'wayland';
+  }
+}
+
 function sanitizeLinuxDesktopEnv(sourceEnv) {
   if (process.platform !== 'linux') {
     return { ...sourceEnv };
@@ -67,6 +85,20 @@ function sanitizeLinuxDesktopEnv(sourceEnv) {
     nextEnv.XDG_DATA_DIRS = SYSTEM_XDG_DATA_DIRS;
   }
 
+  normalizeLinuxDisplayBackend(nextEnv);
+
+  // Recent WebKitGTK builds can abort on startup when GBM/EGL-backed
+  // compositing or WebGL initialization hits unsupported Linux driver paths.
+  for (const key of [
+    'WEBKIT_DISABLE_DMABUF_RENDERER',
+    'WEBKIT_DMABUF_RENDERER_DISABLE_GBM',
+    'WEBKIT_WEBGL_DISABLE_GBM',
+  ]) {
+    if (!nextEnv[key]) {
+      nextEnv[key] = '1';
+    }
+  }
+
   return nextEnv;
 }
 
@@ -96,11 +128,30 @@ function printTauriHelp() {
   console.error('');
 }
 
+function printLinuxDisplayHelp() {
+  console.error('');
+  console.error('MissionControl could not find a Linux desktop display session.');
+  console.error('');
+  console.error('Expected one of these to be set:');
+  console.error('- DISPLAY for X11');
+  console.error('- WAYLAND_DISPLAY for Wayland');
+  console.error('');
+  console.error('Fix options:');
+  console.error('1. Run MissionControl from a terminal inside your desktop session');
+  console.error('2. Or export DISPLAY / WAYLAND_DISPLAY before launching Tauri');
+  console.error('');
+}
+
 const hasRepoToolchain = existsSync(cargoBinary) || existsSync(rustupBinary);
 const env = sanitizeLinuxDesktopEnv({
   ...process.env,
   PATH: [cargoBinDir, process.env.PATH].filter(Boolean).join(path.delimiter),
 });
+
+if (process.platform === 'linux' && !hasLinuxDisplay(env)) {
+  printLinuxDisplayHelp();
+  process.exit(1);
+}
 
 if (hasRepoToolchain) {
   env.CARGO_HOME = cargoHome;

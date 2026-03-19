@@ -7,6 +7,13 @@ export const THEME_CHANGED_EVENT = 'missioncontrol://theme-changed';
 export const SETTINGS_CHANGED_EVENT = 'missioncontrol://settings-changed';
 export const TOGGLE_HUD_TRANSPARENCY_EVENT = 'missioncontrol://toggle-hud-transparency';
 export const SHOW_COMPACT_HUD_EVENT = 'missioncontrol://show-compact-hud';
+export const OPEN_TASK_DETAIL_EVENT = 'missioncontrol://open-task-detail';
+
+export interface OpenTaskDetailPayload {
+  taskId: string;
+  mode?: 'default' | 'completion-review';
+}
+
 const HUD_WIDTH = 360;
 const HUD_HEIGHT = 78;
 export const QUICK_ADD_WIDTH = 540;

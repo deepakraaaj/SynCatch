@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { KeyboardEvent, ReactNode } from 'react';
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import {
   listRecentActivity,
   logActivity,
@@ -31,7 +31,8 @@ import { formatElapsedClock, formatMinutes, formatRelativeTime } from '../../lib
 import {
   ACTIVITY_CHANGED_EVENT,
   isTauriApp,
-  quitMissionControl,
+  OPEN_TASK_DETAIL_EVENT,
+  type OpenTaskDetailPayload,
   showHudWindow,
   showQuickAddWindow,
   subscribeAppEvent,
@@ -527,10 +528,10 @@ export function MainApp() {
   const [taskEditorMode, setTaskEditorMode] = useState<'simple' | 'advanced'>('simple');
   const [isRefreshingBrief, setIsRefreshingBrief] = useState(false);
   const [isSavingTask, setIsSavingTask] = useState(false);
+  const [isCompletingTask, setIsCompletingTask] = useState(false);
   const [isSavingWorkspaceNotes, setIsSavingWorkspaceNotes] = useState(false);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
-  const isClosingApp = useRef(false);
-
+  const [completionReviewTaskId, setCompletionReviewTaskId] = useState<string | null>(null);
   const tasks = useTaskStore((state) => state.tasks);
   const selectedTaskId = useTaskStore((state) => state.selectedTaskId);
   const createTask = useTaskStore((state) => state.createTask);
@@ -605,6 +606,7 @@ export function MainApp() {
   const focusChecklistCompleted = focusMission ? getCompletedSubtasks(focusMission) : 0;
   const focusOpenQuestions = focusMission ? getOpenQuestionCount(focusMission) : 0;
   const detailChecklistCompleted = detailTask ? getCompletedSubtasks(detailTask) : 0;
+  const isCompletionReview = detailTask?.id === completionReviewTaskId;
   const taskDraftChanged =
     Boolean(detailTask && selectedTask) &&
     JSON.stringify(detailTask) !== JSON.stringify(selectedTask);
@@ -623,6 +625,12 @@ export function MainApp() {
 
     setTaskDraft(cloneTask(selectedTask));
   }, [selectedTask]);
+
+  useEffect(() => {
+    if (activeView !== 'task' && completionReviewTaskId) {
+      setCompletionReviewTaskId(null);
+    }
+  }, [activeView, completionReviewTaskId]);
 
   useEffect(() => {
     setWorkspaceNotesDraft(focusMission?.workspace_notes ?? '');
@@ -677,18 +685,12 @@ export function MainApp() {
       const currentWindow = getCurrentWindow();
 
       unlisten = await currentWindow.onCloseRequested(async (event) => {
-        if (isClosingApp.current) {
-          return;
-        }
-
         event.preventDefault();
-        isClosingApp.current = true;
 
         try {
-          await quitMissionControl();
+          await currentWindow.hide();
         } catch (error) {
-          console.error('Unable to close MissionControl', error);
-          isClosingApp.current = false;
+          console.error('Unable to hide MissionControl', error);
         }
       });
     });
@@ -721,6 +723,15 @@ export function MainApp() {
   const openTaskDetail = (task: Task, nextReturnView?: NavigationView) => {
     selectTask(task.id);
     setTaskEditorMode('simple');
+    setCompletionReviewTaskId(null);
+    setTaskReturnView(nextReturnView ?? (activeView === 'task' ? taskReturnView : (activeView as NavigationView)));
+    setActiveView('task');
+  };
+
+  const openTaskCompletionReview = (task: Task, nextReturnView?: NavigationView) => {
+    selectTask(task.id);
+    setTaskEditorMode('advanced');
+    setCompletionReviewTaskId(task.id);
     setTaskReturnView(nextReturnView ?? (activeView === 'task' ? taskReturnView : (activeView as NavigationView)));
     setActiveView('task');
   };
@@ -755,6 +766,31 @@ export function MainApp() {
       await saveTask(sanitized, 'main');
     } finally {
       setIsSavingTask(false);
+    }
+  };
+
+  const completeTaskAfterReview = async (task: Task) => {
+    const nextTask = sanitizeTask(task);
+    const nextMission =
+      currentMissionId === nextTask.id
+        ? tasks.find((candidate) => candidate.id !== nextTask.id && candidate.lane === 'now' && candidate.status !== 'done') ?? null
+        : null;
+
+    setIsCompletingTask(true);
+
+    try {
+      await saveTaskDetail(nextTask);
+      await markDone(nextTask.id, 'main');
+
+      if (currentMissionId === nextTask.id) {
+        setCurrentMission(nextMission?.id ?? null, 'main');
+        resetSession('main');
+      }
+
+      setCompletionReviewTaskId(null);
+      setActiveView(taskReturnView);
+    } finally {
+      setIsCompletingTask(false);
     }
   };
 
@@ -820,6 +856,27 @@ export function MainApp() {
     }
   };
 
+  useEffect(() => {
+    const unsubscribe = subscribeAppEvent<OpenTaskDetailPayload>(OPEN_TASK_DETAIL_EVENT, (payload) => {
+      const requestedTask = tasks.find((task) => task.id === payload.taskId);
+
+      if (!requestedTask) {
+        return;
+      }
+
+      const nextReturnView = activeView === 'task' ? taskReturnView : (activeView as NavigationView);
+      selectTask(requestedTask.id);
+      setTaskEditorMode(payload.mode === 'completion-review' ? 'advanced' : 'simple');
+      setCompletionReviewTaskId(payload.mode === 'completion-review' ? requestedTask.id : null);
+      setTaskReturnView(nextReturnView);
+      setActiveView('task');
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [activeView, selectTask, taskReturnView, tasks]);
+
   const captureWorkspaceTask = async () => {
     if (!captureDraft.trim()) {
       return;
@@ -845,8 +902,10 @@ export function MainApp() {
         : activeView === 'focus'
           ? 'Task Workspace'
           : activeView === 'task'
-            ? 'Task Detail'
-          : 'Settings';
+            ? isCompletionReview
+              ? 'Completion Review'
+              : 'Task Detail'
+            : 'Settings';
 
   const pageHeaderDescription =
     activeView === 'inbox'
@@ -856,8 +915,10 @@ export function MainApp() {
         : activeView === 'focus'
           ? 'Keep one task in front of you while the rest stays out of the way.'
           : activeView === 'task'
-            ? 'Use the simple view by default. Open advanced edit only when you actually need it.'
-          : 'Adjust the app to match how you like to work.';
+            ? isCompletionReview
+              ? 'Capture final notes and update the task before you mark it complete.'
+              : 'Use the simple view by default. Open advanced edit only when you actually need it.'
+            : 'Adjust the app to match how you like to work.';
 
   const page = (
     <motion.div
@@ -1223,14 +1284,21 @@ export function MainApp() {
                   <div>
                     <button
                       className="text-[11px] uppercase tracking-[0.28em] text-text-muted transition hover:text-text-primary"
-                      onClick={() => setActiveView(taskReturnView)}
+                      onClick={() => {
+                        setCompletionReviewTaskId(null);
+                        setActiveView(taskReturnView);
+                      }}
                       type="button"
                     >
                       Back to {taskReturnView === 'inbox' ? 'dashboard' : taskReturnView}
                     </button>
-                    <p className="mt-4 text-[10px] uppercase tracking-[0.3em] text-accent/80">Task detail</p>
+                    <p className="mt-4 text-[10px] uppercase tracking-[0.3em] text-accent/80">
+                      {isCompletionReview ? 'Completion review' : 'Task detail'}
+                    </p>
                     <p className="mt-2 max-w-xl text-sm leading-7 text-text-secondary">
-                      Use this page only when the task needs more context than a quick capture.
+                      {isCompletionReview
+                        ? 'Add final notes, update anything that changed, then finish with Save Notes & Complete.'
+                        : 'Use this page only when the task needs more context than a quick capture.'}
                     </p>
                   </div>
 
@@ -1251,11 +1319,29 @@ export function MainApp() {
                     <Button
                       disabled={!taskDraftChanged || isSavingTask}
                       onClick={() => void saveTaskDetail(detailTask)}
+                      variant={isCompletionReview ? 'secondary' : 'primary'}
                     >
                       {isSavingTask ? 'Saving' : 'Save Task'}
                     </Button>
+                    {isCompletionReview ? (
+                      <Button
+                        disabled={isSavingTask || isCompletingTask}
+                        onClick={() => void completeTaskAfterReview(detailTask)}
+                      >
+                        {isCompletingTask ? 'Completing' : 'Save Notes & Complete'}
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
+
+                {isCompletionReview ? (
+                  <div className="mt-6 rounded-[24px] border border-success/30 bg-success/10 p-5">
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-success">Before you finish</p>
+                    <p className="mt-3 text-sm leading-6 text-text-primary">
+                      Capture the outcome, final notes, or follow-up context here so this completed task stays useful later.
+                    </p>
+                  </div>
+                ) : null}
 
                 <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_220px]">
                   <div>
@@ -1806,8 +1892,19 @@ export function MainApp() {
                   >
                     Open Workspace
                   </Button>
-                  <Button onClick={() => void markDone(detailTask.id, 'main')} variant="ghost">
-                    Mark Done
+                  <Button
+                    disabled={isSavingTask || isCompletingTask}
+                    onClick={() => {
+                      if (isCompletionReview) {
+                        void completeTaskAfterReview(detailTask);
+                        return;
+                      }
+
+                      openTaskCompletionReview(detailTask);
+                    }}
+                    variant={isCompletionReview ? 'primary' : 'ghost'}
+                  >
+                    {isCompletionReview ? (isCompletingTask ? 'Completing' : 'Save Notes & Complete') : 'Review Before Done'}
                   </Button>
                 </div>
               </Card>
