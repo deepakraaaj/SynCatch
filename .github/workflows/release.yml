@@ -1,5 +1,8 @@
 name: release
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   workflow_dispatch:
   push:
@@ -15,9 +18,9 @@ jobs:
       matrix:
         include:
           - platform: ubuntu-22.04
-            args: ''
+            args: '--bundles deb --verbose'
           - platform: windows-latest
-            args: ''
+            args: '--bundles nsis --verbose'
 
     runs-on: ${{ matrix.platform }}
 
