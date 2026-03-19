@@ -52,7 +52,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
 
       - name: Install Rust stable
@@ -68,7 +68,10 @@ jobs:
 
       - name: Build desktop bundle
         shell: bash
-        run: node scripts/run-tauri.mjs build ${{ matrix.tauri_args }}
+        run: |
+          set -o pipefail
+          mkdir -p ci-logs
+          node scripts/run-tauri.mjs build ${{ matrix.tauri_args }} 2>&1 | tee "ci-logs/${{ matrix.artifact_name }}.log"
 
       - name: Upload release asset
         uses: actions/upload-artifact@v4
@@ -76,6 +79,14 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-logs
+          path: ci-logs/*.log
+          if-no-files-found: ignore
 
   publish:
     name: publish release
@@ -88,6 +99,13 @@ jobs:
       - name: Download release assets
         uses: actions/download-artifact@v4
         with:
+          name: ubuntu-deb
+          path: release-assets/ubuntu-deb
+
+      - name: Download Windows release asset
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-nsis
           path: release-assets
 
       - name: Publish GitHub release
