@@ -26,17 +26,34 @@
 
 ---
 
-## 🪟 Install On Windows
+## 💿 Install MissionControl
 
-If you just want to use MissionControl on Windows, start here:
+If you just want to use MissionControl and not build it from source, start with the packaged release:
 
-1. Open the [latest release](https://github.com/deepakraaaj/MissionControl/releases/latest).
+- **Releases:** [github.com/deepakraaaj/MissionControl/releases/latest](https://github.com/deepakraaaj/MissionControl/releases/latest)
+- If the releases page is empty, the packaged installers have not been published yet.
+
+### Windows
+
+1. Open the latest release.
 2. Under **Assets**, download the Windows installer (`.msi` or `.exe`).
 3. Double-click the installer and keep the default options.
 4. Open **MissionControl** from the Start menu.
 5. In **Settings**, enable **Launch at login** if you want the HUD ready when Windows starts.
 
-**No Node.js, Rust, or terminal setup required for normal use.**
+### Ubuntu
+
+1. Open the latest release.
+2. Under **Assets**, download the Ubuntu package (`.deb`).
+3. Double-click the `.deb` file and click **Install** in App Center or your package installer.
+4. If you prefer terminal install, run:
+   ```bash
+   sudo apt install ./MissionControl_0.1.0_amd64.deb
+   ```
+5. Open **MissionControl** from the app launcher.
+6. In **Settings**, enable **Launch at login** if you want the HUD ready when Ubuntu starts.
+
+**No Node.js, Rust, or terminal setup is required for normal use.**
 
 ---
 
