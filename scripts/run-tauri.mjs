@@ -15,6 +15,12 @@ const rustupHome = process.env.RUSTUP_HOME || repoRustupHome;
 const cargoBinDir = path.join(cargoHome, 'bin');
 const cargoBinary = path.join(cargoBinDir, process.platform === 'win32' ? 'cargo.exe' : 'cargo');
 const rustupBinary = path.join(cargoBinDir, process.platform === 'win32' ? 'rustup.exe' : 'rustup');
+const localTauriBinary = path.join(
+  repoRoot,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'tauri.cmd' : 'tauri',
+);
 const SYSTEM_XDG_DATA_DIRS = '/usr/local/share:/usr/share';
 
 function isSnapBackedValue(value) {
@@ -77,6 +83,18 @@ function printRustHelp() {
   console.error('');
 }
 
+function printTauriHelp() {
+  console.error('');
+  console.error('MissionControl could not find the local Tauri CLI binary.');
+  console.error('');
+  console.error(`Expected: ${localTauriBinary}`);
+  console.error('');
+  console.error('Fix options:');
+  console.error('1. Run npm install to restore node_modules');
+  console.error('2. Or install the Tauri CLI globally and rerun the command');
+  console.error('');
+}
+
 const hasRepoToolchain = existsSync(cargoBinary) || existsSync(rustupBinary);
 const env = sanitizeLinuxDesktopEnv({
   ...process.env,
@@ -89,10 +107,14 @@ if (hasRepoToolchain) {
 }
 
 const args = process.argv.slice(2);
-const tauriArgs = args.length > 0 ? ['tauri', ...args] : ['tauri'];
-const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const tauriArgs = args;
+const tauriCommand = existsSync(localTauriBinary)
+  ? localTauriBinary
+  : process.platform === 'win32'
+    ? 'tauri.cmd'
+    : 'tauri';
 
-const child = spawn(npxCommand, tauriArgs, {
+const child = spawn(tauriCommand, tauriArgs, {
   cwd: repoRoot,
   env,
   stdio: 'inherit',
@@ -100,7 +122,11 @@ const child = spawn(npxCommand, tauriArgs, {
 
 child.on('error', (error) => {
   if (error.message.includes('ENOENT')) {
-    printRustHelp();
+    if (!existsSync(localTauriBinary)) {
+      printTauriHelp();
+    } else {
+      printRustHelp();
+    }
   } else {
     console.error(error.message);
   }
