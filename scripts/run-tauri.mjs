@@ -15,11 +15,12 @@ const rustupHome = process.env.RUSTUP_HOME || repoRustupHome;
 const cargoBinDir = path.join(cargoHome, 'bin');
 const cargoBinary = path.join(cargoBinDir, process.platform === 'win32' ? 'cargo.exe' : 'cargo');
 const rustupBinary = path.join(cargoBinDir, process.platform === 'win32' ? 'rustup.exe' : 'rustup');
-const localTauriBinary = path.join(
+const localTauriEntry = path.join(
   repoRoot,
   'node_modules',
-  '.bin',
-  process.platform === 'win32' ? 'tauri.cmd' : 'tauri',
+  '@tauri-apps',
+  'cli',
+  'tauri.js',
 );
 const SYSTEM_XDG_DATA_DIRS = '/usr/local/share:/usr/share';
 
@@ -85,9 +86,9 @@ function printRustHelp() {
 
 function printTauriHelp() {
   console.error('');
-  console.error('MissionControl could not find the local Tauri CLI binary.');
+  console.error('MissionControl could not find the local Tauri CLI entrypoint.');
   console.error('');
-  console.error(`Expected: ${localTauriBinary}`);
+  console.error(`Expected: ${localTauriEntry}`);
   console.error('');
   console.error('Fix options:');
   console.error('1. Run npm install to restore node_modules');
@@ -107,12 +108,10 @@ if (hasRepoToolchain) {
 }
 
 const args = process.argv.slice(2);
-const tauriArgs = args;
-const tauriCommand = existsSync(localTauriBinary)
-  ? localTauriBinary
-  : process.platform === 'win32'
-    ? 'tauri.cmd'
-    : 'tauri';
+const tauriArgs = existsSync(localTauriEntry)
+  ? [localTauriEntry, ...args]
+  : args;
+const tauriCommand = existsSync(localTauriEntry) ? process.execPath : 'tauri';
 
 const child = spawn(tauriCommand, tauriArgs, {
   cwd: repoRoot,
@@ -122,7 +121,7 @@ const child = spawn(tauriCommand, tauriArgs, {
 
 child.on('error', (error) => {
   if (error.message.includes('ENOENT')) {
-    if (!existsSync(localTauriBinary)) {
+    if (!existsSync(localTauriEntry)) {
       printTauriHelp();
     } else {
       printRustHelp();
