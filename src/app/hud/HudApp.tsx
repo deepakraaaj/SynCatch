@@ -11,7 +11,14 @@ import { useTaskStore } from '../../features/tasks/task-store';
 import type { Task, TaskLane } from '../../features/tasks/task-types';
 import { formatMinutes, getElapsedSeconds } from '../../lib/date';
 import { cn } from '../../lib/cn';
-import { hideCurrentWindow, isTauriApp, showMainWindow, showQuickAddWindow } from '../../lib/tauri';
+import {
+  hideCurrentWindow,
+  isTauriApp,
+  SHOW_COMPACT_HUD_EVENT,
+  showMainWindow,
+  showQuickAddWindow,
+  subscribeAppEvent,
+} from '../../lib/tauri';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Input, Textarea } from '../../components/ui/input';
@@ -406,6 +413,21 @@ export function HudApp() {
     hasNormalizedLaunchHudMode.current = true;
     setHudMode('compact');
   }, [focusHydrated, setHudMode]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAppEvent(SHOW_COMPACT_HUD_EVENT, () => {
+      setHudMode('compact');
+      setShowCompactTaskPicker(false);
+      setShowCompactTaskComposer(false);
+      setShowCompactDistractionComposer(false);
+      setIsCompactHudExpanded(false);
+      setShowTaskDetails(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [setHudMode]);
 
   useEffect(() => {
     if (!isTauriApp()) {

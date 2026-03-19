@@ -3,6 +3,14 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 
 const DATABASE_PATH: &str = "sqlite:mission-control.db";
 const TOGGLE_HUD_TRANSPARENCY_EVENT: &str = "missioncontrol://toggle-hud-transparency";
+const SHOW_COMPACT_HUD_EVENT: &str = "missioncontrol://show-compact-hud";
+const AUTOSTART_LAUNCH_ARG: &str = "--autostart";
+
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 fn database_migrations() -> Vec<Migration> {
     vec![
         Migration {
@@ -106,11 +114,14 @@ fn show_quick_add(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-fn prepare_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
+fn is_autostart_launch() -> bool {
+    std::env::args().any(|arg| arg == AUTOSTART_LAUNCH_ARG)
+}
+
+fn prepare_autostart_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("hud") {
         window.show()?;
         window.unminimize()?;
-        window.set_focus()?;
     }
 
     if let Some(window) = app.get_webview_window("quick-add") {
@@ -124,9 +135,40 @@ fn prepare_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+fn prepare_manual_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.hide()?;
+    }
+
+    if let Some(window) = app.get_webview_window("quick-add") {
+        window.hide()?;
+    }
+
+    if let Some(window) = app.get_webview_window("hud") {
+        window.show()?;
+        window.unminimize()?;
+        window.set_focus()?;
+        app.emit_to("hud", SHOW_COMPACT_HUD_EVENT, ())?;
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Err(error) = prepare_manual_launch_windows(&app) {
+                eprintln!("single instance relaunch error: {error}");
+            }
+        }));
+    }
+
+    builder
+        .invoke_handler(tauri::generate_handler![quit_app])
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations(DATABASE_PATH, database_migrations())
@@ -135,16 +177,23 @@ pub fn run() {
         .setup(|app| {
             #[cfg(desktop)]
             {
+                use tauri_plugin_autostart::MacosLauncher;
                 use tauri_plugin_global_shortcut::{
                     Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
                 };
 
+                let launched_from_autostart = is_autostart_launch();
                 let quick_add_shortcut =
                     Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
                 let quick_add_handler_shortcut = quick_add_shortcut.clone();
                 let hud_transparency_shortcut =
                     Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyH);
                 let hud_transparency_handler_shortcut = hud_transparency_shortcut.clone();
+
+                app.handle().plugin(tauri_plugin_autostart::init(
+                    MacosLauncher::LaunchAgent,
+                    Some(vec![AUTOSTART_LAUNCH_ARG]),
+                ))?;
 
                 app.handle().plugin(
                     tauri_plugin_global_shortcut::Builder::new()
@@ -174,7 +223,12 @@ pub fn run() {
 
                 app.global_shortcut().register(quick_add_shortcut)?;
                 app.global_shortcut().register(hud_transparency_shortcut)?;
-                prepare_launch_windows(&app.handle())?;
+
+                if launched_from_autostart {
+                    prepare_autostart_launch_windows(&app.handle())?;
+                } else {
+                    prepare_manual_launch_windows(&app.handle())?;
+                }
             }
 
             Ok(())

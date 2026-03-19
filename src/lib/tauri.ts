@@ -1,4 +1,4 @@
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 
 export const TASKS_CHANGED_EVENT = 'missioncontrol://tasks-changed';
 export const FOCUS_CHANGED_EVENT = 'missioncontrol://focus-changed';
@@ -6,6 +6,7 @@ export const ACTIVITY_CHANGED_EVENT = 'missioncontrol://activity-changed';
 export const THEME_CHANGED_EVENT = 'missioncontrol://theme-changed';
 export const SETTINGS_CHANGED_EVENT = 'missioncontrol://settings-changed';
 export const TOGGLE_HUD_TRANSPARENCY_EVENT = 'missioncontrol://toggle-hud-transparency';
+export const SHOW_COMPACT_HUD_EVENT = 'missioncontrol://show-compact-hud';
 const HUD_WIDTH = 360;
 const HUD_HEIGHT = 78;
 export const QUICK_ADD_WIDTH = 540;
@@ -143,6 +144,15 @@ export async function hideCurrentWindow() {
   if (isTauriApp()) {
     const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
     await WebviewWindow.getCurrent().hide();
+    return;
+  }
+
+  window.close();
+}
+
+export async function quitMissionControl() {
+  if (isTauriApp()) {
+    await invoke('quit_app');
     return;
   }
 

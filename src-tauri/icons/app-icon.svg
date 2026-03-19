@@ -24,9 +24,35 @@
   </defs>
 
   <circle cx="256" cy="248" r="156" stroke="url(#ring)" stroke-width="56"/>
-  <path d="M138 340L192 154" stroke="url(#left-leg)" stroke-linecap="round" stroke-width="70" />
-  <path d="M192 154L256 252" stroke="url(#left-peak)" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.9" stroke-width="70" />
-  <path d="M256 252L320 154" stroke="url(#right-peak)" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.9" stroke-width="70" />
-  <path d="M320 154L374 340" stroke="url(#right-leg)" stroke-linecap="round" stroke-width="70" />
-  <circle cx="256" cy="354" r="24" fill="#FFD164" />
+
+  <path
+    d="M138 340L192 154"
+    stroke="url(#left-leg)"
+    stroke-linecap="round"
+    stroke-width="70"
+  />
+  <path
+    d="M192 154L256 252"
+    stroke="url(#left-peak)"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-opacity="0.9"
+    stroke-width="70"
+  />
+  <path
+    d="M256 252L320 154"
+    stroke="url(#right-peak)"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-opacity="0.9"
+    stroke-width="70"
+  />
+  <path
+    d="M320 154L374 340"
+    stroke="url(#right-leg)"
+    stroke-linecap="round"
+    stroke-width="70"
+  />
+
+  <circle cx="256" cy="354" r="24" fill="#FFD164"/>
 </svg>

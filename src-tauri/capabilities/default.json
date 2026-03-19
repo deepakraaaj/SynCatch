@@ -15,6 +15,9 @@
     "core:webview:allow-create-webview-window",
     "sql:default",
     "sql:allow-execute",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
     "global-shortcut:allow-is-registered",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister"

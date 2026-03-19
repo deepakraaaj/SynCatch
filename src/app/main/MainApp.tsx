@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { KeyboardEvent, ReactNode } from 'react';
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import {
   listRecentActivity,
   logActivity,
@@ -30,6 +30,8 @@ import { useThemeStore } from '../../features/themes/theme-store';
 import { formatElapsedClock, formatMinutes, formatRelativeTime } from '../../lib/date';
 import {
   ACTIVITY_CHANGED_EVENT,
+  isTauriApp,
+  quitMissionControl,
   showHudWindow,
   showQuickAddWindow,
   subscribeAppEvent,
@@ -527,6 +529,7 @@ export function MainApp() {
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [isSavingWorkspaceNotes, setIsSavingWorkspaceNotes] = useState(false);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
+  const isClosingApp = useRef(false);
 
   const tasks = useTaskStore((state) => state.tasks);
   const selectedTaskId = useTaskStore((state) => state.selectedTaskId);
@@ -558,6 +561,10 @@ export function MainApp() {
   const setFocusPromptStyle = useSettingsStore((state) => state.setFocusPromptStyle);
   const syncMode = useSettingsStore((state) => state.syncMode);
   const setSyncMode = useSettingsStore((state) => state.setSyncMode);
+  const launchAtLogin = useSettingsStore((state) => state.launchAtLogin);
+  const launchAtLoginPending = useSettingsStore((state) => state.launchAtLoginPending);
+  const setLaunchAtLogin = useSettingsStore((state) => state.setLaunchAtLogin);
+  const desktopStartupAvailable = isTauriApp();
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
   const currentMission =
@@ -651,6 +658,44 @@ export function MainApp() {
     return () => {
       cancelled = true;
       unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isTauriApp()) {
+      return;
+    }
+
+    let cancelled = false;
+    let unlisten: undefined | (() => void);
+
+    void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
+      if (cancelled) {
+        return;
+      }
+
+      const currentWindow = getCurrentWindow();
+
+      unlisten = await currentWindow.onCloseRequested(async (event) => {
+        if (isClosingApp.current) {
+          return;
+        }
+
+        event.preventDefault();
+        isClosingApp.current = true;
+
+        try {
+          await quitMissionControl();
+        } catch (error) {
+          console.error('Unable to close MissionControl', error);
+          isClosingApp.current = false;
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
     };
   }, []);
 
@@ -2252,6 +2297,30 @@ export function MainApp() {
 
             <div className="grid gap-5 xl:grid-cols-2">
               <Card className="rounded-[28px] p-5">
+                <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Startup</p>
+                <button
+                  className="mt-5 flex w-full items-start justify-between gap-4 rounded-[22px] border border-borderSoft/35 bg-panel/60 px-4 py-4 text-left disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!desktopStartupAvailable || launchAtLoginPending}
+                  onClick={() => {
+                    void setLaunchAtLogin(!launchAtLogin);
+                  }}
+                  type="button"
+                >
+                  <div>
+                    <span className="text-sm font-medium text-text-primary">Launch at login</span>
+                    <p className="mt-2 text-xs leading-6 text-text-secondary">
+                      {desktopStartupAvailable
+                        ? 'Clicking the app icon opens the compact HUD first. Login launches start quietly in the same HUD.'
+                        : 'Available in the native desktop build.'}
+                    </p>
+                  </div>
+                  <Badge tone={launchAtLogin ? 'success' : 'neutral'}>
+                    {launchAtLoginPending ? 'Saving' : launchAtLogin ? 'On' : 'Off'}
+                  </Badge>
+                </button>
+              </Card>
+
+              <Card className="rounded-[28px] p-5">
                 <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Motion</p>
                 <button
                   className="mt-5 flex w-full items-center justify-between rounded-[22px] border border-borderSoft/35 bg-panel/60 px-4 py-4"
@@ -2285,6 +2354,18 @@ export function MainApp() {
               label="Data mode"
               tone={syncMode === 'cloud' ? 'accent' : 'neutral'}
               value={syncModeContent[syncMode].label}
+            />
+            <StudioMetricCard
+              caption={
+                desktopStartupAvailable
+                  ? launchAtLogin
+                    ? 'MissionControl will open its HUD automatically when your desktop session starts.'
+                    : 'Clicking the app icon opens the compact HUD first. Enable this when you also want it at sign-in.'
+                  : 'Desktop-only control'
+              }
+              label="Launch at login"
+              tone={launchAtLogin ? 'accent' : 'neutral'}
+              value={desktopStartupAvailable ? (launchAtLogin ? 'Enabled' : 'Off') : 'Desktop'}
             />
             <StudioMetricCard
               caption={activeTheme.eyebrow}
