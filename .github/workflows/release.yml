@@ -1,25 +1,34 @@
 name: release
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v*'
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  publish-tauri:
+  build:
+    name: build (${{ matrix.name }})
     permissions:
-      contents: write
+      contents: read
+    runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: ubuntu-22.04
-            args: '--bundles deb --verbose'
-          - platform: windows-latest
-            args: '--bundles nsis --verbose'
-
-    runs-on: ${{ matrix.platform }}
+          - name: ubuntu-deb
+            platform: ubuntu-22.04
+            tauri_args: --bundles deb --verbose
+            artifact_name: ubuntu-deb
+            artifact_path: src-tauri/target/release/bundle/deb/*.deb
+          - name: windows-nsis
+            platform: windows-latest
+            tauri_args: --bundles nsis --verbose
+            artifact_name: windows-nsis
+            artifact_path: src-tauri/target/release/bundle/nsis/*.exe
 
     steps:
       - uses: actions/checkout@v5
@@ -57,20 +66,50 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: v__VERSION__
-          releaseName: MissionControl v__VERSION__
-          releaseBody: |
-            Desktop installers for MissionControl.
+      - name: Build desktop bundle
+        shell: bash
+        run: node scripts/run-tauri.mjs build ${{ matrix.tauri_args }}
 
-            Assets included in this release:
-            - Windows installer packages
-            - Ubuntu `.deb`
-          generateReleaseNotes: true
-          releaseDraft: false
-          prerelease: false
-          tauriScript: node scripts/run-tauri.mjs
-          args: ${{ matrix.args }}
+      - name: Upload release asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+
+  publish:
+    name: publish release
+    needs: build
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+
+          files=(release-assets/**/*)
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No release assets were downloaded."
+            exit 1
+          fi
+
+          tag="${GITHUB_REF_NAME}"
+          title="MissionControl ${tag#v}"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber
+          else
+            gh release create "$tag" "${files[@]}" --title "$title" --generate-notes
+          fi
