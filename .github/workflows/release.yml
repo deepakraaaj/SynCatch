@@ -73,4 +73,5 @@ jobs:
           generateReleaseNotes: true
           releaseDraft: false
           prerelease: false
+          tauriScript: npm run tauri --
           args: ${{ matrix.args }}
