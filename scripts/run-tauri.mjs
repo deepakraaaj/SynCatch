@@ -142,13 +142,18 @@ function printLinuxDisplayHelp() {
   console.error('');
 }
 
+function requiresLinuxDisplay(args) {
+  return process.platform === 'linux' && args[0] === 'dev';
+}
+
+const args = process.argv.slice(2);
 const hasRepoToolchain = existsSync(cargoBinary) || existsSync(rustupBinary);
 const env = sanitizeLinuxDesktopEnv({
   ...process.env,
   PATH: [cargoBinDir, process.env.PATH].filter(Boolean).join(path.delimiter),
 });
 
-if (process.platform === 'linux' && !hasLinuxDisplay(env)) {
+if (requiresLinuxDisplay(args) && !hasLinuxDisplay(env)) {
   printLinuxDisplayHelp();
   process.exit(1);
 }
@@ -158,7 +163,6 @@ if (hasRepoToolchain) {
   env.RUSTUP_HOME = rustupHome;
 }
 
-const args = process.argv.slice(2);
 const tauriArgs = existsSync(localTauriEntry)
   ? [localTauriEntry, ...args]
   : args;
