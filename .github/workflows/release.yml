@@ -58,6 +58,9 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set default Rust toolchain
+        run: rustup default stable
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
