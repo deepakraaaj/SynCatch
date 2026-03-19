@@ -1,4 +1,4 @@
-import { generateTaskBrief } from './task-intelligence';
+import { areGeneratedPlaceholderSubtasks, generateTaskBrief } from './task-intelligence';
 import type {
   Task,
   TaskClarifyingQuestion,
@@ -14,7 +14,7 @@ export function createTaskId() {
 }
 
 function normalizeSubtasks(subtasks: TaskSubtask[] | null | undefined) {
-  return Array.isArray(subtasks)
+  const normalized = Array.isArray(subtasks)
     ? subtasks
         .filter((subtask) => Boolean(subtask?.id && subtask?.title))
         .map((subtask) => ({
@@ -24,6 +24,8 @@ function normalizeSubtasks(subtasks: TaskSubtask[] | null | undefined) {
         }))
         .filter((subtask) => subtask.title.length > 0)
     : [];
+
+  return areGeneratedPlaceholderSubtasks(normalized) ? [] : normalized;
 }
 
 function normalizeQuestions(questions: TaskClarifyingQuestion[] | null | undefined) {
@@ -37,6 +39,10 @@ function normalizeQuestions(questions: TaskClarifyingQuestion[] | null | undefin
         }))
         .filter((question) => question.question.length > 0)
     : [];
+}
+
+export function getVisibleSubtasks(subtasks: TaskSubtask[]) {
+  return areGeneratedPlaceholderSubtasks(subtasks) ? [] : subtasks;
 }
 
 export function deriveStatusFromLane(lane: TaskLane, currentStatus: TaskStatus = 'captured'): TaskStatus {
@@ -170,7 +176,7 @@ export function humanizeStatus(status: TaskStatus) {
 }
 
 export function getCompletedSubtasks(task: Task) {
-  return task.subtasks.filter((subtask) => subtask.completed).length;
+  return getVisibleSubtasks(task.subtasks).filter((subtask) => subtask.completed).length;
 }
 
 export function getOpenQuestionCount(task: Task) {

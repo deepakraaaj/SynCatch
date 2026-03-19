@@ -20,6 +20,7 @@ import {
   deriveStatusFromLane,
   getCompletedSubtasks,
   getOpenQuestionCount,
+  getVisibleSubtasks,
   humanizeLane,
   humanizePriority,
 } from '../../features/tasks/task-helpers';
@@ -183,7 +184,7 @@ function sanitizeTask(task: Task): Task {
     why_it_matters: task.why_it_matters.trim(),
     workspace_notes: task.workspace_notes,
     estimated_minutes: Math.max(5, Number(task.estimated_minutes) || 25),
-    subtasks: task.subtasks
+    subtasks: getVisibleSubtasks(task.subtasks)
       .map((subtask) => ({
         ...subtask,
         title: subtask.title.trim(),
@@ -265,6 +266,7 @@ function TaskQueueItem({
   onSelect: () => void;
   isFrog?: boolean;
 }) {
+  const visibleSubtasks = getVisibleSubtasks(task.subtasks);
   const completedSubtasks = getCompletedSubtasks(task);
   const openQuestions = getOpenQuestionCount(task);
 
@@ -304,7 +306,7 @@ function TaskQueueItem({
       <div className="mt-4 flex items-center justify-between gap-3 text-xs text-text-muted">
         <span>Drag to move lanes</span>
         <span>
-          {completedSubtasks}/{task.subtasks.length || 0} steps
+          {completedSubtasks}/{visibleSubtasks.length || 0} steps
           {openQuestions > 0 ? ` · ${openQuestions} open` : ''}
         </span>
       </div>
@@ -400,6 +402,42 @@ function SectionHeading({
         <h2 className="mt-2 text-2xl font-semibold text-text-primary">{title}</h2>
       </div>
       {action}
+    </div>
+  );
+}
+
+function SubtaskComposer({
+  value,
+  onChange,
+  onSubmit,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <Input
+        className="h-11"
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            onSubmit();
+          }
+        }}
+        placeholder="Add a subtask or next step..."
+        value={value}
+      />
+      <Button
+        className="sm:shrink-0"
+        disabled={!value.trim()}
+        onClick={onSubmit}
+        size="sm"
+        variant="secondary"
+      >
+        Add Step
+      </Button>
     </div>
   );
 }
@@ -523,6 +561,7 @@ export function MainApp() {
   const [taskReturnView, setTaskReturnView] = useState<NavigationView>('today');
   const [clockTick, bumpClockTick] = useReducer((count: number) => count + 1, 0);
   const [captureDraft, setCaptureDraft] = useState('');
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [workspaceNotesDraft, setWorkspaceNotesDraft] = useState('');
   const [taskDraft, setTaskDraft] = useState<Task | null>(null);
   const [taskEditorMode, setTaskEditorMode] = useState<'simple' | 'advanced'>('simple');
@@ -606,10 +645,47 @@ export function MainApp() {
   const focusChecklistCompleted = focusMission ? getCompletedSubtasks(focusMission) : 0;
   const focusOpenQuestions = focusMission ? getOpenQuestionCount(focusMission) : 0;
   const detailChecklistCompleted = detailTask ? getCompletedSubtasks(detailTask) : 0;
+  const focusSubtasks = focusMission ? getVisibleSubtasks(focusMission.subtasks) : [];
+  const detailSubtasks = detailTask ? getVisibleSubtasks(detailTask.subtasks) : [];
   const isCompletionReview = detailTask?.id === completionReviewTaskId;
   const taskDraftChanged =
     Boolean(detailTask && selectedTask) &&
     JSON.stringify(detailTask) !== JSON.stringify(selectedTask);
+
+  const addTaskDraftSubtask = () => {
+    const title = newSubtaskTitle.trim();
+    if (!title) {
+      return;
+    }
+
+    setTaskDraft((current) =>
+      current
+        ? {
+            ...current,
+            subtasks: [
+              ...getVisibleSubtasks(current.subtasks),
+              {
+                id: `subtask-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                title,
+                completed: false,
+              },
+            ],
+          }
+        : current,
+    );
+    setNewSubtaskTitle('');
+  };
+
+  const removeTaskDraftSubtask = (subtaskId: string) => {
+    setTaskDraft((current) =>
+      current
+        ? {
+            ...current,
+            subtasks: getVisibleSubtasks(current.subtasks).filter((item) => item.id !== subtaskId),
+          }
+        : current,
+    );
+  };
 
   useEffect(() => {
     if (!selectedTaskId && tasks[0]) {
@@ -620,10 +696,12 @@ export function MainApp() {
   useEffect(() => {
     if (!selectedTask) {
       setTaskDraft(null);
+      setNewSubtaskTitle('');
       return;
     }
 
     setTaskDraft(cloneTask(selectedTask));
+    setNewSubtaskTitle('');
   }, [selectedTask]);
 
   useEffect(() => {
@@ -813,7 +891,7 @@ export function MainApp() {
               definition_of_done: clarified.definitionOfDone,
               next_action: clarified.nextAction,
               why_it_matters: clarified.whyItMatters,
-              subtasks: clarified.subtasks,
+              subtasks: clarified.subtasks.length > 0 ? clarified.subtasks : getVisibleSubtasks(current.subtasks),
               clarifying_questions: clarified.questions,
             }
           : current,
@@ -1383,7 +1461,7 @@ export function MainApp() {
                     <Card className="rounded-[24px] p-4">
                       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Checklist progress</p>
                       <p className="mt-4 text-3xl font-semibold text-text-primary">
-                        {detailChecklistCompleted}/{detailTask.subtasks.length || 0}
+                        {detailChecklistCompleted}/{detailSubtasks.length || 0}
                       </p>
                       <p className="mt-2 text-sm text-text-secondary">Subtasks with a visible done state.</p>
                     </Card>
@@ -1458,45 +1536,72 @@ export function MainApp() {
 
                   <Card className="rounded-[32px] p-6">
                     <SectionHeading label="Execution plan" title="Suggested steps" />
+                    <SubtaskComposer
+                      onChange={setNewSubtaskTitle}
+                      onSubmit={addTaskDraftSubtask}
+                      value={newSubtaskTitle}
+                    />
                     <div className="mt-6 space-y-3">
-                      {detailTask.subtasks.map((subtask, index) => (
-                        <button
-                          key={subtask.id}
-                          className={cn(
-                            'flex w-full items-center gap-3 rounded-[22px] border px-4 py-4 text-left transition',
-                            subtask.completed
-                              ? 'border-success/30 bg-success/10'
-                              : 'border-borderSoft/35 bg-panel/56 hover:border-borderStrong/40 hover:bg-panel/72',
-                          )}
-                          onClick={() =>
-                            setTaskDraft((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    subtasks: current.subtasks.map((item) =>
-                                      item.id === subtask.id ? { ...item, completed: !item.completed } : item,
-                                    ),
-                                  }
-                                : current,
-                            )
-                          }
-                          type="button"
-                        >
-                          <span
+                      {detailSubtasks.length ? (
+                        detailSubtasks.map((subtask, index) => (
+                          <div
+                            key={subtask.id}
                             className={cn(
-                              'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
+                              'flex items-center gap-3 rounded-[22px] border px-4 py-4 transition',
                               subtask.completed
-                                ? 'border-success/40 bg-success/20 text-success'
-                                : 'border-borderStrong/30 text-text-muted',
+                                ? 'border-success/30 bg-success/10'
+                                : 'border-borderSoft/35 bg-panel/56 hover:border-borderStrong/40 hover:bg-panel/72',
                             )}
                           >
-                            {index + 1}
-                          </span>
-                          <span className={cn('text-sm', subtask.completed ? 'line-through text-text-secondary' : 'text-text-primary')}>
-                            {subtask.title}
-                          </span>
-                        </button>
-                      ))}
+                            <button
+                              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                              onClick={() =>
+                                setTaskDraft((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        subtasks: current.subtasks.map((item) =>
+                                          item.id === subtask.id ? { ...item, completed: !item.completed } : item,
+                                        ),
+                                      }
+                                    : current,
+                                )
+                              }
+                              type="button"
+                            >
+                              <span
+                                className={cn(
+                                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
+                                  subtask.completed
+                                    ? 'border-success/40 bg-success/20 text-success'
+                                    : 'border-borderStrong/30 text-text-muted',
+                                )}
+                              >
+                                {index + 1}
+                              </span>
+                              <span
+                                className={cn(
+                                  'min-w-0 text-sm',
+                                  subtask.completed ? 'line-through text-text-secondary' : 'text-text-primary',
+                                )}
+                              >
+                                {subtask.title}
+                              </span>
+                            </button>
+                            <Button
+                              onClick={() => removeTaskDraftSubtask(subtask.id)}
+                              size="sm"
+                              variant="ghost"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
+                          No steps yet. Add your first real step above.
+                        </div>
+                      )}
                     </div>
                   </Card>
                 </>
@@ -1586,108 +1691,82 @@ export function MainApp() {
                   </Card>
 
                   <Card className="rounded-[32px] p-6">
-                    <SectionHeading
-                      action={
-                        <Button
-                          onClick={() =>
-                            setTaskDraft((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    subtasks: [
-                                      ...current.subtasks,
-                                      {
-                                        id: `subtask-${Date.now()}`,
-                                        title: 'New subtask',
-                                        completed: false,
-                                      },
-                                    ],
-                                  }
-                                : current,
-                            )
-                          }
-                          size="sm"
-                          variant="secondary"
-                        >
-                          Add Step
-                        </Button>
-                      }
-                      label="Execution plan"
-                      title="Subtasks that move the task forward"
+                    <SectionHeading label="Execution plan" title="Subtasks that move the task forward" />
+                    <SubtaskComposer
+                      onChange={setNewSubtaskTitle}
+                      onSubmit={addTaskDraftSubtask}
+                      value={newSubtaskTitle}
                     />
                     <div className="mt-6 space-y-3">
-                      {detailTask.subtasks.map((subtask, index) => (
-                        <div
-                          key={subtask.id}
-                          className={cn(
-                            'rounded-[22px] border p-4 transition-all',
-                            subtask.completed
-                              ? 'border-success/30 bg-success/10'
-                              : 'border-borderSoft/35 bg-panel/56',
-                          )}
-                        >
-                          <div className="flex items-start gap-3">
-                            <button
-                              className={cn(
-                                'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold transition',
-                                subtask.completed
-                                  ? 'border-success/40 bg-success/20 text-success'
-                                  : 'border-borderStrong/30 text-text-muted hover:border-accent/40 hover:text-accent',
-                              )}
-                              onClick={() =>
-                                setTaskDraft((current) =>
-                                  current
-                                    ? {
-                                        ...current,
-                                        subtasks: current.subtasks.map((item) =>
-                                          item.id === subtask.id ? { ...item, completed: !item.completed } : item,
-                                        ),
-                                      }
-                                    : current,
-                                )
-                              }
-                              type="button"
-                            >
-                              {index + 1}
-                            </button>
-                            <Input
-                              className={cn(
-                                'h-11',
-                                subtask.completed ? 'border-success/25 bg-success/10 text-text-primary line-through' : '',
-                              )}
-                              onChange={(event) =>
-                                setTaskDraft((current) =>
-                                  current
-                                    ? {
-                                        ...current,
-                                        subtasks: current.subtasks.map((item) =>
-                                          item.id === subtask.id ? { ...item, title: event.target.value } : item,
-                                        ),
-                                      }
-                                    : current,
-                                )
-                              }
-                              value={subtask.title}
-                            />
-                            <Button
-                              onClick={() =>
-                                setTaskDraft((current) =>
-                                  current
-                                    ? {
-                                        ...current,
-                                        subtasks: current.subtasks.filter((item) => item.id !== subtask.id),
-                                      }
-                                    : current,
-                                )
-                              }
-                              size="sm"
-                              variant="ghost"
-                            >
-                              Remove
-                            </Button>
+                      {detailSubtasks.length ? (
+                        detailSubtasks.map((subtask, index) => (
+                          <div
+                            key={subtask.id}
+                            className={cn(
+                              'rounded-[22px] border p-4 transition-all',
+                              subtask.completed
+                                ? 'border-success/30 bg-success/10'
+                                : 'border-borderSoft/35 bg-panel/56',
+                            )}
+                          >
+                            <div className="flex items-start gap-3">
+                              <button
+                                className={cn(
+                                  'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold transition',
+                                  subtask.completed
+                                    ? 'border-success/40 bg-success/20 text-success'
+                                    : 'border-borderStrong/30 text-text-muted hover:border-accent/40 hover:text-accent',
+                                )}
+                                onClick={() =>
+                                  setTaskDraft((current) =>
+                                    current
+                                      ? {
+                                          ...current,
+                                          subtasks: current.subtasks.map((item) =>
+                                            item.id === subtask.id ? { ...item, completed: !item.completed } : item,
+                                          ),
+                                        }
+                                      : current,
+                                  )
+                                }
+                                type="button"
+                              >
+                                {index + 1}
+                              </button>
+                              <Input
+                                className={cn(
+                                  'h-11',
+                                  subtask.completed ? 'border-success/25 bg-success/10 text-text-primary line-through' : '',
+                                )}
+                                onChange={(event) =>
+                                  setTaskDraft((current) =>
+                                    current
+                                      ? {
+                                          ...current,
+                                          subtasks: current.subtasks.map((item) =>
+                                            item.id === subtask.id ? { ...item, title: event.target.value } : item,
+                                          ),
+                                        }
+                                      : current,
+                                  )
+                                }
+                                value={subtask.title}
+                              />
+                              <Button
+                                onClick={() => removeTaskDraftSubtask(subtask.id)}
+                                size="sm"
+                                variant="ghost"
+                              >
+                                Remove
+                              </Button>
+                            </div>
                           </div>
+                        ))
+                      ) : (
+                        <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
+                          No steps yet. Add your first real step above.
                         </div>
-                      ))}
+                      )}
                     </div>
                   </Card>
 
@@ -2106,42 +2185,48 @@ export function MainApp() {
                             </p>
                           </div>
                           <Badge tone="neutral">
-                            {focusChecklistCompleted}/{focusMission.subtasks.length || 0}
+                            {focusChecklistCompleted}/{focusSubtasks.length || 0}
                           </Badge>
                         </div>
                         <div className="mt-5 space-y-3">
-                          {focusMission.subtasks.map((subtask, index) => (
-                            <button
-                              key={subtask.id}
-                              className={cn(
-                                'flex w-full items-center gap-3 rounded-[20px] border px-4 py-3 text-left transition',
-                                subtask.completed
-                                  ? 'border-success/30 bg-success/10'
-                                  : 'border-borderSoft/35 bg-panel/58 hover:border-borderStrong/40 hover:bg-panel/72',
-                              )}
-                              onClick={() => void toggleSubtask(focusMission.id, subtask.id, 'main')}
-                              type="button"
-                            >
-                              <span
+                          {focusSubtasks.length ? (
+                            focusSubtasks.map((subtask, index) => (
+                              <button
+                                key={subtask.id}
                                 className={cn(
-                                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
+                                  'flex w-full items-center gap-3 rounded-[20px] border px-4 py-3 text-left transition',
                                   subtask.completed
-                                    ? 'border-success/40 bg-success/20 text-success'
-                                    : 'border-borderStrong/30 text-text-muted',
+                                    ? 'border-success/30 bg-success/10'
+                                    : 'border-borderSoft/35 bg-panel/58 hover:border-borderStrong/40 hover:bg-panel/72',
                                 )}
+                                onClick={() => void toggleSubtask(focusMission.id, subtask.id, 'main')}
+                                type="button"
                               >
-                                {index + 1}
-                              </span>
-                              <span
-                                className={cn(
-                                  'text-sm',
-                                  subtask.completed ? 'text-text-secondary line-through' : 'text-text-primary',
-                                )}
-                              >
-                                {subtask.title}
-                              </span>
-                            </button>
-                          ))}
+                                <span
+                                  className={cn(
+                                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
+                                    subtask.completed
+                                      ? 'border-success/40 bg-success/20 text-success'
+                                      : 'border-borderStrong/30 text-text-muted',
+                                  )}
+                                >
+                                  {index + 1}
+                                </span>
+                                <span
+                                  className={cn(
+                                    'text-sm',
+                                    subtask.completed ? 'text-text-secondary line-through' : 'text-text-primary',
+                                  )}
+                                >
+                                  {subtask.title}
+                                </span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="rounded-[22px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
+                              No checklist yet. Add real steps from the task page if you want them here.
+                            </div>
+                          )}
                         </div>
                       </Card>
                     </div>
@@ -2228,7 +2313,7 @@ export function MainApp() {
                     label="Progress"
                     value={
                       focusMission
-                        ? `${String(focusChecklistCompleted).padStart(2, '0')} / ${String(focusMission.subtasks.length || 0).padStart(2, '0')}`
+                        ? `${String(focusChecklistCompleted).padStart(2, '0')} / ${String(focusSubtasks.length || 0).padStart(2, '0')}`
                         : '00 / 00'
                     }
                   />

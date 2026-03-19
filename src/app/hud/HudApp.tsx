@@ -7,6 +7,7 @@ import {
 } from '../../features/activity/distraction-insights';
 import { getFocusStatusLabel } from '../../features/focus/focus-presenter';
 import { useFocusStore } from '../../features/focus/focus-store';
+import { getVisibleSubtasks } from '../../features/tasks/task-helpers';
 import { useTaskStore } from '../../features/tasks/task-store';
 import type { Task, TaskLane } from '../../features/tasks/task-types';
 import { formatMinutes, getElapsedSeconds } from '../../lib/date';
@@ -33,15 +34,18 @@ const HUD_EXPANDED_SIZE = { width: 1180, height: 720 };
 const HUD_MARGIN_X = 26;
 const HUD_MARGIN_Y = 26;
 const HUD_POSITION_STORAGE_KEY = 'missioncontrol:hud-window-positions';
-const hudCaptureOptions: Array<{
+type HudCaptureOption = {
   lane: Exclude<TaskLane, 'done'>;
   label: string;
   hint: string;
-}> = [
-  { lane: 'inbox', label: 'Queue', hint: 'Capture it for the kanban queue' },
-  { lane: 'now', label: 'Active', hint: 'Make it the live HUD task now' },
-  { lane: 'next', label: 'Next', hint: 'Ready after the current task' },
-  { lane: 'later', label: 'Backlog', hint: 'Keep it, but not right now' },
+  icon: () => ReactNode;
+};
+
+const hudCaptureOptions: HudCaptureOption[] = [
+  { lane: 'inbox', label: 'Queue', hint: 'Capture it for the kanban queue', icon: QueueIcon },
+  { lane: 'now', label: 'Active', hint: 'Make it the live HUD task now', icon: ActiveIcon },
+  { lane: 'next', label: 'Next', hint: 'Ready after the current task', icon: NextIcon },
+  { lane: 'later', label: 'Backlog', hint: 'Keep it, but not right now', icon: BacklogIcon },
 ];
 
 type HudWindowPosition = { x: number; y: number };
@@ -203,6 +207,43 @@ function QuickAddIcon() {
   );
 }
 
+function QueueIcon() {
+  return (
+    <Icon>
+      <path d="M5 10h14" />
+      <path d="M6 6h12l2 5v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6l2-5Z" />
+      <path d="M9 13a3 3 0 0 0 6 0" />
+    </Icon>
+  );
+}
+
+function ActiveIcon() {
+  return (
+    <Icon>
+      <path d="M13 3 6 13h5l-1 8 7-10h-5l1-8Z" />
+    </Icon>
+  );
+}
+
+function NextIcon() {
+  return (
+    <Icon>
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </Icon>
+  );
+}
+
+function BacklogIcon() {
+  return (
+    <Icon>
+      <rect height="4" rx="1.5" width="16" x="4" y="5" />
+      <path d="M6 9v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9" />
+      <path d="M10 13h4" />
+    </Icon>
+  );
+}
+
 function DistractionIcon() {
   return (
     <Icon>
@@ -286,6 +327,17 @@ function CloseIcon() {
   );
 }
 
+function DetailsIcon() {
+  return (
+    <Icon>
+      <rect height="16" rx="2.5" width="14" x="5" y="4" />
+      <path d="M9 9h6" />
+      <path d="M9 13h6" />
+      <path d="M9 17h4" />
+    </Icon>
+  );
+}
+
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
     <Icon className={cn('transition-transform duration-200', expanded && 'rotate-180')}>
@@ -325,6 +377,55 @@ function HudActionButton({
     >
       {icon}
     </Button>
+  );
+}
+
+function getHudCaptureOption(lane: HudCaptureLane) {
+  return hudCaptureOptions.find((option) => option.lane === lane) ?? hudCaptureOptions[0];
+}
+
+function HudCaptureLaneSelector({
+  value,
+  onChange,
+}: {
+  value: HudCaptureLane;
+  onChange: (lane: HudCaptureLane) => void;
+}) {
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      {hudCaptureOptions.map((option) => {
+        const OptionIcon = option.icon;
+        const selected = value === option.lane;
+
+        return (
+          <button
+            key={option.lane}
+            aria-label={`${option.label}. ${option.hint}`}
+            className={cn(
+              'flex flex-col items-center gap-2 rounded-[16px] border px-2 py-3 text-center transition',
+              selected
+                ? 'border-accent/45 bg-accent/10 text-text-primary'
+                : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
+            )}
+            onClick={() => onChange(option.lane)}
+            title={`${option.label}. ${option.hint}`}
+            type="button"
+          >
+            <span
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-full border',
+                selected
+                  ? 'border-accent/45 bg-accent/12 text-accent'
+                  : 'border-borderSoft/35 bg-panel/70 text-text-secondary',
+              )}
+            >
+              <OptionIcon />
+            </span>
+            <span className="text-[11px] font-medium leading-none">{option.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -377,7 +478,7 @@ export function HudApp() {
   const displayClock = formatDigitalClock(remainingSeconds);
   const progressRatio = Math.min(1, elapsedSeconds / Math.max(totalSessionSeconds, 1));
   const activeQueue = getActiveQueue(tasks, currentMission?.id ?? null);
-  const checklist = currentMission?.subtasks ?? [];
+  const checklist = currentMission ? getVisibleSubtasks(currentMission.subtasks) : [];
   const focusStatusLabel = getFocusStatusLabel(focusStatus);
   const useStableHudRendering = isTauriApp() && isLinuxPlatform();
   const effectiveHudTransparency = hudMode === 'compact' ? 'standard' : hudTransparency;
@@ -394,6 +495,8 @@ export function HudApp() {
       : 'Start session';
   const sessionToggleIcon = isSessionRunning ? <PauseIcon /> : <PlayIcon />;
   const selectableHudTasks = tasks.filter((task) => task.lane !== 'done' && task.status !== 'done');
+  const selectedHudCaptureOption = getHudCaptureOption(hudTaskLane);
+  const SelectedHudCaptureIcon = selectedHudCaptureOption.icon;
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -881,40 +984,40 @@ export function HudApp() {
 
                 <div className="surface-muted rounded-[24px] p-4">
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Frameworks</p>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="scrollbar-hidden mt-4 flex items-center gap-2 overflow-x-auto pb-1 pr-1">
                     <button
-                      className="rounded-[16px] border border-borderSoft/35 bg-panel/54 px-3 py-3 text-left transition hover:border-accent/40 hover:bg-accent/10"
+                      className="flex shrink-0 items-center gap-2 rounded-full border border-borderSoft/35 bg-panel/54 px-3 py-2 text-left transition hover:border-accent/40 hover:bg-accent/10"
                       onClick={() => startSession(25, 'hud')}
                       type="button"
                     >
-                      <p className="text-sm font-medium text-text-primary">Pomodoro</p>
-                      <p className="mt-1 text-[10px] text-text-secondary">25m focus &middot; 5m break</p>
+                      <span className="text-sm font-medium text-text-primary">Pomodoro</span>
+                      <span className="text-[11px] text-text-secondary">25/5</span>
                     </button>
                     <button
-                      className="rounded-[16px] border border-borderSoft/35 bg-panel/54 px-3 py-3 text-left transition hover:border-accent/40 hover:bg-accent/10"
+                      className="flex shrink-0 items-center gap-2 rounded-full border border-borderSoft/35 bg-panel/54 px-3 py-2 text-left transition hover:border-accent/40 hover:bg-accent/10"
                       onClick={() => startSession(180, 'hud')}
                       type="button"
                     >
-                      <p className="text-sm font-medium text-text-primary">Long Block</p>
-                      <p className="mt-1 text-[10px] text-text-secondary">180m focus</p>
+                      <span className="text-sm font-medium text-text-primary">Long Block</span>
+                      <span className="text-[11px] text-text-secondary">180m</span>
                     </button>
                     <button
-                      className="rounded-[16px] border border-borderSoft/35 bg-panel/54 px-3 py-3 text-left transition hover:border-accent/40 hover:bg-accent/10"
+                      className="flex shrink-0 items-center gap-2 rounded-full border border-borderSoft/35 bg-panel/54 px-3 py-2 text-left transition hover:border-accent/40 hover:bg-accent/10"
                       onClick={() => startSession(45, 'hud')}
                       type="button"
                     >
-                      <p className="text-sm font-medium text-text-primary">Standard</p>
-                      <p className="mt-1 text-[10px] text-text-secondary">45m block</p>
+                      <span className="text-sm font-medium text-text-primary">Standard</span>
+                      <span className="text-[11px] text-text-secondary">45m</span>
                     </button>
                     <button
-                      className="rounded-[16px] border border-accent/35 bg-accent/10 px-3 py-3 text-left transition hover:border-accent/50 hover:bg-accent/20"
+                      className="flex shrink-0 items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-3 py-2 text-left transition hover:border-accent/50 hover:bg-accent/20"
                       onClick={() => startSession(5, 'hud')}
                       type="button"
                     >
-                      <p className="text-sm font-medium text-accent">Quick break</p>
-                      <p className="mt-1 text-[10px] text-accent/80">5m recharge</p>
+                      <span className="text-sm font-medium text-accent">Quick break</span>
+                      <span className="text-[11px] text-accent/80">5m</span>
                     </button>
-                    <div className="col-span-2 mt-1 flex items-center gap-2 rounded-[16px] border border-borderSoft/35 bg-panel/30 p-1 pl-3 transition-colors focus-within:border-accent/40 focus-within:bg-panel/50">
+                    <div className="flex min-w-[170px] shrink-0 items-center gap-2 rounded-full border border-borderSoft/35 bg-panel/30 p-1 pl-3 transition-colors focus-within:border-accent/40 focus-within:bg-panel/50">
                       <Input
                         className="h-8 flex-1 border-none bg-transparent px-0 text-sm focus-visible:ring-0"
                         onChange={(event) => setCustomTime(event.target.value.replace(/\D/g, ''))}
@@ -924,7 +1027,7 @@ export function HudApp() {
                             setCustomTime('');
                           }
                         }}
-                        placeholder="Custom minutes..."
+                        placeholder="Custom..."
                         value={customTime}
                         type="text"
                         maxLength={3}
@@ -985,9 +1088,11 @@ export function HudApp() {
 
                 <div className="surface-muted rounded-[24px] p-4">
                   <div className="flex items-center justify-between gap-3">
-                    <div>
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-accent/18 bg-accent/10 text-accent">
+                        <QuickAddIcon />
+                      </span>
                       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Add task</p>
-                      <p className="mt-2 text-sm text-text-secondary">Choose where the task should land in the board.</p>
                     </div>
                     <Badge tone="neutral">HUD</Badge>
                   </div>
@@ -1001,30 +1106,12 @@ export function HudApp() {
                         void captureHudTask();
                       }
                     }}
-                    placeholder="What came up?"
+                    placeholder="Task..."
                     value={hudTaskInput}
                   />
 
                   <div className="mt-4">
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted">Status</p>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      {hudCaptureOptions.map((option) => (
-                        <button
-                          key={option.lane}
-                          className={cn(
-                            'rounded-[16px] border px-3 py-3 text-left text-sm transition',
-                            hudTaskLane === option.lane
-                              ? 'border-accent/45 bg-accent/10 text-text-primary'
-                              : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
-                          )}
-                          onClick={() => setHudTaskLane(option.lane)}
-                          type="button"
-                        >
-                          <p className="font-medium">{option.label}</p>
-                          <p className="mt-1 text-[10px] leading-4 text-current/80">{option.hint}</p>
-                        </button>
-                      ))}
-                    </div>
+                    <HudCaptureLaneSelector onChange={setHudTaskLane} value={hudTaskLane} />
                   </div>
 
                   <button
@@ -1033,11 +1120,11 @@ export function HudApp() {
                     onClick={() => setShowTaskDetails((current) => !current)}
                     type="button"
                   >
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">Optional details</p>
-                      <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-text-muted">
-                        Title, first step, notes
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-borderSoft/35 bg-panel/70 text-text-secondary">
+                        <DetailsIcon />
+                      </span>
+                      <p className="text-sm font-medium text-text-primary">Details</p>
                     </div>
                     <ChevronIcon expanded={showTaskDetails} />
                   </button>
@@ -1046,7 +1133,7 @@ export function HudApp() {
                     <div className="mt-3 space-y-3">
                       <Input
                         onChange={(event) => setHudTaskTitle(event.target.value)}
-                        placeholder="Title override"
+                        placeholder="Title"
                         value={hudTaskTitle}
                       />
                       <Input
@@ -1057,7 +1144,7 @@ export function HudApp() {
                       <Textarea
                         className="min-h-[88px] resize-none"
                         onChange={(event) => setHudTaskNotes(event.target.value)}
-                        placeholder="Notes you want to keep with the task"
+                        placeholder="Notes"
                         rows={3}
                         value={hudTaskNotes}
                       />
@@ -1065,15 +1152,12 @@ export function HudApp() {
                   ) : null}
 
                   <div className="mt-4 flex items-center justify-between gap-3">
-                    <p className="text-xs leading-5 text-text-muted">
-                      {hudTaskLane === 'now'
-                        ? 'This becomes the live HUD task immediately.'
-                        : hudTaskLane === 'next'
-                          ? 'This goes to Next in kanban and waits behind the active task.'
-                          : hudTaskLane === 'later'
-                            ? 'This goes to Backlog so you keep it without touching it now.'
-                            : 'This goes to Queue so you can clarify or schedule it later.'}
-                    </p>
+                    <div className="flex items-center gap-2 rounded-full border border-borderSoft/35 bg-panel/40 px-3 py-2 text-xs">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/12 text-accent">
+                        <SelectedHudCaptureIcon />
+                      </span>
+                      <span className="font-medium text-text-primary">{selectedHudCaptureOption.label}</span>
+                    </div>
                     <Button
                       disabled={isSavingHudTask || !hudTaskInput.trim()}
                       onClick={() => {
@@ -1553,9 +1637,11 @@ export function HudApp() {
               <div className="mt-3 min-h-0 flex-1 border-t border-borderSoft/28 pt-3">
                 <div className="surface-muted flex h-full min-h-0 flex-col rounded-[22px] p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <div>
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-accent/18 bg-accent/10 text-accent">
+                        <QuickAddIcon />
+                      </span>
                       <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Add task</p>
-                      <p className="mt-1 text-xs text-text-secondary">Create it here, keep focus intact.</p>
                     </div>
                     <Badge tone="neutral">Compact</Badge>
                   </div>
@@ -1570,31 +1656,11 @@ export function HudApp() {
                             void captureHudTask();
                           }
                         }}
-                        placeholder="What came up?"
+                        placeholder="Task..."
                         value={hudTaskInput}
                       />
 
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted">Status</p>
-                        <div className="mt-2 grid grid-cols-2 gap-2">
-                          {hudCaptureOptions.map((option) => (
-                            <button
-                              key={option.lane}
-                              className={cn(
-                                'rounded-[14px] border px-3 py-2.5 text-left text-sm transition',
-                                hudTaskLane === option.lane
-                                  ? 'border-accent/45 bg-accent/10 text-text-primary'
-                                  : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
-                              )}
-                              onClick={() => setHudTaskLane(option.lane)}
-                              type="button"
-                            >
-                              <p className="font-medium">{option.label}</p>
-                              <p className="mt-1 text-[10px] leading-4 text-current/80">{option.hint}</p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      <HudCaptureLaneSelector onChange={setHudTaskLane} value={hudTaskLane} />
 
                       <button
                         aria-expanded={showTaskDetails}
@@ -1602,11 +1668,11 @@ export function HudApp() {
                         onClick={() => setShowTaskDetails((current) => !current)}
                         type="button"
                       >
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">Optional details</p>
-                          <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-text-muted">
-                            Title, first step, notes
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-borderSoft/35 bg-panel/70 text-text-secondary">
+                            <DetailsIcon />
+                          </span>
+                          <p className="text-sm font-medium text-text-primary">Details</p>
                         </div>
                         <ChevronIcon expanded={showTaskDetails} />
                       </button>
@@ -1615,7 +1681,7 @@ export function HudApp() {
                         <div className="space-y-3">
                           <Input
                             onChange={(event) => setHudTaskTitle(event.target.value)}
-                            placeholder="Title override"
+                            placeholder="Title"
                             value={hudTaskTitle}
                           />
                           <Input
@@ -1626,7 +1692,7 @@ export function HudApp() {
                           <Textarea
                             className="min-h-[80px] resize-none"
                             onChange={(event) => setHudTaskNotes(event.target.value)}
-                            placeholder="Notes you want to keep with the task"
+                            placeholder="Notes"
                             rows={3}
                             value={hudTaskNotes}
                           />
@@ -1636,15 +1702,12 @@ export function HudApp() {
                   </div>
 
                   <div className="mt-3 flex shrink-0 flex-col gap-3 border-t border-borderSoft/24 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs leading-5 text-text-muted">
-                      {hudTaskLane === 'now'
-                        ? 'Active starts in HUD immediately.'
-                        : hudTaskLane === 'next'
-                          ? 'Next waits behind the live task.'
-                          : hudTaskLane === 'later'
-                            ? 'Backlog keeps it out of the way.'
-                            : 'Queue keeps it ready for kanban review.'}
-                    </p>
+                    <div className="flex items-center gap-2 rounded-full border border-borderSoft/35 bg-panel/40 px-3 py-2 text-xs">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/12 text-accent">
+                        <SelectedHudCaptureIcon />
+                      </span>
+                      <span className="font-medium text-text-primary">{selectedHudCaptureOption.label}</span>
+                    </div>
                     <div className="flex items-center justify-end gap-2">
                       <Button
                         onClick={() => setShowCompactTaskComposer(false)}

@@ -198,53 +198,54 @@ function buildWhyItMatters() {
   return 'Clear tasks reduce context switching and make it easier to finish work without rethinking the same thing twice.';
 }
 
-function buildSubtaskTitles(shape: TaskShape) {
-  switch (shape) {
-    case 'discussion':
-      return [
-        'Define the outcome you need',
-        'Gather the key points or context',
-        'Send, discuss, or follow up with the next step',
-      ];
-    case 'document':
-      return [
-        'Draft a simple outline',
-        'Fill the most important section',
-        'Review and clean up before sharing',
-      ];
-    case 'research':
-      return [
-        'Frame the question',
-        'Collect the strongest evidence',
-        'Summarize the answer and next move',
-      ];
-    case 'review':
-      return [
-        'Open the item to review',
-        'Check the critical parts',
-        'Record the outcome clearly',
-      ];
-    case 'implementation':
-      return [
-        'Define the exact change',
-        'Make the smallest useful update',
-        'Check the result once before closing',
-      ];
-    default:
-      return [
-        'Define the expected output',
-        'Do the next concrete step',
-        'Check that the result is usable',
-      ];
-  }
+const GENERATED_SUBTASK_TITLE_GROUPS = [
+  [
+    'Define the outcome you need',
+    'Gather the key points or context',
+    'Send, discuss, or follow up with the next step',
+  ],
+  [
+    'Draft a simple outline',
+    'Fill the most important section',
+    'Review and clean up before sharing',
+  ],
+  [
+    'Frame the question',
+    'Collect the strongest evidence',
+    'Summarize the answer and next move',
+  ],
+  [
+    'Open the item to review',
+    'Check the critical parts',
+    'Record the outcome clearly',
+  ],
+  [
+    'Define the exact change',
+    'Make the smallest useful update',
+    'Check the result once before closing',
+  ],
+  [
+    'Define the expected output',
+    'Do the next concrete step',
+    'Check that the result is usable',
+  ],
+] as const;
+
+function normalizeSubtaskTitle(title: string) {
+  return compactWhitespace(title).toLowerCase();
 }
 
-function buildSubtasks(seed: string, shape: TaskShape) {
-  return buildSubtaskTitles(shape).map((title, index) => ({
-    id: buildId('subtask', seed, index),
-    title,
-    completed: false,
-  }));
+const GENERATED_SUBTASK_SIGNATURES = new Set(
+  GENERATED_SUBTASK_TITLE_GROUPS.map((titles) => titles.map(normalizeSubtaskTitle).join('|')),
+);
+
+export function areGeneratedPlaceholderSubtasks(subtasks: TaskSubtask[]) {
+  if (!subtasks.length) {
+    return false;
+  }
+
+  const signature = subtasks.map((subtask) => normalizeSubtaskTitle(subtask.title)).join('|');
+  return GENERATED_SUBTASK_SIGNATURES.has(signature);
 }
 
 function buildQuestions(seed: string, input: string) {
@@ -322,9 +323,7 @@ export function generateTaskBrief(
     nextAction,
     whyItMatters,
     subtasks:
-      draft.subtasks && draft.subtasks.length > 0
-        ? draft.subtasks
-        : buildSubtasks(seed, shape),
+      draft.subtasks ?? [],
     clarifyingQuestions:
       draft.clarifyingQuestions && draft.clarifyingQuestions.length > 0
         ? draft.clarifyingQuestions
