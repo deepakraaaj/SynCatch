@@ -96,9 +96,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          shopt -s globstar nullglob
-
-          files=(release-assets/**/*)
+          mapfile -d '' files < <(find release-assets -type f -print0 | sort -z)
 
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No release assets were downloaded."
