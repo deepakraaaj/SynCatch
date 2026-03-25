@@ -882,7 +882,7 @@ export function HudApp() {
                 <div className="hud-focus-panel shrink-0 rounded-[30px] p-6">
                   <p className="text-[10px] uppercase tracking-[0.3em] text-accent/80">Current task</p>
                   <button
-                    className="mt-4 max-w-[540px] text-left text-[clamp(2.1rem,4vw,3rem)] font-semibold tracking-[-0.05em] text-text-primary transition hover:text-accent"
+                    className="mt-4 max-w-[540px] text-left text-[clamp(2.1rem,4vw,3rem)] font-semibold tracking-[-0.05em] text-text-primary"
                     onClick={() => {
                       if (currentMission) {
                         showTaskInHud(currentMission);
@@ -1357,7 +1357,7 @@ export function HudApp() {
               )}
             />
             {compactHudExpanded ? (
-              <div className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
                 <div className="rounded-[20px] border border-accent/35 bg-accent/10 px-2.5 py-2 font-mono text-[1.4rem] leading-none text-accent">
                   {displayClock}
                 </div>
@@ -1378,7 +1378,7 @@ export function HudApp() {
                       />
                     </div>
                     <button
-                      className="mt-1 block max-w-full truncate pr-1 text-left text-[15px] font-semibold leading-5 text-text-primary transition hover:text-accent"
+                      className="mt-1 block max-w-full truncate pr-1 text-left text-[15px] font-semibold leading-5 text-text-primary"
                       onClick={() => {
                         if (currentMission) {
                           showTaskInHud(currentMission, true);
@@ -1411,57 +1411,59 @@ export function HudApp() {
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderStrong/25 bg-panel2/74 p-1">
-                  <div
-                    className={cn(
-                      'flex items-center gap-1 overflow-hidden transition-[max-width,opacity,margin,transform] duration-200 ease-out',
-                      showCompactTaskPicker || showCompactTaskComposer || showCompactDistractionComposer
-                        ? 'mr-1 max-w-[320px] opacity-100'
-                        : 'mr-0 max-w-0 translate-x-1 opacity-0 group-hover:mr-1 group-hover:max-w-[320px] group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:mr-1 group-focus-within:max-w-[320px] group-focus-within:translate-x-0 group-focus-within:opacity-100',
-                    )}
-                  >
+                  <div className="group/session flex items-center gap-1">
+                    <div
+                      className={cn(
+                        'flex items-center gap-1 overflow-hidden transition-[max-width,opacity,margin,transform] duration-200 ease-out',
+                        showCompactTaskPicker || showCompactTaskComposer || showCompactDistractionComposer
+                          ? 'mr-1 max-w-[320px] opacity-100'
+                          : 'mr-0 max-w-0 translate-x-1 opacity-0 group-hover/session:mr-1 group-hover/session:max-w-[320px] group-hover/session:translate-x-0 group-hover/session:opacity-100 group-focus-within/session:mr-1 group-focus-within/session:max-w-[320px] group-focus-within/session:translate-x-0 group-focus-within/session:opacity-100',
+                      )}
+                    >
+                      <HudActionButton
+                        className="h-9 w-9"
+                        icon={<TasksIcon />}
+                        label={showCompactTaskPicker ? 'Close task picker' : 'Select task'}
+                        onClick={toggleCompactTaskPicker}
+                        variant={showCompactTaskPicker ? 'primary' : 'secondary'}
+                      />
+                      <HudActionButton
+                        className="h-9 w-9"
+                        icon={<QuickAddIcon />}
+                        label={showCompactTaskComposer ? 'Close add task' : 'Add task'}
+                        onClick={toggleCompactTaskComposer}
+                        variant={showCompactTaskComposer ? 'primary' : 'secondary'}
+                      />
+                      <HudActionButton
+                        className="h-9 w-9"
+                        icon={<DistractionIcon />}
+                        label={showCompactDistractionComposer ? 'Close distraction log' : 'Log distraction'}
+                        onClick={toggleCompactDistractionComposer}
+                        variant={showCompactDistractionComposer ? 'primary' : 'secondary'}
+                      />
+                      <HudActionButton
+                        className="h-9 w-9"
+                        icon={<ExpandIcon />}
+                        label="Expand HUD"
+                        onClick={() => toggleHudMode('hud')}
+                      />
+                      <HudActionButton
+                        className="h-9 w-9"
+                        icon={<AppIcon />}
+                        label="Open app"
+                        onClick={() => {
+                          void showMainWindow();
+                        }}
+                      />
+                    </div>
                     <HudActionButton
                       className="h-9 w-9"
-                      icon={<TasksIcon />}
-                      label={showCompactTaskPicker ? 'Close task picker' : 'Select task'}
-                      onClick={toggleCompactTaskPicker}
-                      variant={showCompactTaskPicker ? 'primary' : 'secondary'}
-                    />
-                    <HudActionButton
-                      className="h-9 w-9"
-                      icon={<QuickAddIcon />}
-                      label={showCompactTaskComposer ? 'Close add task' : 'Add task'}
-                      onClick={toggleCompactTaskComposer}
-                      variant={showCompactTaskComposer ? 'primary' : 'secondary'}
-                    />
-                    <HudActionButton
-                      className="h-9 w-9"
-                      icon={<DistractionIcon />}
-                      label={showCompactDistractionComposer ? 'Close distraction log' : 'Log distraction'}
-                      onClick={toggleCompactDistractionComposer}
-                      variant={showCompactDistractionComposer ? 'primary' : 'secondary'}
-                    />
-                    <HudActionButton
-                      className="h-9 w-9"
-                      icon={<ExpandIcon />}
-                      label="Expand HUD"
-                      onClick={() => toggleHudMode('hud')}
-                    />
-                    <HudActionButton
-                      className="h-9 w-9"
-                      icon={<AppIcon />}
-                      label="Open app"
-                      onClick={() => {
-                        void showMainWindow();
-                      }}
+                      disabled={!currentMission}
+                      icon={sessionToggleIcon}
+                      label={sessionToggleLabel}
+                      onClick={handleSessionToggle}
                     />
                   </div>
-                  <HudActionButton
-                    className="h-9 w-9"
-                    disabled={!currentMission}
-                    icon={sessionToggleIcon}
-                    label={sessionToggleLabel}
-                    onClick={handleSessionToggle}
-                  />
                   <HudActionButton
                     className="h-9 w-9"
                     disabled={!currentMission}
