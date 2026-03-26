@@ -1,4 +1,5 @@
 import {
+  type DragEvent as ReactDragEvent,
   type ReactNode,
   type RefObject,
   useEffect,
@@ -36,7 +37,7 @@ import {
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
 import { humanizePriority } from '../../features/tasks/task-helpers';
 import { useTaskStore } from '../../features/tasks/task-store';
-import type { Task } from '../../features/tasks/task-types';
+import type { Task, TaskLane } from '../../features/tasks/task-types';
 import { cn } from '../../lib/cn';
 import { formatRelativeTime } from '../../lib/date';
 import { showHudWindow, showQuickAddWindow } from '../../lib/tauri';
@@ -47,6 +48,13 @@ type CaptureState = {
   kind: SessionCaptureKind;
   value: string;
 } | null;
+
+type TaskBoardColumn = {
+  lane: TaskLane;
+  title: string;
+  tone: 'neutral' | 'accent' | 'success' | 'warning';
+  empty: string;
+};
 
 const views: Array<{ id: MainView; label: string; caption?: string }> = [
   { id: 'today', label: 'Today' },
@@ -78,6 +86,14 @@ const captureOptions: Array<{
     label: 'Follow-up',
     placeholder: 'Create a follow-up task',
   },
+];
+
+const taskBoardColumns: TaskBoardColumn[] = [
+  { lane: 'now', title: 'Active', tone: 'accent', empty: 'Drop here' },
+  { lane: 'inbox', title: 'Queue', tone: 'neutral', empty: 'Drop here' },
+  { lane: 'next', title: 'Next', tone: 'warning', empty: 'Drop here' },
+  { lane: 'later', title: 'Backlog', tone: 'neutral', empty: 'Drop here' },
+  { lane: 'done', title: 'Completed', tone: 'success', empty: 'Drop here' },
 ];
 
 const zeroMetrics = {
@@ -616,6 +632,11 @@ function TaskListItem({
   blocked,
   active,
   footer,
+  className,
+  dragging,
+  draggable,
+  onDragEnd,
+  onDragStart,
   onSelect,
 }: {
   task: Task;
@@ -623,16 +644,27 @@ function TaskListItem({
   blocked?: boolean;
   active?: boolean;
   footer?: ReactNode;
+  className?: string;
+  dragging?: boolean;
+  draggable?: boolean;
+  onDragEnd?: (event: ReactDragEvent<HTMLDivElement>) => void;
+  onDragStart?: (event: ReactDragEvent<HTMLDivElement>) => void;
   onSelect: () => void;
 }) {
   return (
     <div
       className={cn(
-        'main-list-item rounded-[24px] border p-4 transition-colors duration-150',
+        'main-list-item rounded-[24px] border p-4 transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out',
         selected
           ? 'border-accent/30 bg-accent/10'
           : 'border-borderSoft/35 bg-panel/42 hover:border-borderStrong/35 hover:bg-panel/56',
+        draggable ? 'cursor-grab active:cursor-grabbing' : null,
+        dragging ? 'scale-[0.985] border-accent/26 bg-accent/8 opacity-45 shadow-none' : null,
+        className,
       )}
+      draggable={draggable}
+      onDragEnd={onDragEnd}
+      onDragStart={onDragStart}
     >
       <div className="flex items-start justify-between gap-3">
         <button className="min-w-0 flex-1 text-left" onClick={onSelect} type="button">
@@ -1006,6 +1038,11 @@ export function MainApp() {
   const [captureState, setCaptureState] = useState<CaptureState>(null);
   const [captureSaving, setCaptureSaving] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [taskComposerOpen, setTaskComposerOpen] = useState(false);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dropLane, setDropLane] = useState<TaskLane | null>(null);
+  const dragImageRef = useRef<HTMLImageElement | null>(null);
+  const dropHandledRef = useRef(false);
   const activeSession = useMemo(
     () => findActiveSession(sessions, activeSessionId),
     [activeSessionId, sessions],
@@ -1017,6 +1054,8 @@ export function MainApp() {
     blockedEntries,
     activeTasks,
     queueTasks,
+    nextTasks,
+    backlogTasks,
     blockedTasks,
     completedTasks,
     currentTask,
@@ -1050,13 +1089,9 @@ export function MainApp() {
     const blockedTaskIds = new Set(blocked.map((entry) => entry.taskId));
     const activeSessionTask = activeSession ? tasksById.get(activeSession.task_id) ?? null : null;
     const active = tasks.filter((task) => task.lane === 'now' && task.status !== 'done');
-    const queue = tasks.filter(
-      (task) =>
-        task.lane !== 'done' &&
-        task.status !== 'done' &&
-        task.lane !== 'now' &&
-        !blockedTaskIds.has(task.id),
-    );
+    const queue = tasks.filter((task) => task.lane === 'inbox' && task.status !== 'done');
+    const next = tasks.filter((task) => task.lane === 'next' && task.status !== 'done');
+    const backlog = tasks.filter((task) => task.lane === 'later' && task.status !== 'done');
     const blockedTaskList = tasks.filter(
       (task) => task.lane !== 'done' && task.status !== 'done' && blockedTaskIds.has(task.id),
     );
@@ -1066,6 +1101,8 @@ export function MainApp() {
       activeSessionTask ??
       active[0] ??
       queue[0] ??
+      next[0] ??
+      backlog[0] ??
       null;
     const current = activeSessionTask ?? selected;
     const suggested = getSuggestedTask(tasks, blockedTaskIds, activeSession?.task_id ?? null);
@@ -1127,6 +1164,8 @@ export function MainApp() {
       blockedEntries: blocked,
       activeTasks: active,
       queueTasks: queue,
+      nextTasks: next,
+      backlogTasks: backlog,
       blockedTasks: blockedTaskList,
       completedTasks: completed,
       currentTask: current,
@@ -1160,7 +1199,7 @@ export function MainApp() {
             content: capture.content,
           })),
       ),
-      nextReviewTasks: [...queue]
+      nextReviewTasks: [...queue, ...next, ...backlog]
         .sort((left, right) => priorityValue(right.priority) - priorityValue(left.priority))
         .slice(0, 3),
       weeklyCompletedCount: completed.filter(
@@ -1176,6 +1215,27 @@ export function MainApp() {
     tasks,
     tasksById,
   ]);
+  const blockedEntryByTaskId = useMemo(
+    () => new Map(blockedEntries.map((entry) => [entry.taskId, entry])),
+    [blockedEntries],
+  );
+  const taskBoard = useMemo(
+    () => [
+      { ...taskBoardColumns[0], tasks: activeTasks },
+      { ...taskBoardColumns[1], tasks: queueTasks },
+      { ...taskBoardColumns[2], tasks: nextTasks },
+      { ...taskBoardColumns[3], tasks: backlogTasks },
+      { ...taskBoardColumns[4], tasks: completedTasks },
+    ],
+    [activeTasks, backlogTasks, completedTasks, nextTasks, queueTasks],
+  );
+
+  useEffect(() => {
+    const image = new Image();
+    image.src =
+      'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxIiBoZWlnaHQ9IjEiPjwvc3ZnPg==';
+    dragImageRef.current = image;
+  }, []);
 
   useEffect(() => {
     if (!selectedTaskId && tasks[0]) {
@@ -1239,6 +1299,59 @@ export function MainApp() {
   function handleFinishSession() {
     completeActiveSession();
     resetFocusSession('main');
+  }
+
+  function clearBoardDragState() {
+    dropHandledRef.current = false;
+    setDraggedTaskId(null);
+    setDropLane(null);
+  }
+
+  function handleTaskDragStart(event: ReactDragEvent<HTMLDivElement>, taskId: string) {
+    dropHandledRef.current = false;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', taskId);
+
+    if (dragImageRef.current) {
+      event.dataTransfer.setDragImage(dragImageRef.current, 0, 0);
+    }
+
+    setDraggedTaskId(taskId);
+  }
+
+  function handleTaskDragEnd() {
+    if (dropHandledRef.current) {
+      return;
+    }
+
+    clearBoardDragState();
+  }
+
+  function handleTaskLaneDrop(event: ReactDragEvent<HTMLDivElement>, lane: TaskLane) {
+    event.preventDefault();
+
+    const taskId = draggedTaskId ?? event.dataTransfer.getData('text/plain');
+
+    if (!taskId) {
+      clearBoardDragState();
+      return;
+    }
+
+    const task = tasksById.get(taskId);
+
+    if (!task || task.lane === lane) {
+      clearBoardDragState();
+      return;
+    }
+
+    dropHandledRef.current = true;
+    void moveTaskToLane(task.id, lane, 'main');
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        clearBoardDragState();
+      });
+    });
   }
 
   async function handleSaveCapture() {
@@ -1505,145 +1618,141 @@ export function MainApp() {
   function renderTasks() {
     return (
       <div className="space-y-6">
-        <Card className="rounded-[34px] p-6">
-          <SectionHeading action={<Badge tone="accent">New</Badge>} title="Add task" />
-          <TaskCreationComposer
-            fillHeight={false}
-            initialMode="interaction"
-            onSubmitted={() => {
-              setActiveView('tasks');
-            }}
-            source="main"
-            submitLabel="Save task"
-          />
-        </Card>
-
-        <div className="grid gap-6 xl:grid-cols-2">
+        {taskComposerOpen ? (
           <Card className="rounded-[34px] p-6">
-            <SectionHeading action={<Badge tone="accent">{activeTasks.length}</Badge>} title="Active" />
-
-            <div className="space-y-3">
-              {activeTasks.length ? (
-                activeTasks.map((task) => (
-                  <TaskListItem
-                    active={activeSession?.task_id === task.id}
-                    footer={
-                      <div className="flex flex-wrap gap-2">
-                        <Button onClick={() => handleStartSession(task)} size="sm" type="button">
-                          Focus
-                        </Button>
-                        <Button onClick={() => void markDone(task.id, 'main')} size="sm" type="button" variant="ghost">
-                          Mark done
-                        </Button>
-                      </div>
-                    }
-                    key={task.id}
-                    onSelect={() => selectTask(task.id)}
-                    selected={selectedTaskId === task.id}
-                    task={task}
-                  />
-                ))
-              ) : (
-                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
-                  No active tasks.
-                </div>
-              )}
-            </div>
+            <SectionHeading title="Add task" />
+            <TaskCreationComposer
+              autoFocus
+              fillHeight={false}
+              initialMode="interaction"
+              onCancel={() => setTaskComposerOpen(false)}
+              onSubmitted={() => {
+                setTaskComposerOpen(false);
+                setActiveView('tasks');
+              }}
+              source="main"
+              submitLabel="Save task"
+            />
           </Card>
+        ) : null}
 
-          <Card className="rounded-[34px] p-6">
-            <SectionHeading action={<Badge tone="neutral">{queueTasks.length}</Badge>} title="Queue" />
-
-            <div className="space-y-3">
-              {queueTasks.length ? (
-                queueTasks.map((task) => (
-                  <TaskListItem
-                    footer={
-                      <div className="flex flex-wrap gap-2">
-                        <Button onClick={() => handleStartSession(task)} size="sm" type="button">
-                          Start focus
-                        </Button>
-                        <Button
-                          onClick={() => void moveTaskToLane(task.id, 'later', 'main')}
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          Move later
-                        </Button>
-                      </div>
-                    }
-                    key={task.id}
-                    onSelect={() => selectTask(task.id)}
-                    selected={selectedTaskId === task.id}
-                    task={task}
-                  />
-                ))
-              ) : (
-                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
-                  Queue is clear.
-                </div>
+        <div className="grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+          {taskBoard.map((column) => (
+            <Card
+              className={cn(
+                'kanban-column flex min-h-[320px] flex-col rounded-[34px] p-5',
+                dropLane === column.lane ? 'border-accent/30 bg-accent/8 shadow-[0_18px_44px_rgb(var(--accent)/0.12)]' : null,
               )}
-            </div>
-          </Card>
+              key={column.lane}
+              onDragOver={(event) => {
+                if (!draggedTaskId) {
+                  return;
+                }
 
-          <Card className="rounded-[34px] p-6">
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+
+                if (dropLane !== column.lane) {
+                  setDropLane(column.lane);
+                }
+              }}
+              onDrop={(event) => void handleTaskLaneDrop(event, column.lane)}
+            >
+              <SectionHeading
+                action={<Badge tone={column.tone}>{column.tasks.length}</Badge>}
+                title={column.title}
+              />
+
+              <div className="flex-1 space-y-3">
+                {column.tasks.length ? (
+                  column.tasks.map((task) => {
+                    const blocker = blockedEntryByTaskId.get(task.id);
+                    const isComplete = column.lane === 'done';
+
+                    return (
+                      <TaskListItem
+                        active={activeSession?.task_id === task.id}
+                        blocked={Boolean(blocker)}
+                        className="kanban-card"
+                        draggable
+                        dragging={draggedTaskId === task.id}
+                        footer={
+                          isComplete ? (
+                            <p className="text-xs text-text-muted">Completed {formatRelativeTime(task.updated_at)}</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {blocker ? (
+                                <p className="text-sm text-warning">{blocker.blocker}</p>
+                              ) : null}
+                              <div className="flex flex-wrap gap-2">
+                                <Button onClick={() => handleStartSession(task)} size="sm" type="button">
+                                  Focus
+                                </Button>
+                                <Button
+                                  onClick={() => void markDone(task.id, 'main')}
+                                  size="sm"
+                                  type="button"
+                                  variant="ghost"
+                                >
+                                  Done
+                                </Button>
+                              </div>
+                            </div>
+                          )
+                        }
+                        key={task.id}
+                        onDragEnd={handleTaskDragEnd}
+                        onDragStart={(event) => handleTaskDragStart(event, task.id)}
+                        onSelect={() => selectTask(task.id)}
+                        task={task}
+                      />
+                    );
+                  })
+                ) : (
+                  <div
+                    className={cn(
+                      'flex min-h-[140px] items-center justify-center rounded-[24px] border border-dashed p-5 text-sm text-text-secondary transition-[border-color,background-color,color] duration-150',
+                      dropLane === column.lane
+                        ? 'border-accent/30 bg-accent/8 text-text-primary'
+                        : 'border-borderSoft/35 bg-panel/18',
+                    )}
+                  >
+                    {column.empty}
+                  </div>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {blockedTasks.length ? (
+          <Card className="rounded-[34px] p-5">
             <SectionHeading action={<Badge tone="warning">{blockedTasks.length}</Badge>} title="Blocked" />
 
-            <div className="space-y-3">
-              {blockedTasks.length ? (
-                blockedTasks.map((task) => {
-                  const blocker = blockedEntries.find((entry) => entry.taskId === task.id);
+            <div className="grid gap-3 lg:grid-cols-2">
+              {blockedTasks.map((task) => {
+                const blocker = blockedEntryByTaskId.get(task.id);
 
-                  return (
-                    <TaskListItem
-                      blocked
-                      footer={
-                        <div className="space-y-3">
-                          <p className="text-sm text-text-secondary">{blocker?.blocker ?? 'Blocker logged earlier.'}</p>
-                          <div className="flex flex-wrap gap-2">
-                            <Button onClick={() => handleStartSession(task)} size="sm" type="button">
-                              Try again
-                            </Button>
-                          </div>
-                        </div>
-                      }
-                      key={task.id}
-                      onSelect={() => selectTask(task.id)}
-                      selected={selectedTaskId === task.id}
-                      task={task}
-                    />
-                  );
-                })
-              ) : (
-                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
-                  No blocked tasks.
-                </div>
-              )}
+                return (
+                  <div className="rounded-[24px] border border-warning/18 bg-warning/7 p-4" key={task.id}>
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        className="min-w-0 text-left"
+                        onClick={() => selectTask(task.id)}
+                        type="button"
+                      >
+                        <p className="truncate text-sm font-medium text-text-primary">{task.title}</p>
+                      </button>
+                      <Badge tone="warning">Blocked</Badge>
+                    </div>
+
+                    {blocker ? <p className="mt-3 text-sm text-text-secondary">{blocker.blocker}</p> : null}
+                  </div>
+                );
+              })}
             </div>
           </Card>
-
-          <Card className="rounded-[34px] p-6">
-            <SectionHeading action={<Badge tone="success">{completedTasks.length}</Badge>} title="Completed" />
-
-            <div className="space-y-3">
-              {completedTasks.length ? (
-                completedTasks.slice(0, 8).map((task) => (
-                  <TaskListItem
-                    footer={<p className="text-xs text-text-muted">Completed {formatRelativeTime(task.updated_at)}</p>}
-                    key={task.id}
-                    onSelect={() => selectTask(task.id)}
-                    task={task}
-                  />
-                ))
-              ) : (
-                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
-                  No completed tasks.
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
+        ) : null}
       </div>
     );
   }
@@ -2014,6 +2123,17 @@ export function MainApp() {
             </div>
 
             <div className="flex items-center gap-3">
+              {activeView === 'tasks' ? (
+                taskComposerOpen ? (
+                  <Button onClick={() => setTaskComposerOpen(false)} size="sm" type="button" variant="ghost">
+                    Close
+                  </Button>
+                ) : (
+                  <Button onClick={() => setTaskComposerOpen(true)} size="sm" type="button">
+                    Create task
+                  </Button>
+                )
+              ) : null}
               <HeaderClock />
               <Button onClick={() => void showQuickAddWindow()} size="sm" type="button" variant="secondary">
                 Quick Add

@@ -522,6 +522,14 @@ export function HudApp() {
 
   useEffect(() => {
     const unsubscribe = subscribeAppEvent(SHOW_HUD_TASK_COMPOSER_EVENT, () => {
+      if (hudMode === 'compact' && showCompactTaskComposer) {
+        setShowCompactTaskComposer(false);
+        setShowCompactTaskPicker(false);
+        setShowCompactDistractionComposer(false);
+        setIsCompactHudExpanded(false);
+        return;
+      }
+
       setHudMode('compact');
       setHudTaskLane('inbox');
       setShowCompactTaskPicker(false);
@@ -545,7 +553,7 @@ export function HudApp() {
     return () => {
       unsubscribe();
     };
-  }, [setHudMode]);
+  }, [hudMode, setHudMode, showCompactTaskComposer]);
 
   useEffect(() => {
     if (!isTauriApp()) {

@@ -117,10 +117,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'updated', taskId: task.id });
   },
   moveTaskToLane: async (taskId, lane, source = 'system') => {
-    const repository = await getTaskRepository();
     const task = get().tasks.find((item) => item.id === taskId);
 
-    if (!task) {
+    if (!task || task.lane === lane) {
       return;
     }
 
@@ -131,20 +130,31 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       updated_at: new Date().toISOString(),
     };
 
-    await repository.updateTask(nextTask);
     set({
       tasks: sortTasks(get().tasks.map((item) => (item.id === taskId ? nextTask : item))),
+      selectedTaskId: taskId,
+      error: null,
     });
-    await logActivity({
-      action: 'task_lane_changed',
-      source,
-      taskId,
-      details: {
-        fromLane: task.lane,
-        toLane: lane,
-      },
-    });
-    await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'moved', taskId, lane });
+
+    try {
+      const repository = await getTaskRepository();
+      await repository.updateTask(nextTask);
+      await logActivity({
+        action: 'task_lane_changed',
+        source,
+        taskId,
+        details: {
+          fromLane: task.lane,
+          toLane: lane,
+        },
+      });
+      await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'moved', taskId, lane });
+    } catch (error) {
+      set((state) => ({
+        tasks: sortTasks(state.tasks.map((item) => (item.id === taskId ? task : item))),
+        error: error instanceof Error ? error.message : 'Unable to move mission',
+      }));
+    }
   },
   toggleSubtask: async (taskId, subtaskId, source = 'system') => {
     const task = get().tasks.find((item) => item.id === taskId);

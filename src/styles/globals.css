@@ -278,6 +278,16 @@
     transform: none;
   }
 
+  .kanban-column {
+    transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease,
+      transform 160ms ease;
+  }
+
+  .kanban-card {
+    transition: transform 160ms ease, opacity 160ms ease, border-color 160ms ease,
+      background-color 160ms ease, box-shadow 160ms ease;
+  }
+
   .history-row-lite {
     transform: none;
   }
