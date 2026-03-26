@@ -1,5 +1,11 @@
-import { AnimatePresence, motion, type PanInfo } from 'framer-motion';
-import { startTransition, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -84,9 +90,32 @@ const zeroMetrics = {
 const wheelItemWidth = 108;
 const wheelGap = 14;
 const wheelStep = wheelItemWidth + wheelGap;
+const headerTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+});
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function useTickingNow(intervalMs: number) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, intervalMs);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [intervalMs]);
+
+  return now;
 }
 
 function formatClock(seconds: number) {
@@ -139,6 +168,22 @@ function laneValue(lane: Task['lane']) {
 
 function matchPreset(minutes: number): SessionPresetId {
   return SESSION_PRESETS.find((preset) => preset.minutes === minutes)?.id ?? 'custom';
+}
+
+function getClosestMinuteIndex(value: number) {
+  let closestIndex = 0;
+  let closestDistance = Number.POSITIVE_INFINITY;
+
+  CUSTOM_SESSION_MINUTES.forEach((minutes, index) => {
+    const distance = Math.abs(minutes - value);
+
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestIndex = index;
+    }
+  });
+
+  return closestIndex;
 }
 
 function describeTask(task: Task) {
@@ -267,9 +312,9 @@ function NavButton({
   return (
     <button
       className={cn(
-        'w-full rounded-[24px] border px-4 py-3 text-left transition-all duration-200',
+        'w-full rounded-[24px] border px-4 py-3 text-left transition-colors duration-150',
         active
-          ? 'border-accent/30 bg-accent/12 shadow-glow'
+          ? 'border-accent/30 bg-accent/12'
           : 'border-transparent bg-panel/38 hover:border-borderSoft/40 hover:bg-panel/56',
       )}
       onClick={onClick}
@@ -341,10 +386,12 @@ function ProgressBar({
 
   return (
     <div className="h-3 overflow-hidden rounded-full bg-panel2/80">
-      <motion.div
-        animate={{ width: `${clamp(value, 0, 100)}%` }}
+      <div
         className={cn('h-full rounded-full', barTone)}
-        transition={{ type: 'spring', stiffness: 180, damping: 26 }}
+        style={{
+          transition: 'width 180ms ease-out',
+          width: `${clamp(value, 0, 100)}%`,
+        }}
       />
     </div>
   );
@@ -363,22 +410,57 @@ function TimeWheelSelector({
   onChange: (minutes: number) => void;
   onPresetChange: (presetId: SessionPresetId) => void;
 }) {
-  const selectedIndex = Math.max(CUSTOM_SESSION_MINUTES.indexOf(value), 0);
+  const selectedIndex = getClosestMinuteIndex(value);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{ pointerId: number; startX: number; startScrollLeft: number } | null>(null);
+  const scrollTimeoutRef = useRef<number | null>(null);
 
   function commitValue(minutes: number) {
     onChange(minutes);
     onPresetChange(matchPreset(minutes));
   }
 
-  function handleDragEnd(_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
-    if (disabled) {
+  function commitIndex(index: number) {
+    const nextIndex = clamp(index, 0, CUSTOM_SESSION_MINUTES.length - 1);
+    commitValue(CUSTOM_SESSION_MINUTES[nextIndex]);
+  }
+
+  function syncFromScroll() {
+    const viewport = viewportRef.current;
+
+    if (!viewport) {
       return;
     }
 
-    const rawIndex = selectedIndex - info.offset.x / wheelStep;
-    const nextIndex = clamp(Math.round(rawIndex), 0, CUSTOM_SESSION_MINUTES.length - 1);
-    commitValue(CUSTOM_SESSION_MINUTES[nextIndex]);
+    commitIndex(Math.round(viewport.scrollLeft / wheelStep));
   }
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+
+    if (!viewport) {
+      return;
+    }
+
+    const targetLeft = selectedIndex * wheelStep;
+
+    if (Math.abs(viewport.scrollLeft - targetLeft) < 2) {
+      return;
+    }
+
+    viewport.scrollTo({
+      left: targetLeft,
+      behavior: 'smooth',
+    });
+  }, [selectedIndex]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current !== null) {
+        window.clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -405,48 +487,104 @@ function TimeWheelSelector({
       </div>
 
       <div className="relative overflow-hidden rounded-[30px] border border-borderSoft/35 bg-panel/44 px-3 py-5">
-        <div className="pointer-events-none absolute inset-y-3 left-1/2 z-10 w-[108px] -translate-x-1/2 rounded-[24px] border border-accent/28 bg-accent/10 shadow-glow" />
+        <div className="pointer-events-none absolute inset-y-3 left-1/2 z-10 w-[108px] -translate-x-1/2 rounded-[24px] border border-accent/28 bg-accent/10" />
 
-        <motion.div
-          animate={{ x: -selectedIndex * wheelStep }}
-          className="flex gap-[14px]"
-          drag={disabled ? false : 'x'}
-          dragConstraints={{
-            left: -wheelStep * (CUSTOM_SESSION_MINUTES.length - 1),
-            right: 0,
+        <div
+          className={cn(
+            'scrollbar-hidden overflow-x-auto',
+            disabled ? '' : 'cursor-grab active:cursor-grabbing',
+          )}
+          onPointerCancel={() => {
+            dragStateRef.current = null;
           }}
-          onDragEnd={handleDragEnd}
+          onPointerDown={(event) => {
+            if (disabled) {
+              return;
+            }
+
+            const viewport = viewportRef.current;
+
+            if (!viewport) {
+              return;
+            }
+
+            dragStateRef.current = {
+              pointerId: event.pointerId,
+              startX: event.clientX,
+              startScrollLeft: viewport.scrollLeft,
+            };
+
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (disabled || !dragStateRef.current || dragStateRef.current.pointerId !== event.pointerId) {
+              return;
+            }
+
+            const viewport = viewportRef.current;
+
+            if (!viewport) {
+              return;
+            }
+
+            viewport.scrollLeft =
+              dragStateRef.current.startScrollLeft - (event.clientX - dragStateRef.current.startX);
+          }}
+          onPointerUp={(event) => {
+            if (dragStateRef.current?.pointerId === event.pointerId) {
+              dragStateRef.current = null;
+              syncFromScroll();
+            }
+          }}
+          onScroll={() => {
+            if (scrollTimeoutRef.current !== null) {
+              window.clearTimeout(scrollTimeoutRef.current);
+            }
+
+            scrollTimeoutRef.current = window.setTimeout(() => {
+              syncFromScroll();
+            }, 60);
+          }}
+          ref={viewportRef}
           style={{
-            paddingLeft: 'calc(50% - 54px)',
-            paddingRight: 'calc(50% - 54px)',
+            scrollBehavior: 'smooth',
+            touchAction: 'pan-y',
           }}
-          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         >
-          {CUSTOM_SESSION_MINUTES.map((minutes, index) => {
-            const active = index === selectedIndex;
-            const near = Math.abs(index - selectedIndex) <= 1;
+          <div
+            className="flex gap-[14px]"
+            style={{
+              paddingLeft: 'calc(50% - 54px)',
+              paddingRight: 'calc(50% - 54px)',
+              width: 'max-content',
+            }}
+          >
+            {CUSTOM_SESSION_MINUTES.map((minutes, index) => {
+              const active = index === selectedIndex;
+              const near = Math.abs(index - selectedIndex) <= 1;
 
-            return (
-              <button
-                className={cn(
-                  'flex h-20 w-[108px] shrink-0 flex-col items-center justify-center rounded-[22px] border text-center transition-all',
-                  active
-                    ? 'border-accent/30 bg-accent/12 text-text-primary'
-                    : 'border-borderSoft/30 bg-panel2/56 text-text-secondary',
-                  near ? 'opacity-100' : 'opacity-45',
-                )}
-                disabled={disabled}
-                key={minutes}
-                onClick={() => commitValue(minutes)}
-                type="button"
-              >
-                <span className="text-[11px] uppercase tracking-[0.24em] text-text-muted">Focus</span>
-                <span className="mt-1 text-2xl font-semibold">{minutes}</span>
-                <span className="text-xs text-text-muted">minutes</span>
-              </button>
-            );
-          })}
-        </motion.div>
+              return (
+                <button
+                  className={cn(
+                    'flex h-20 w-[108px] shrink-0 flex-col items-center justify-center rounded-[22px] border text-center transition-colors duration-150',
+                    active
+                      ? 'border-accent/30 bg-accent/12 text-text-primary'
+                      : 'border-borderSoft/30 bg-panel2/56 text-text-secondary',
+                    near ? 'opacity-100' : 'opacity-45',
+                  )}
+                  disabled={disabled}
+                  key={minutes}
+                  onClick={() => commitValue(minutes)}
+                  type="button"
+                >
+                  <span className="text-[11px] uppercase tracking-[0.24em] text-text-muted">Focus</span>
+                  <span className="mt-1 text-2xl font-semibold">{minutes}</span>
+                  <span className="text-xs text-text-muted">minutes</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -490,9 +628,9 @@ function TaskListItem({
   return (
     <div
       className={cn(
-        'rounded-[24px] border p-4 transition-all',
+        'main-list-item rounded-[24px] border p-4 transition-colors duration-150',
         selected
-          ? 'border-accent/30 bg-accent/10 shadow-glow'
+          ? 'border-accent/30 bg-accent/10'
           : 'border-borderSoft/35 bg-panel/42 hover:border-borderStrong/35 hover:bg-panel/56',
       )}
     >
@@ -588,81 +726,250 @@ function CapturePopup({
   const isLongForm = option.kind === 'note' || option.kind === 'blocker' || option.kind === 'idea';
 
   return (
-    <AnimatePresence>
-      <motion.div
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="absolute bottom-6 right-6 z-30 w-[360px]"
-        exit={{ opacity: 0, y: 16, scale: 0.98 }}
-        initial={{ opacity: 0, y: 20, scale: 0.98 }}
-      >
-        <Card className="rounded-[28px] border border-accent/20 bg-panel/94 p-5 shadow-panel">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">{option.label}</p>
-              <h3 className="mt-2 text-lg font-semibold text-text-primary">{option.icon} Quick capture</h3>
-            </div>
+    <div className="absolute bottom-6 right-6 z-30 w-[360px]">
+      <Card className="rounded-[28px] border border-accent/20 bg-panel/94 p-5 shadow-panel">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">{option.label}</p>
+            <h3 className="mt-2 text-lg font-semibold text-text-primary">{option.icon} Quick capture</h3>
+          </div>
 
-            <Button onClick={onClose} size="sm" type="button" variant="ghost">
-              Esc
+          <Button onClick={onClose} size="sm" type="button" variant="ghost">
+            Esc
+          </Button>
+        </div>
+
+        <div className="mt-4">
+          {isLongForm ? (
+            <Textarea
+              className="min-h-[104px]"
+              onChange={(event) => onChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  onClose();
+                }
+
+                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  onSave();
+                }
+              }}
+              placeholder={option.placeholder}
+              ref={inputRef as RefObject<HTMLTextAreaElement>}
+              value={state.value}
+            />
+          ) : (
+            <Input
+              onChange={(event) => onChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  onClose();
+                }
+
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  onSave();
+                }
+              }}
+              placeholder={option.placeholder}
+              ref={inputRef as RefObject<HTMLInputElement>}
+              value={state.value}
+            />
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-text-muted">
+            {option.kind === 'distraction' ? 'Save and pause.' : 'Enter to save.'}
+          </p>
+
+          <div className="flex gap-2">
+            <Button onClick={onClose} size="sm" type="button" variant="secondary">
+              Cancel
+            </Button>
+            <Button disabled={loading || state.value.trim().length === 0} onClick={onSave} size="sm" type="button">
+              Save
             </Button>
           </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
 
-          <div className="mt-4">
-            {isLongForm ? (
-              <Textarea
-                className="min-h-[104px]"
-                onChange={(event) => onChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') {
-                    onClose();
-                  }
+function HeaderClock() {
+  const now = useTickingNow(30000);
 
-                  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-                    event.preventDefault();
-                    onSave();
-                  }
-                }}
-                placeholder={option.placeholder}
-                ref={inputRef as RefObject<HTMLTextAreaElement>}
-                value={state.value}
-              />
-            ) : (
-              <Input
-                onChange={(event) => onChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') {
-                    onClose();
-                  }
+  return (
+    <div className="hidden rounded-full border border-borderSoft/28 bg-panel/36 px-4 py-2 text-sm text-text-secondary lg:block">
+      {headerTimeFormatter.format(new Date(now))}
+    </div>
+  );
+}
 
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    onSave();
-                  }
-                }}
-                placeholder={option.placeholder}
-                ref={inputRef as RefObject<HTMLInputElement>}
-                value={state.value}
-              />
-            )}
+function SidebarLiveStatus({ activeSession }: { activeSession: WorkSession | null }) {
+  const now = useTickingNow(activeSession?.status === 'running' ? 1000 : 30000);
+  const metrics = useMemo(
+    () => (activeSession ? getSessionMetrics(activeSession, now) : zeroMetrics),
+    [activeSession, now],
+  );
+
+  return (
+    <Card className="rounded-[28px] p-5">
+      <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Live status</p>
+      <p className="mt-3 text-xl font-semibold text-text-primary">
+        {activeSession ? activeSession.task_title : 'Idle'}
+      </p>
+      <p className="mt-2 text-sm text-text-secondary">
+        {activeSession ? `${formatClock(metrics.focus_seconds)} · ${activeSession.status}` : 'No session'}
+      </p>
+    </Card>
+  );
+}
+
+function TodayFocusCard({
+  activeSession,
+  currentTask,
+  minutes,
+  presetId,
+  onMinutesChange,
+  onPresetChange,
+  onStartSession,
+  onPause,
+  onResume,
+  onFinish,
+  onSwitchTask,
+}: {
+  activeSession: WorkSession | null;
+  currentTask: Task | null;
+  minutes: number;
+  presetId: SessionPresetId;
+  onMinutesChange: (minutes: number) => void;
+  onPresetChange: (presetId: SessionPresetId) => void;
+  onStartSession: (task: Task, nextMinutes?: number, nextPresetId?: SessionPresetId) => void;
+  onPause: (kind: 'pause' | 'break' | 'distraction', detail?: string) => void;
+  onResume: (nextMinutes: number) => void;
+  onFinish: () => void;
+  onSwitchTask: () => void;
+}) {
+  const now = useTickingNow(activeSession?.status === 'running' ? 1000 : 30000);
+  const activeSessionMetrics = useMemo(
+    () => (activeSession ? getSessionMetrics(activeSession, now) : zeroMetrics),
+    [activeSession, now],
+  );
+  const progressPercent = activeSession
+    ? Math.round(
+        (activeSessionMetrics.focus_seconds / Math.max(1, activeSession.planned_minutes * 60)) * 100,
+      )
+    : 0;
+  const remainingMinutes = activeSession
+    ? Math.max(5, getRemainingMinutes(activeSession, now))
+    : minutes;
+
+  return (
+    <Card className="rounded-[34px] p-6">
+      <div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-[11px] uppercase tracking-[0.3em] text-text-muted">Current focus</p>
+            <h2 className="mt-2 text-3xl font-semibold leading-tight text-text-primary">
+              {currentTask?.title ?? 'Pick a task'}
+            </h2>
           </div>
 
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <p className="text-xs text-text-muted">
-              {option.kind === 'distraction' ? 'Save and pause.' : 'Enter to save.'}
-            </p>
+          <div className="grid min-w-[220px] gap-3 rounded-[26px] border border-borderSoft/30 bg-panel/46 p-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Live timer</p>
+              <p className="mt-2 text-[2.6rem] font-semibold leading-none text-text-primary">
+                {formatClock(activeSessionMetrics.focus_seconds)}
+              </p>
+            </div>
 
-            <div className="flex gap-2">
-              <Button onClick={onClose} size="sm" type="button" variant="secondary">
-                Cancel
-              </Button>
-              <Button disabled={loading || state.value.trim().length === 0} onClick={onSave} size="sm" type="button">
-                Save
-              </Button>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone={activeSession?.status === 'paused' ? 'warning' : 'accent'}>
+                {activeSession?.status === 'paused' ? 'Paused' : activeSession ? 'Running' : 'Ready'}
+              </Badge>
+              <Badge tone="neutral">{activeSession?.planned_minutes ?? minutes}m target</Badge>
+              {activeSession ? (
+                <Badge tone="neutral">
+                  {formatDurationFromSeconds(activeSessionMetrics.distraction_seconds)} distracted
+                </Badge>
+              ) : null}
             </div>
           </div>
-        </Card>
-      </motion.div>
-    </AnimatePresence>
+        </div>
+
+        {activeSession ? (
+          <div className="mt-6 space-y-3">
+            <div className="flex items-center justify-between text-sm text-text-secondary">
+              <span>
+                Focused {formatDurationFromSeconds(activeSessionMetrics.focus_seconds)} of{' '}
+                {activeSession.planned_minutes}m
+              </span>
+              <span>{Math.max(0, 100 - progressPercent)}% left</span>
+            </div>
+            <ProgressBar tone={activeSession?.status === 'paused' ? 'warning' : 'accent'} value={progressPercent} />
+          </div>
+        ) : null}
+
+        <div className="mt-8">
+          <SectionHeading action={<Badge tone="neutral">Wheel</Badge>} title="Session" />
+
+          <TimeWheelSelector
+            disabled={Boolean(activeSession && activeSession.status === 'running')}
+            onChange={onMinutesChange}
+            onPresetChange={onPresetChange}
+            presetId={presetId}
+            value={minutes}
+          />
+        </div>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          {!activeSession ? (
+            <Button
+              disabled={!currentTask}
+              onClick={() => currentTask && onStartSession(currentTask, minutes, presetId)}
+              size="lg"
+              type="button"
+            >
+              Start {minutes} min
+            </Button>
+          ) : activeSession.status === 'running' ? (
+            <>
+              <Button onClick={() => onPause('pause')} size="md" type="button" variant="secondary">
+                Pause
+              </Button>
+              <Button onClick={() => onPause('break')} size="md" type="button" variant="secondary">
+                Start break
+              </Button>
+              <Button
+                onClick={() => onPause('distraction', 'Quick distraction')}
+                size="md"
+                type="button"
+                variant="secondary"
+              >
+                Distracted
+              </Button>
+              <Button onClick={onFinish} size="md" type="button" variant="ghost">
+                Finish session
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={() => onResume(remainingMinutes)} size="md" type="button">
+                Resume remaining
+              </Button>
+              <Button onClick={() => onResume(10)} size="md" type="button" variant="secondary">
+                Resume 10 min
+              </Button>
+              <Button onClick={onSwitchTask} size="md" type="button" variant="ghost">
+                Switch task
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -699,101 +1006,176 @@ export function MainApp() {
   const [captureState, setCaptureState] = useState<CaptureState>(null);
   const [captureSaving, setCaptureSaving] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, []);
-
-  const activeSession = findActiveSession(sessions, activeSessionId);
-  const activeSessionMetrics = activeSession ? getSessionMetrics(activeSession, now) : zeroMetrics;
-  const blockedEntries = getLatestBlockedEntries(sessions);
-  const blockedTaskIds = new Set(blockedEntries.map((entry) => entry.taskId));
-
-  const activeTasks = tasks.filter((task) => task.lane === 'now' && task.status !== 'done');
-  const queueTasks = tasks.filter(
-    (task) =>
-      task.lane !== 'done' &&
-      task.status !== 'done' &&
-      task.lane !== 'now' &&
-      !blockedTaskIds.has(task.id),
+  const activeSession = useMemo(
+    () => findActiveSession(sessions, activeSessionId),
+    [activeSessionId, sessions],
   );
-  const blockedTasks = tasks.filter(
-    (task) => task.lane !== 'done' && task.status !== 'done' && blockedTaskIds.has(task.id),
-  );
-  const completedTasks = tasks.filter((task) => task.lane === 'done' || task.status === 'done');
-
-  const selectedTask =
-    tasks.find((task) => task.id === selectedTaskId) ??
-    (activeSession ? tasks.find((task) => task.id === activeSession.task_id) : null) ??
-    activeTasks[0] ??
-    queueTasks[0] ??
-    null;
-  const currentTask =
-    (activeSession ? tasks.find((task) => task.id === activeSession.task_id) : null) ?? selectedTask;
-  const suggestedTask = getSuggestedTask(tasks, blockedTaskIds, activeSession?.task_id ?? null);
-
-  const todaySessions = sessions.filter((session) => isSameCalendarDay(session.started_at, new Date(now)));
-  const todayFocusSeconds = todaySessions.reduce(
-    (sum, session) => sum + getSessionMetrics(session, now).focus_seconds,
-    0,
-  );
-  const todayDistractionSeconds = todaySessions.reduce(
-    (sum, session) => sum + getSessionMetrics(session, now).distraction_seconds,
-    0,
-  );
-  const todayPauseSeconds = todaySessions.reduce(
-    (sum, session) => sum + getSessionMetrics(session, now).pause_seconds,
-    0,
-  );
-  const todayBreakSeconds = todaySessions.reduce(
-    (sum, session) => sum + getSessionMetrics(session, now).break_seconds,
-    0,
-  );
-  const todaySwitchCount = getTaskSwitchCount(todaySessions);
-
-  const historyRows = buildTaskHistoryRows(sessions, tasks, now);
-  const hourlyFocus = getHourlyFocusBuckets(sessions, now)
-    .filter((bucket) => bucket.totalSeconds > 0)
-    .sort((left, right) => right.totalSeconds - left.totalSeconds);
-  const distractionPatterns = getDistractionPatterns(sessions);
-  const averageSessionSeconds = getAverageFocusSessionSeconds(sessions, now);
-  const dailySeries = buildDailySeries(sessions, 7, now);
-  const lastFourteenDays = buildDailySeries(sessions, 14, now);
-  const previousWeek = lastFourteenDays.slice(0, 7);
-  const currentWeek = lastFourteenDays.slice(7);
-  const estimationAccuracy = getTaskEstimationAccuracy(tasks, sessions, now);
-  const currentWeekFocus = currentWeek.reduce((sum, point) => sum + point.focusSeconds, 0);
-  const previousWeekFocus = previousWeek.reduce((sum, point) => sum + point.focusSeconds, 0);
-  const currentWeekDistraction = currentWeek.reduce((sum, point) => sum + point.distractionSeconds, 0);
-  const previousWeekDistraction = previousWeek.reduce((sum, point) => sum + point.distractionSeconds, 0);
-  const focusConsistency = dailySeries.filter((point) => point.focusSeconds > 0).length;
-
-  const doneToday = completedTasks.filter((task) => isSameCalendarDay(task.updated_at, new Date(now)));
-  const blockersToday = todaySessions.flatMap((session) =>
-    session.captures
-      .filter((capture) => capture.kind === 'blocker')
-      .map((capture) => ({
-        taskId: session.task_id,
-        taskTitle: tasks.find((task) => task.id === session.task_id)?.title ?? session.task_title,
-        content: capture.content,
-      })),
-  );
-  const nextReviewTasks = [...queueTasks]
-    .sort((left, right) => priorityValue(right.priority) - priorityValue(left.priority))
-    .slice(0, 3);
-
-  const progressPercent = activeSession
-    ? Math.round((activeSessionMetrics.focus_seconds / Math.max(1, activeSession.planned_minutes * 60)) * 100)
-    : 0;
-  const remainingMinutes = activeSession ? Math.max(5, getRemainingMinutes(activeSession, now)) : minutes;
+  const analyticsNow = Date.now();
+  const tasksById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
   const recentCaptures = activeSession ? activeSession.captures.slice(-4).reverse() : [];
+  const {
+    blockedEntries,
+    activeTasks,
+    queueTasks,
+    blockedTasks,
+    completedTasks,
+    currentTask,
+    suggestedTask,
+    todaySessions,
+    todaySessionCards,
+    todayFocusSeconds,
+    todayDistractionSeconds,
+    todayPauseSeconds,
+    todayBreakSeconds,
+    todaySwitchCount,
+    historyRows,
+    hourlyFocus,
+    distractionPatterns,
+    averageSessionSeconds,
+    dailySeries,
+    currentWeek,
+    estimationAccuracy,
+    currentWeekFocus,
+    previousWeekFocus,
+    currentWeekDistraction,
+    previousWeekDistraction,
+    focusConsistency,
+    doneToday,
+    blockersToday,
+    nextReviewTasks,
+    weeklyCompletedCount,
+  } = useMemo(() => {
+    const todayDate = new Date(analyticsNow);
+    const blocked = getLatestBlockedEntries(sessions);
+    const blockedTaskIds = new Set(blocked.map((entry) => entry.taskId));
+    const activeSessionTask = activeSession ? tasksById.get(activeSession.task_id) ?? null : null;
+    const active = tasks.filter((task) => task.lane === 'now' && task.status !== 'done');
+    const queue = tasks.filter(
+      (task) =>
+        task.lane !== 'done' &&
+        task.status !== 'done' &&
+        task.lane !== 'now' &&
+        !blockedTaskIds.has(task.id),
+    );
+    const blockedTaskList = tasks.filter(
+      (task) => task.lane !== 'done' && task.status !== 'done' && blockedTaskIds.has(task.id),
+    );
+    const completed = tasks.filter((task) => task.lane === 'done' || task.status === 'done');
+    const selected =
+      (selectedTaskId ? tasksById.get(selectedTaskId) ?? null : null) ??
+      activeSessionTask ??
+      active[0] ??
+      queue[0] ??
+      null;
+    const current = activeSessionTask ?? selected;
+    const suggested = getSuggestedTask(tasks, blockedTaskIds, activeSession?.task_id ?? null);
+    const today = sessions.filter((session) => isSameCalendarDay(session.started_at, todayDate));
+    const todayCards = [...today]
+      .sort(
+        (left, right) => new Date(right.started_at).getTime() - new Date(left.started_at).getTime(),
+      )
+      .map((session) => {
+        const metrics = getSessionMetrics(session, analyticsNow);
+
+        return {
+          id: session.id,
+          taskTitle: tasksById.get(session.task_id)?.title ?? session.task_title,
+          timeRange: formatTimeRange(session.started_at, session.ended_at),
+          focusLabel: formatDurationFromSeconds(metrics.focus_seconds),
+          distractionLabel: formatDurationFromSeconds(metrics.distraction_seconds),
+          captureCount: session.captures.length,
+        };
+      });
+    const todayTotals = today.reduce(
+      (summary, session) => {
+        const metrics = getSessionMetrics(session, analyticsNow);
+
+        return {
+          focusSeconds: summary.focusSeconds + metrics.focus_seconds,
+          pauseSeconds: summary.pauseSeconds + metrics.pause_seconds,
+          breakSeconds: summary.breakSeconds + metrics.break_seconds,
+          distractionSeconds: summary.distractionSeconds + metrics.distraction_seconds,
+        };
+      },
+      {
+        focusSeconds: 0,
+        pauseSeconds: 0,
+        breakSeconds: 0,
+        distractionSeconds: 0,
+      },
+    );
+    const history = buildTaskHistoryRows(sessions, tasks, analyticsNow);
+    const hourly = getHourlyFocusBuckets(sessions, analyticsNow)
+      .filter((bucket) => bucket.totalSeconds > 0)
+      .sort((left, right) => right.totalSeconds - left.totalSeconds);
+    const daily = buildDailySeries(sessions, 7, analyticsNow);
+    const lastFourteenDays = buildDailySeries(sessions, 14, analyticsNow);
+    const previous = lastFourteenDays.slice(0, 7);
+    const currentWeekSeries = lastFourteenDays.slice(7);
+    const currentFocus = currentWeekSeries.reduce((sum, point) => sum + point.focusSeconds, 0);
+    const previousFocus = previous.reduce((sum, point) => sum + point.focusSeconds, 0);
+    const currentDistraction = currentWeekSeries.reduce(
+      (sum, point) => sum + point.distractionSeconds,
+      0,
+    );
+    const previousDistraction = previous.reduce(
+      (sum, point) => sum + point.distractionSeconds,
+      0,
+    );
+
+    return {
+      blockedEntries: blocked,
+      activeTasks: active,
+      queueTasks: queue,
+      blockedTasks: blockedTaskList,
+      completedTasks: completed,
+      currentTask: current,
+      suggestedTask: suggested,
+      todaySessions: today,
+      todaySessionCards: todayCards,
+      todayFocusSeconds: todayTotals.focusSeconds,
+      todayDistractionSeconds: todayTotals.distractionSeconds,
+      todayPauseSeconds: todayTotals.pauseSeconds,
+      todayBreakSeconds: todayTotals.breakSeconds,
+      todaySwitchCount: getTaskSwitchCount(today),
+      historyRows: history,
+      hourlyFocus: hourly,
+      distractionPatterns: getDistractionPatterns(sessions),
+      averageSessionSeconds: getAverageFocusSessionSeconds(sessions, analyticsNow),
+      dailySeries: daily,
+      currentWeek: currentWeekSeries,
+      estimationAccuracy: getTaskEstimationAccuracy(tasks, sessions, analyticsNow),
+      currentWeekFocus: currentFocus,
+      previousWeekFocus: previousFocus,
+      currentWeekDistraction: currentDistraction,
+      previousWeekDistraction: previousDistraction,
+      focusConsistency: daily.filter((point) => point.focusSeconds > 0).length,
+      doneToday: completed.filter((task) => isSameCalendarDay(task.updated_at, todayDate)),
+      blockersToday: today.flatMap((session) =>
+        session.captures
+          .filter((capture) => capture.kind === 'blocker')
+          .map((capture) => ({
+            taskId: session.task_id,
+            taskTitle: tasksById.get(session.task_id)?.title ?? session.task_title,
+            content: capture.content,
+          })),
+      ),
+      nextReviewTasks: [...queue]
+        .sort((left, right) => priorityValue(right.priority) - priorityValue(left.priority))
+        .slice(0, 3),
+      weeklyCompletedCount: completed.filter(
+        (task) =>
+          new Date(task.updated_at).getTime() >= analyticsNow - 7 * 24 * 60 * 60 * 1000,
+      ).length,
+    };
+  }, [
+    activeSession,
+    analyticsNow,
+    selectedTaskId,
+    sessions,
+    tasks,
+    tasksById,
+  ]);
 
   useEffect(() => {
     if (!selectedTaskId && tasks[0]) {
@@ -921,7 +1303,7 @@ export function MainApp() {
                 </Button>
                 <Button
                   onClick={() => {
-                    startTransition(() => setActiveView('tasks'));
+                    setActiveView('tasks');
                     dismissRecovery();
                   }}
                   size="sm"
@@ -936,101 +1318,19 @@ export function MainApp() {
         ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.95fr)]">
-          <Card className="relative overflow-hidden rounded-[34px] p-6">
-            <div className="absolute inset-x-10 top-0 h-40 rounded-full bg-accent/12 blur-3xl" />
-            <div className="relative">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl">
-                  <p className="text-[11px] uppercase tracking-[0.3em] text-text-muted">Current focus</p>
-                  <h2 className="mt-2 text-3xl font-semibold leading-tight text-text-primary">
-                    {currentTask?.title ?? 'Pick a task'}
-                  </h2>
-                </div>
-
-                <div className="grid min-w-[220px] gap-3 rounded-[26px] border border-borderSoft/30 bg-panel/46 p-4">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Live timer</p>
-                    <p className="mt-2 text-[2.6rem] font-semibold leading-none text-text-primary">
-                      {formatClock(activeSessionMetrics.focus_seconds)}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Badge tone={activeSession?.status === 'paused' ? 'warning' : 'accent'}>
-                      {activeSession?.status === 'paused' ? 'Paused' : activeSession ? 'Running' : 'Ready'}
-                    </Badge>
-                    <Badge tone="neutral">{activeSession?.planned_minutes ?? minutes}m target</Badge>
-                    {activeSession ? <Badge tone="neutral">{formatDurationFromSeconds(activeSessionMetrics.distraction_seconds)} distracted</Badge> : null}
-                  </div>
-                </div>
-              </div>
-
-              {activeSession ? (
-                <div className="mt-6 space-y-3">
-                  <div className="flex items-center justify-between text-sm text-text-secondary">
-                    <span>
-                      Focused {formatDurationFromSeconds(activeSessionMetrics.focus_seconds)} of{' '}
-                      {activeSession.planned_minutes}m
-                    </span>
-                    <span>{Math.max(0, 100 - progressPercent)}% left</span>
-                  </div>
-                  <ProgressBar tone={activeSession?.status === 'paused' ? 'warning' : 'accent'} value={progressPercent} />
-                </div>
-              ) : null}
-
-              <div className="mt-8">
-                <SectionHeading action={<Badge tone="neutral">Wheel</Badge>} title="Session" />
-
-                <TimeWheelSelector
-                  disabled={Boolean(activeSession && activeSession.status === 'running')}
-                  onChange={setMinutes}
-                  onPresetChange={setPresetId}
-                  presetId={presetId}
-                  value={minutes}
-                />
-              </div>
-
-              <div className="mt-8 flex flex-wrap gap-3">
-                {!activeSession ? (
-                  <Button
-                    disabled={!currentTask}
-                    onClick={() => currentTask && handleStartSession(currentTask, minutes, presetId)}
-                    size="lg"
-                    type="button"
-                  >
-                    Start {minutes} min
-                  </Button>
-                ) : activeSession.status === 'running' ? (
-                  <>
-                    <Button onClick={() => handlePause('pause')} size="md" type="button" variant="secondary">
-                      Pause
-                    </Button>
-                    <Button onClick={() => handlePause('break')} size="md" type="button" variant="secondary">
-                      Start break
-                    </Button>
-                    <Button onClick={() => handlePause('distraction', 'Quick distraction')} size="md" type="button" variant="secondary">
-                      Distracted
-                    </Button>
-                    <Button onClick={handleFinishSession} size="md" type="button" variant="ghost">
-                      Finish session
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button onClick={() => handleResume(remainingMinutes)} size="md" type="button">
-                      Resume remaining
-                    </Button>
-                    <Button onClick={() => handleResume(10)} size="md" type="button" variant="secondary">
-                      Resume 10 min
-                    </Button>
-                    <Button onClick={() => startTransition(() => setActiveView('tasks'))} size="md" type="button" variant="ghost">
-                      Switch task
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          </Card>
+          <TodayFocusCard
+            activeSession={activeSession}
+            currentTask={currentTask}
+            minutes={minutes}
+            onFinish={handleFinishSession}
+            onMinutesChange={setMinutes}
+            onPause={handlePause}
+            onPresetChange={setPresetId}
+            onResume={handleResume}
+            onStartSession={handleStartSession}
+            onSwitchTask={() => setActiveView('tasks')}
+            presetId={presetId}
+          />
 
           <div className="space-y-6">
             <Card className="rounded-[34px] p-6">
@@ -1110,35 +1410,25 @@ export function MainApp() {
             <SectionHeading action={<Badge tone="neutral">Today</Badge>} title="Sessions" />
 
             <div className="space-y-3">
-              {todaySessions.length ? (
-                [...todaySessions]
-                  .sort(
-                    (left, right) => new Date(right.started_at).getTime() - new Date(left.started_at).getTime(),
-                  )
-                  .map((session) => {
-                    const metrics = getSessionMetrics(session, now);
+              {todaySessionCards.length ? (
+                todaySessionCards.map((session) => (
+                  <div
+                    className="flex flex-col gap-3 rounded-[24px] border border-borderSoft/30 bg-panel/40 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    key={session.id}
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">{session.taskTitle}</p>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        {session.timeRange} · {session.focusLabel}
+                      </p>
+                    </div>
 
-                    return (
-                      <div
-                        className="flex flex-col gap-3 rounded-[24px] border border-borderSoft/30 bg-panel/40 p-4 sm:flex-row sm:items-center sm:justify-between"
-                        key={session.id}
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">
-                            {tasks.find((task) => task.id === session.task_id)?.title ?? session.task_title}
-                          </p>
-                          <p className="mt-1 text-sm text-text-secondary">
-                            {formatTimeRange(session.started_at, session.ended_at)} · {formatDurationFromSeconds(metrics.focus_seconds)}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          <Badge tone="neutral">{session.captures.length} captures</Badge>
-                          <Badge tone="warning">{formatDurationFromSeconds(metrics.distraction_seconds)} distracted</Badge>
-                        </div>
-                      </div>
-                    );
-                  })
+                    <div className="flex flex-wrap gap-2">
+                      <Badge tone="neutral">{session.captureCount} captures</Badge>
+                      <Badge tone="warning">{session.distractionLabel} distracted</Badge>
+                    </div>
+                  </div>
+                ))
               ) : (
                 <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
                   No sessions yet.
@@ -1161,7 +1451,7 @@ export function MainApp() {
                       <Button
                         onClick={() => {
                           selectTask(suggestedTask.id);
-                          startTransition(() => setActiveView('tasks'));
+                          setActiveView('tasks');
                         }}
                         size="sm"
                         type="button"
@@ -1218,9 +1508,10 @@ export function MainApp() {
         <Card className="rounded-[34px] p-6">
           <SectionHeading action={<Badge tone="accent">New</Badge>} title="Add task" />
           <TaskCreationComposer
+            fillHeight={false}
             initialMode="interaction"
             onSubmitted={() => {
-              startTransition(() => setActiveView('tasks'));
+              setActiveView('tasks');
             }}
             source="main"
             submitLabel="Save task"
@@ -1365,37 +1656,28 @@ export function MainApp() {
         <div className="space-y-3">
           {historyRows.length ? (
             historyRows.map((row) => {
-              const expanded = expandedHistoryId === row.taskId;
+                const expanded = expandedHistoryId === row.taskId;
 
-              return (
-                <div
-                  className="overflow-hidden rounded-[28px] border border-borderSoft/30 bg-panel/42 transition-all"
-                  key={row.taskId}
-                >
-                  <button
-                    className="grid w-full gap-4 px-5 py-4 text-left lg:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr_0.9fr_1.3fr_0.6fr]"
-                    onClick={() => setExpandedHistoryId(expanded ? null : row.taskId)}
-                    type="button"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">{row.taskTitle}</p>
-                      <p className="mt-1 text-xs text-text-muted">{row.sessions.length} tracked blocks</p>
-                    </div>
-                    <p className="text-sm text-text-secondary">{formatDurationFromSeconds(row.totalFocusSeconds)}</p>
-                    <p className="text-sm text-text-secondary">{row.sessionCount} sessions</p>
-                    <p className="text-sm text-text-secondary">{formatDurationFromSeconds(row.totalDistractionSeconds)}</p>
-                    <p className="text-sm text-text-secondary">{row.sessionRanges.slice(0, 3).join(', ')}</p>
-                    <p className="text-sm text-warning">⚠ {row.blockerCount}</p>
-                  </button>
+                return (
+                  <div className="history-row-lite overflow-hidden rounded-[28px] border border-borderSoft/30 bg-panel/42" key={row.taskId}>
+                    <button
+                      className="grid w-full gap-4 px-5 py-4 text-left lg:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr_0.9fr_1.3fr_0.6fr]"
+                      onClick={() => setExpandedHistoryId(expanded ? null : row.taskId)}
+                      type="button"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">{row.taskTitle}</p>
+                        <p className="mt-1 text-xs text-text-muted">{row.sessions.length} tracked blocks</p>
+                      </div>
+                      <p className="text-sm text-text-secondary">{formatDurationFromSeconds(row.totalFocusSeconds)}</p>
+                      <p className="text-sm text-text-secondary">{row.sessionCount} sessions</p>
+                      <p className="text-sm text-text-secondary">{formatDurationFromSeconds(row.totalDistractionSeconds)}</p>
+                      <p className="text-sm text-text-secondary">{row.sessionRanges.slice(0, 3).join(', ')}</p>
+                      <p className="text-sm text-warning">⚠ {row.blockerCount}</p>
+                    </button>
 
-                  <AnimatePresence initial={false}>
                     {expanded ? (
-                      <motion.div
-                        animate={{ height: 'auto', opacity: 1 }}
-                        className="border-t border-borderSoft/24"
-                        exit={{ height: 0, opacity: 0 }}
-                        initial={{ height: 0, opacity: 0 }}
-                      >
+                      <div className="border-t border-borderSoft/24">
                         <div className="grid gap-6 px-5 py-5 lg:grid-cols-3">
                           <div>
                             <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Sessions</p>
@@ -1404,7 +1686,7 @@ export function MainApp() {
                                 <div className="rounded-[20px] border border-borderSoft/24 bg-panel2/44 px-4 py-3" key={session.id}>
                                   <p className="text-sm text-text-primary">{formatTimeRange(session.started_at, session.ended_at)}</p>
                                   <p className="mt-1 text-xs text-text-muted">
-                                    {formatDurationFromSeconds(getSessionMetrics(session, now).focus_seconds)} focused
+                                    {formatDurationFromSeconds(getSessionMetrics(session, analyticsNow).focus_seconds)} focused
                                   </p>
                                 </div>
                               ))}
@@ -1458,12 +1740,11 @@ export function MainApp() {
                             </div>
                           </div>
                         </div>
-                      </motion.div>
+                      </div>
                     ) : null}
-                  </AnimatePresence>
-                </div>
-              );
-            })
+                  </div>
+                );
+              })
           ) : (
             <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
               No history yet.
@@ -1676,10 +1957,7 @@ export function MainApp() {
               </div>
               <div className="flex items-center justify-between rounded-[22px] border border-borderSoft/30 bg-panel/40 px-4 py-3">
                 <span className="text-sm text-text-secondary">Progress</span>
-                <span className="text-sm font-medium text-text-primary">
-                  {completedTasks.filter((task) => new Date(task.updated_at).getTime() >= now - 7 * 24 * 60 * 60 * 1000).length}{' '}
-                  completed
-                </span>
+                <span className="text-sm font-medium text-text-primary">{weeklyCompletedCount} completed</span>
               </div>
             </div>
 
@@ -1719,21 +1997,13 @@ export function MainApp() {
                 caption={view.caption}
                 key={view.id}
                 label={view.label}
-                onClick={() => startTransition(() => setActiveView(view.id))}
-              />
-            ))}
+                onClick={() => setActiveView(view.id)}
+                />
+              ))}
           </div>
 
           <div className="mt-auto">
-            <Card className="rounded-[28px] p-5">
-              <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Live status</p>
-              <p className="mt-3 text-xl font-semibold text-text-primary">
-                {activeSession ? activeSession.task_title : 'Idle'}
-              </p>
-              <p className="mt-2 text-sm text-text-secondary">
-                {activeSession ? `${formatClock(activeSessionMetrics.focus_seconds)} · ${activeSession.status}` : 'No session'}
-              </p>
-            </Card>
+            <SidebarLiveStatus activeSession={activeSession} />
           </div>
         </aside>
 
@@ -1744,15 +2014,7 @@ export function MainApp() {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="hidden rounded-full border border-borderSoft/28 bg-panel/36 px-4 py-2 text-sm text-text-secondary lg:block">
-                {new Intl.DateTimeFormat(undefined, {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit',
-                }).format(new Date(now))}
-              </div>
+              <HeaderClock />
               <Button onClick={() => void showQuickAddWindow()} size="sm" type="button" variant="secondary">
                 Quick Add
               </Button>
@@ -1762,22 +2024,12 @@ export function MainApp() {
             </div>
           </header>
 
-          <main className="relative flex-1 overflow-y-auto px-6 py-6">
-            <AnimatePresence mode="wait">
-              <motion.div
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                initial={{ opacity: 0, y: 10 }}
-                key={activeView}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
-              >
-                {activeView === 'today' ? renderToday() : null}
-                {activeView === 'tasks' ? renderTasks() : null}
-                {activeView === 'history' ? renderHistory() : null}
-                {activeView === 'insights' ? renderInsights() : null}
-                {activeView === 'review' ? renderReview() : null}
-              </motion.div>
-            </AnimatePresence>
+          <main className="main-scroll-region relative flex-1 overflow-x-hidden overflow-y-auto px-6 py-6">
+            {activeView === 'today' ? renderToday() : null}
+            {activeView === 'tasks' ? renderTasks() : null}
+            {activeView === 'history' ? renderHistory() : null}
+            {activeView === 'insights' ? renderInsights() : null}
+            {activeView === 'review' ? renderReview() : null}
 
             <CapturePopup
               loading={captureSaving}

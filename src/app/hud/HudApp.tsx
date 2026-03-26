@@ -481,9 +481,14 @@ export function HudApp() {
   const selectedHudCaptureOption = getHudCaptureOption(hudTaskLane);
 
   useEffect(() => {
+    setElapsedSeconds(getElapsedSeconds(focusSessionStart, focusElapsedSeconds));
+  }, [focusElapsedSeconds, focusSessionStart]);
+
+  useEffect(() => {
+    const intervalMs = focusSessionStart ? 1000 : focusElapsedSeconds > 0 ? 5000 : 30000;
     const interval = window.setInterval(() => {
       setElapsedSeconds(getElapsedSeconds(focusSessionStart, focusElapsedSeconds));
-    }, 1000);
+    }, intervalMs);
 
     return () => {
       window.clearInterval(interval);

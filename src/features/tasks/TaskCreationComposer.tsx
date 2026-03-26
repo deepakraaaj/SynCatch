@@ -125,6 +125,19 @@ const INITIAL_DRAFT: ComposerDraft = {
   estimatedMinutes: 25,
 };
 
+function draftsMatch(left: ComposerDraft, right: ComposerDraft) {
+  return (
+    left.rawInput === right.rawInput &&
+    left.title === right.title &&
+    left.description === right.description &&
+    left.goal === right.goal &&
+    left.definitionOfDone === right.definitionOfDone &&
+    left.nextAction === right.nextAction &&
+    left.whyItMatters === right.whyItMatters &&
+    left.estimatedMinutes === right.estimatedMinutes
+  );
+}
+
 function mergeClarification(
   clarification: TaskClarification,
   current: ComposerDraft,
@@ -204,6 +217,7 @@ export function TaskCreationComposer({
   const [isSaving, setIsSaving] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const deferredRawInput = useDeferredValue(draft.rawInput);
+  const touchedRef = useRef<Partial<Record<DraftField, boolean>>>({});
 
   useEffect(() => {
     if (autoFocus) {
@@ -212,39 +226,50 @@ export function TaskCreationComposer({
   }, [autoFocus]);
 
   useEffect(() => {
-    if (!deferredRawInput.trim()) {
+    touchedRef.current = touched;
+  }, [touched]);
+
+  useEffect(() => {
+    const trimmedRawInput = deferredRawInput.trim();
+
+    if (trimmedRawInput.length < 4) {
       setClarification(null);
       setIsThinking(false);
       return;
     }
 
     let cancelled = false;
-
-    startTransition(() => {
-      setIsThinking(true);
-    });
-
-    void getTaskAiAssistant()
-      .clarifyTask(deferredRawInput)
-      .then((nextClarification) => {
-        if (cancelled) {
-          return;
-        }
-
-        setClarification(nextClarification);
-        setDraft((current) => mergeClarification(nextClarification, current, touched));
-        setIsThinking(false);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setIsThinking(false);
-        }
+    const timeout = window.setTimeout(() => {
+      startTransition(() => {
+        setIsThinking(true);
       });
+
+      void getTaskAiAssistant()
+        .clarifyTask(trimmedRawInput)
+        .then((nextClarification) => {
+          if (cancelled) {
+            return;
+          }
+
+          setClarification(nextClarification);
+          setDraft((current) => {
+            const merged = mergeClarification(nextClarification, current, touchedRef.current);
+            return draftsMatch(current, merged) ? current : merged;
+          });
+          setIsThinking(false);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setIsThinking(false);
+          }
+        });
+    }, 180);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
     };
-  }, [deferredRawInput, touched]);
+  }, [deferredRawInput]);
 
   const currentStep = INTERACTION_STEPS[stepIndex];
   const canSave = Boolean(draft.rawInput.trim() || draft.title.trim());
