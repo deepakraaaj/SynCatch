@@ -7,6 +7,7 @@ import {
 } from '../../features/activity/distraction-insights';
 import { getFocusStatusLabel } from '../../features/focus/focus-presenter';
 import { useFocusStore } from '../../features/focus/focus-store';
+import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
 import { getVisibleSubtasks } from '../../features/tasks/task-helpers';
 import { useTaskStore } from '../../features/tasks/task-store';
 import type { Task, TaskLane } from '../../features/tasks/task-types';
@@ -327,17 +328,6 @@ function CloseIcon() {
   );
 }
 
-function DetailsIcon() {
-  return (
-    <Icon>
-      <rect height="16" rx="2.5" width="14" x="5" y="4" />
-      <path d="M9 9h6" />
-      <path d="M9 13h6" />
-      <path d="M9 17h4" />
-    </Icon>
-  );
-}
-
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
     <Icon className={cn('transition-transform duration-200', expanded && 'rotate-180')}>
@@ -446,23 +436,16 @@ export function HudApp() {
   const toggleHudMode = useFocusStore((state) => state.toggleHudMode);
   const toggleHudTransparency = useFocusStore((state) => state.toggleHudTransparency);
   const tasks = useTaskStore((state) => state.tasks);
-  const createTask = useTaskStore((state) => state.createTask);
   const moveTaskToLane = useTaskStore((state) => state.moveTaskToLane);
   const toggleSubtask = useTaskStore((state) => state.toggleSubtask);
   const [elapsedSeconds, setElapsedSeconds] = useState(
     getElapsedSeconds(focusSessionStart, focusElapsedSeconds),
   );
   const [sessionNotes, setSessionNotes] = useState('');
-  const [hudTaskInput, setHudTaskInput] = useState('');
   const [hudTaskLane, setHudTaskLane] = useState<HudCaptureLane>('inbox');
-  const [hudTaskTitle, setHudTaskTitle] = useState('');
-  const [hudTaskNextAction, setHudTaskNextAction] = useState('');
-  const [hudTaskNotes, setHudTaskNotes] = useState('');
-  const [showTaskDetails, setShowTaskDetails] = useState(false);
   const [showCompactTaskPicker, setShowCompactTaskPicker] = useState(false);
   const [showCompactTaskComposer, setShowCompactTaskComposer] = useState(false);
   const [isCompactHudExpanded, setIsCompactHudExpanded] = useState(false);
-  const [isSavingHudTask, setIsSavingHudTask] = useState(false);
   const [distractionTrigger, setDistractionTrigger] = useState('');
   const [distractionCategory, setDistractionCategory] = useState<DistractionCategory>('context_switch');
   const [distractionNote, setDistractionNote] = useState('');
@@ -496,7 +479,6 @@ export function HudApp() {
   const sessionToggleIcon = isSessionRunning ? <PauseIcon /> : <PlayIcon />;
   const selectableHudTasks = tasks.filter((task) => task.lane !== 'done' && task.status !== 'done');
   const selectedHudCaptureOption = getHudCaptureOption(hudTaskLane);
-  const SelectedHudCaptureIcon = selectedHudCaptureOption.icon;
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -524,7 +506,6 @@ export function HudApp() {
       setShowCompactTaskComposer(false);
       setShowCompactDistractionComposer(false);
       setIsCompactHudExpanded(false);
-      setShowTaskDetails(false);
     });
 
     return () => {
@@ -686,12 +667,7 @@ export function HudApp() {
   }
 
   function resetHudTaskComposer() {
-    setHudTaskInput('');
     setHudTaskLane('inbox');
-    setHudTaskTitle('');
-    setHudTaskNextAction('');
-    setHudTaskNotes('');
-    setShowTaskDetails(false);
     setShowCompactTaskComposer(false);
   }
 
@@ -744,34 +720,13 @@ export function HudApp() {
     setShowCompactTaskPicker(false);
   }
 
-  async function captureHudTask() {
-    if (!hudTaskInput.trim()) {
-      return;
+  async function handleHudTaskCreated(task: Task, closeCompactComposer = false) {
+    if (hudTaskLane === 'now') {
+      setCurrentMission(task.id, 'hud');
     }
 
-    setIsSavingHudTask(true);
-
-    try {
-      const task = await createTask(
-        {
-          rawInput: hudTaskInput,
-          title: hudTaskTitle.trim() || undefined,
-          nextAction: hudTaskNextAction.trim() || undefined,
-          workspaceNotes: hudTaskNotes.trim() || undefined,
-          lane: hudTaskLane,
-          priority: hudTaskLane === 'now' ? 'high' : 'normal',
-          status: 'captured',
-        },
-        'hud',
-      );
-
-      if (hudTaskLane === 'now') {
-        setCurrentMission(task.id, 'hud');
-      }
-
+    if (closeCompactComposer) {
       resetHudTaskComposer();
-    } finally {
-      setIsSavingHudTask(false);
     }
   }
 
@@ -1094,78 +1049,22 @@ export function HudApp() {
                       </span>
                       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Add task</p>
                     </div>
-                    <Badge tone="neutral">HUD</Badge>
+                    <Badge tone="neutral">{selectedHudCaptureOption.label}</Badge>
                   </div>
-
-                  <Input
-                    className="mt-4"
-                    onChange={(event) => setHudTaskInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        void captureHudTask();
-                      }
-                    }}
-                    placeholder="Task..."
-                    value={hudTaskInput}
-                  />
 
                   <div className="mt-4">
                     <HudCaptureLaneSelector onChange={setHudTaskLane} value={hudTaskLane} />
                   </div>
 
-                  <button
-                    aria-expanded={showTaskDetails}
-                    className="mt-4 flex w-full items-center justify-between rounded-[16px] border border-borderSoft/35 bg-panel/40 px-3 py-3 text-left transition hover:border-borderStrong/40 hover:bg-panel/54"
-                    onClick={() => setShowTaskDetails((current) => !current)}
-                    type="button"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-borderSoft/35 bg-panel/70 text-text-secondary">
-                        <DetailsIcon />
-                      </span>
-                      <p className="text-sm font-medium text-text-primary">Details</p>
-                    </div>
-                    <ChevronIcon expanded={showTaskDetails} />
-                  </button>
-
-                  {showTaskDetails ? (
-                    <div className="mt-3 space-y-3">
-                      <Input
-                        onChange={(event) => setHudTaskTitle(event.target.value)}
-                        placeholder="Title"
-                        value={hudTaskTitle}
-                      />
-                      <Input
-                        onChange={(event) => setHudTaskNextAction(event.target.value)}
-                        placeholder="First step"
-                        value={hudTaskNextAction}
-                      />
-                      <Textarea
-                        className="min-h-[88px] resize-none"
-                        onChange={(event) => setHudTaskNotes(event.target.value)}
-                        placeholder="Notes"
-                        rows={3}
-                        value={hudTaskNotes}
-                      />
-                    </div>
-                  ) : null}
-
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 rounded-full border border-borderSoft/35 bg-panel/40 px-3 py-2 text-xs">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/12 text-accent">
-                        <SelectedHudCaptureIcon />
-                      </span>
-                      <span className="font-medium text-text-primary">{selectedHudCaptureOption.label}</span>
-                    </div>
-                    <Button
-                      disabled={isSavingHudTask || !hudTaskInput.trim()}
-                      onClick={() => {
-                        void captureHudTask();
-                      }}
-                    >
-                      {isSavingHudTask ? 'Adding' : 'Add task'}
-                    </Button>
+                  <div className="mt-4">
+                    <TaskCreationComposer
+                      compact
+                      lane={hudTaskLane}
+                      onCreated={(task) => handleHudTaskCreated(task)}
+                      priority={hudTaskLane === 'now' ? 'high' : 'normal'}
+                      source="hud"
+                      submitLabel="Add task"
+                    />
                   </div>
 
                   {currentMission ? (
@@ -1645,88 +1544,25 @@ export function HudApp() {
                       </span>
                       <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Add task</p>
                     </div>
-                    <Badge tone="neutral">Compact</Badge>
+                    <Badge tone="neutral">{selectedHudCaptureOption.label}</Badge>
                   </div>
 
                   <div className="scrollbar-hidden mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
-                    <div className="space-y-3">
-                      <Input
-                        onChange={(event) => setHudTaskInput(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault();
-                            void captureHudTask();
-                          }
-                        }}
-                        placeholder="Task..."
-                        value={hudTaskInput}
-                      />
-
+                    <div className="flex min-h-0 flex-1 flex-col space-y-3">
                       <HudCaptureLaneSelector onChange={setHudTaskLane} value={hudTaskLane} />
 
-                      <button
-                        aria-expanded={showTaskDetails}
-                        className="flex w-full items-center justify-between rounded-[14px] border border-borderSoft/35 bg-panel/40 px-3 py-3 text-left transition hover:border-borderStrong/40 hover:bg-panel/54"
-                        onClick={() => setShowTaskDetails((current) => !current)}
-                        type="button"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-borderSoft/35 bg-panel/70 text-text-secondary">
-                            <DetailsIcon />
-                          </span>
-                          <p className="text-sm font-medium text-text-primary">Details</p>
-                        </div>
-                        <ChevronIcon expanded={showTaskDetails} />
-                      </button>
-
-                      {showTaskDetails ? (
-                        <div className="space-y-3">
-                          <Input
-                            onChange={(event) => setHudTaskTitle(event.target.value)}
-                            placeholder="Title"
-                            value={hudTaskTitle}
-                          />
-                          <Input
-                            onChange={(event) => setHudTaskNextAction(event.target.value)}
-                            placeholder="First step"
-                            value={hudTaskNextAction}
-                          />
-                          <Textarea
-                            className="min-h-[80px] resize-none"
-                            onChange={(event) => setHudTaskNotes(event.target.value)}
-                            placeholder="Notes"
-                            rows={3}
-                            value={hudTaskNotes}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex shrink-0 flex-col gap-3 border-t border-borderSoft/24 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2 rounded-full border border-borderSoft/35 bg-panel/40 px-3 py-2 text-xs">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/12 text-accent">
-                        <SelectedHudCaptureIcon />
-                      </span>
-                      <span className="font-medium text-text-primary">{selectedHudCaptureOption.label}</span>
-                    </div>
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        onClick={() => setShowCompactTaskComposer(false)}
-                        size="sm"
-                        variant="ghost"
-                      >
-                        Close
-                      </Button>
-                      <Button
-                        disabled={isSavingHudTask || !hudTaskInput.trim()}
-                        onClick={() => {
-                          void captureHudTask();
-                        }}
-                        size="sm"
-                      >
-                        {isSavingHudTask ? 'Adding' : 'Add task'}
-                      </Button>
+                      <div className="min-h-0 flex-1">
+                        <TaskCreationComposer
+                          compact
+                          fillHeight
+                          lane={hudTaskLane}
+                          onCancel={() => setShowCompactTaskComposer(false)}
+                          onCreated={(task) => handleHudTaskCreated(task, true)}
+                          priority={hudTaskLane === 'now' ? 'high' : 'normal'}
+                          source="hud"
+                          submitLabel="Add task"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

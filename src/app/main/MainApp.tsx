@@ -1,234 +1,287 @@
-import { AnimatePresence, motion } from 'framer-motion';
-import type { KeyboardEvent, ReactNode } from 'react';
-import { useEffect, useReducer, useState } from 'react';
-import {
-  listRecentActivity,
-  logActivity,
-  type ActivityLogEntry,
-} from '../../features/activity/activity-repository';
-import { buildDistractionReport } from '../../features/activity/distraction-insights';
-import { getTaskAiAssistant } from '../../features/ai/mock-ai-provider';
-import {
-  getFocusStatusLabel,
-  getFocusStatusTone,
-} from '../../features/focus/focus-presenter';
-import { useFocusStore } from '../../features/focus/focus-store';
-import type { SyncMode } from '../../features/preferences/preferences-types';
-import { useSettingsStore } from '../../features/settings/settings-store';
-import { generateTaskBrief } from '../../features/tasks/task-intelligence';
-import {
-  deriveStatusFromLane,
-  getCompletedSubtasks,
-  getOpenQuestionCount,
-  getVisibleSubtasks,
-  humanizeLane,
-  humanizePriority,
-} from '../../features/tasks/task-helpers';
-import type { Task, TaskLane, TaskPriority } from '../../features/tasks/task-types';
-import { useTaskStore } from '../../features/tasks/task-store';
-import { THEMES } from '../../features/themes/themes';
-import { useThemeStore } from '../../features/themes/theme-store';
-import { formatElapsedClock, formatMinutes, formatRelativeTime } from '../../lib/date';
-import {
-  ACTIVITY_CHANGED_EVENT,
-  isTauriApp,
-  OPEN_TASK_DETAIL_EVENT,
-  type OpenTaskDetailPayload,
-  showHudWindow,
-  showQuickAddWindow,
-  subscribeAppEvent,
-} from '../../lib/tauri';
+import { AnimatePresence, motion, type PanInfo } from 'framer-motion';
+import { startTransition, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input, Textarea } from '../../components/ui/input';
+import { useFocusStore } from '../../features/focus/focus-store';
+import {
+  buildDailySeries,
+  buildTaskHistoryRows,
+  formatDurationFromSeconds,
+  formatTimeRange,
+  getAverageFocusSessionSeconds,
+  getDistractionPatterns,
+  getHourlyFocusBuckets,
+  getRemainingMinutes,
+  getSessionMetrics,
+  getTaskEstimationAccuracy,
+  getTaskSwitchCount,
+  isSameCalendarDay,
+} from '../../features/sessions/session-helpers';
+import { useSessionStore } from '../../features/sessions/session-store';
+import {
+  CUSTOM_SESSION_MINUTES,
+  SESSION_PRESETS,
+  type SessionCaptureKind,
+  type SessionPresetId,
+  type WorkSession,
+} from '../../features/sessions/session-types';
+import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
+import { humanizePriority } from '../../features/tasks/task-helpers';
+import { useTaskStore } from '../../features/tasks/task-store';
+import type { Task } from '../../features/tasks/task-types';
 import { cn } from '../../lib/cn';
+import { formatRelativeTime } from '../../lib/date';
+import { showHudWindow, showQuickAddWindow } from '../../lib/tauri';
 
-type NavigationView = 'inbox' | 'today' | 'focus' | 'settings';
-type MainView = NavigationView | 'task';
+type MainView = 'today' | 'tasks' | 'history' | 'insights' | 'review';
 
-const navItems: Array<{ id: NavigationView; label: string; eyebrow: string }> = [
-  { id: 'inbox', label: 'Overview', eyebrow: 'Home' },
-  { id: 'today', label: 'Tasks', eyebrow: 'Board' },
-  { id: 'focus', label: 'Workspace', eyebrow: 'Current task' },
-  { id: 'settings', label: 'Settings', eyebrow: 'Preferences' },
+type CaptureState = {
+  kind: SessionCaptureKind;
+  value: string;
+} | null;
+
+const views: Array<{ id: MainView; label: string; caption?: string }> = [
+  { id: 'today', label: 'Today' },
+  { id: 'tasks', label: 'Tasks' },
+  { id: 'history', label: 'History' },
+  { id: 'insights', label: 'Insights' },
+  { id: 'review', label: 'Review' },
 ];
 
-const laneOrder: TaskLane[] = ['inbox', 'now', 'next', 'later', 'done'];
-const syncModeContent: Record<SyncMode, { label: string; caption: string }> = {
-  local: {
-    label: 'Local only',
-    caption: 'Everything stays on this device until you choose to connect cloud sync later.',
+const captureOptions: Array<{
+  kind: SessionCaptureKind;
+  icon: string;
+  label: string;
+  placeholder: string;
+}> = [
+  { kind: 'idea', icon: '💡', label: 'Idea', placeholder: 'What hit you?' },
+  { kind: 'resource', icon: '🔗', label: 'Resource', placeholder: 'Paste a link' },
+  {
+    kind: 'distraction',
+    icon: '📌',
+    label: 'Distraction',
+    placeholder: 'What pulled you away?',
   },
-  cloud: {
-    label: 'Cloud option',
-    caption: 'Prepares the workspace for account sync, mobile visibility, and multi-device access.',
+  { kind: 'note', icon: '📝', label: 'Note', placeholder: 'Tiny note' },
+  { kind: 'blocker', icon: '⚠️', label: 'Blocker', placeholder: 'What is blocking you?' },
+  {
+    kind: 'follow-up',
+    icon: '↗',
+    label: 'Follow-up',
+    placeholder: 'Create a follow-up task',
   },
+];
+
+const zeroMetrics = {
+  focus_seconds: 0,
+  pause_seconds: 0,
+  break_seconds: 0,
+  distraction_seconds: 0,
 };
 
-const laneLabel: Record<TaskLane, string> = {
-  inbox: 'Inbox',
-  now: 'Active',
-  next: 'Next',
-  later: 'Later',
-  done: 'Complete',
-};
+const wheelItemWidth = 108;
+const wheelGap = 14;
+const wheelStep = wheelItemWidth + wheelGap;
 
-const laneAccent: Record<TaskLane, string> = {
-  inbox: 'bg-text-muted/80',
-  now: 'bg-accent',
-  next: 'bg-accentSoft/85',
-  later: 'bg-warning/85',
-  done: 'bg-success/85',
-};
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
 
-const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+function formatClock(seconds: number) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
 
-function priorityTone(priority: TaskPriority) {
+  if (hours > 0) {
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+  }
+
+  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+}
+
+function priorityValue(priority: Task['priority']) {
   if (priority === 'critical') {
-    return 'warning' as const;
+    return 4;
   }
 
   if (priority === 'high') {
+    return 3;
+  }
+
+  if (priority === 'normal') {
+    return 2;
+  }
+
+  return 1;
+}
+
+function laneValue(lane: Task['lane']) {
+  if (lane === 'now') {
+    return 4;
+  }
+
+  if (lane === 'next') {
+    return 3;
+  }
+
+  if (lane === 'inbox') {
+    return 2;
+  }
+
+  if (lane === 'later') {
+    return 1;
+  }
+
+  return 0;
+}
+
+function matchPreset(minutes: number): SessionPresetId {
+  return SESSION_PRESETS.find((preset) => preset.minutes === minutes)?.id ?? 'custom';
+}
+
+function describeTask(task: Task) {
+  const text = (task.next_action || task.description || task.raw_input || '').trim();
+
+  if (text.length <= 72) {
+    return text;
+  }
+
+  return `${text.slice(0, 72).trim()}…`;
+}
+
+function getTaskTone(task: Task) {
+  if (task.priority === 'critical') {
+    return 'warning' as const;
+  }
+
+  if (task.priority === 'high') {
     return 'accent' as const;
+  }
+
+  if (task.status === 'done' || task.lane === 'done') {
+    return 'success' as const;
   }
 
   return 'neutral' as const;
 }
 
-function laneTasks(tasks: Task[], lane: TaskLane) {
-  return tasks.filter((task) => task.lane === lane);
+function findActiveSession(sessions: WorkSession[], activeSessionId: string | null) {
+  return sessions.find((session) => session.id === activeSessionId) ?? null;
 }
 
-function uniqueTasks(tasks: Array<Task | null>) {
-  const seen = new Set<string>();
+function getLatestBlockedEntries(sessions: WorkSession[]) {
+  const latestBlockerByTask = new Map<string, { content: string; createdAt: number }>();
+  const latestFocusByTask = new Map<string, number>();
 
-  return tasks.filter((task): task is Task => {
-    if (!task || seen.has(task.id)) {
-      return false;
-    }
+  sessions.forEach((session) => {
+    session.captures
+      .filter((capture) => capture.kind === 'blocker')
+      .forEach((capture) => {
+        const createdAt = new Date(capture.created_at).getTime();
+        const previous = latestBlockerByTask.get(session.task_id);
 
-    seen.add(task.id);
-    return true;
+        if (!previous || createdAt > previous.createdAt) {
+          latestBlockerByTask.set(session.task_id, {
+            content: capture.content,
+            createdAt,
+          });
+        }
+      });
+
+    session.segments
+      .filter((segment) => segment.type === 'focus')
+      .forEach((segment) => {
+        const endedAt = new Date(segment.ended_at ?? session.updated_at).getTime();
+        latestFocusByTask.set(session.task_id, Math.max(latestFocusByTask.get(session.task_id) ?? 0, endedAt));
+      });
   });
+
+  return [...latestBlockerByTask.entries()]
+    .filter((entry) => entry[1].createdAt >= (latestFocusByTask.get(entry[0]) ?? 0))
+    .map(([taskId, blocker]) => ({
+      taskId,
+      blocker: blocker.content,
+      createdAt: blocker.createdAt,
+    }));
 }
 
-function pressable(onSelect: () => void) {
-  return {
-    onClick: onSelect,
-    onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        onSelect();
+function getSuggestedTask(tasks: Task[], blockedTaskIds: Set<string>, currentTaskId: string | null) {
+  return [...tasks]
+    .filter(
+      (task) =>
+        task.lane !== 'done' &&
+        task.status !== 'done' &&
+        task.id !== currentTaskId &&
+        !blockedTaskIds.has(task.id),
+    )
+    .sort((left, right) => {
+      const score = priorityValue(right.priority) - priorityValue(left.priority);
+
+      if (score !== 0) {
+        return score;
       }
-    },
-    role: 'button' as const,
-    tabIndex: 0,
-  };
+
+      const laneScore = laneValue(right.lane) - laneValue(left.lane);
+
+      if (laneScore !== 0) {
+        return laneScore;
+      }
+
+      return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+    })[0] ?? null;
 }
 
-function getWeeklyActivity(tasks: Task[]) {
-  const today = new Date();
+function getViewCopy(view: MainView) {
+  if (view === 'today') {
+    return 'Today';
+  }
 
-  return dayLabels.map((label, index) => {
-    const target = new Date(today);
-    const diff = (today.getDay() + 6) % 7;
-    target.setDate(today.getDate() - diff + index);
+  if (view === 'tasks') {
+    return 'Tasks';
+  }
 
-    const totalMinutes = tasks.reduce((sum, task) => {
-      const updated = new Date(task.updated_at);
-      const isSameDay =
-        updated.getFullYear() === target.getFullYear() &&
-        updated.getMonth() === target.getMonth() &&
-        updated.getDate() === target.getDate();
+  if (view === 'history') {
+    return 'History';
+  }
 
-      return isSameDay ? sum + task.estimated_minutes : sum;
-    }, 0);
+  if (view === 'insights') {
+    return 'Insights';
+  }
 
-    return { label, minutes: totalMinutes };
-  });
+  return 'Review';
 }
 
-function getLocalTime() {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date());
-}
-
-function cloneTask(task: Task) {
-  return {
-    ...task,
-    subtasks: task.subtasks.map((subtask) => ({ ...subtask })),
-    clarifying_questions: task.clarifying_questions.map((question) => ({ ...question })),
-  };
-}
-
-function sanitizeTask(task: Task): Task {
-  const title =
-    task.title.trim() ||
-    task.raw_input
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 72) ||
-    'Untitled task';
-
-  return {
-    ...task,
-    title,
-    raw_input: task.raw_input.trim(),
-    description: task.description.trim(),
-    goal: task.goal.trim(),
-    definition_of_done: task.definition_of_done.trim(),
-    next_action: task.next_action.trim(),
-    why_it_matters: task.why_it_matters.trim(),
-    workspace_notes: task.workspace_notes,
-    estimated_minutes: Math.max(5, Number(task.estimated_minutes) || 25),
-    subtasks: getVisibleSubtasks(task.subtasks)
-      .map((subtask) => ({
-        ...subtask,
-        title: subtask.title.trim(),
-      }))
-      .filter((subtask) => subtask.title.length > 0),
-    clarifying_questions: task.clarifying_questions
-      .map((question) => ({
-        ...question,
-        question: question.question.trim(),
-        answer: question.answer.trim(),
-      }))
-      .filter((question) => question.question.length > 0),
-  };
-}
-
-function SidebarNavButton({
+function NavButton({
   active,
-  eyebrow,
   label,
+  caption,
   onClick,
 }: {
   active: boolean;
-  eyebrow: string;
   label: string;
+  caption?: string;
   onClick: () => void;
 }) {
   return (
     <button
       className={cn(
-        'w-full rounded-[20px] border px-4 py-3 text-left transition-all',
+        'w-full rounded-[24px] border px-4 py-3 text-left transition-all duration-200',
         active
-          ? 'border-accent/40 bg-accent/12 shadow-glow'
-          : 'border-transparent bg-panel/38 hover:border-borderSoft/40 hover:bg-panel/58',
+          ? 'border-accent/30 bg-accent/12 shadow-glow'
+          : 'border-transparent bg-panel/38 hover:border-borderSoft/40 hover:bg-panel/56',
       )}
       onClick={onClick}
       type="button"
     >
-      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">{eyebrow}</p>
-      <p className="mt-1 text-sm font-medium text-text-primary">{label}</p>
+      <p className="text-xs font-medium text-text-primary">{label}</p>
+      {caption ? <p className="mt-1 text-[11px] text-text-muted">{caption}</p> : null}
     </button>
   );
 }
 
-function StudioMetricCard({
+function MetricCard({
   label,
   value,
   caption,
@@ -236,487 +289,421 @@ function StudioMetricCard({
 }: {
   label: string;
   value: string;
-  caption: string;
-  tone?: 'accent' | 'warning' | 'neutral';
+  caption?: string;
+  tone?: 'accent' | 'warning' | 'neutral' | 'success';
 }) {
   const toneClass =
     tone === 'warning'
       ? 'text-warning'
-      : tone === 'neutral'
-        ? 'text-text-primary'
-        : 'text-accent';
+      : tone === 'success'
+        ? 'text-success'
+        : tone === 'neutral'
+          ? 'text-text-primary'
+          : 'text-accent';
 
   return (
-    <Card className="h-full rounded-[26px] p-5">
+    <Card className="rounded-[28px] p-5">
       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">{label}</p>
-      <p className={cn('mt-5 text-[2.2rem] font-semibold leading-none', toneClass)}>{value}</p>
-      <p className="mt-3 text-sm text-text-secondary">{caption}</p>
+      <p className={cn('mt-4 text-[2rem] font-semibold leading-none', toneClass)}>{value}</p>
+      {caption ? <p className="mt-3 text-sm text-text-secondary">{caption}</p> : null}
     </Card>
   );
 }
 
-function TaskQueueItem({
-  task,
-  active,
-  onSelect,
-  isFrog,
-}: {
-  task: Task;
-  active: boolean;
-  onSelect: () => void;
-  isFrog?: boolean;
-}) {
-  const visibleSubtasks = getVisibleSubtasks(task.subtasks);
-  const completedSubtasks = getCompletedSubtasks(task);
-  const openQuestions = getOpenQuestionCount(task);
-
-  return (
-    <div
-      {...pressable(onSelect)}
-      className={cn(
-        'rounded-[24px] border p-4 transition-all outline-none',
-        active
-          ? 'border-accent/45 bg-accent/10 shadow-glow'
-          : 'border-borderSoft/35 bg-panel/54 hover:border-borderStrong/40 hover:bg-panel/68',
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-3">
-            <span className={cn('h-2.5 w-2.5 rounded-full', laneAccent[task.lane])} />
-            <p className="truncate text-sm font-medium text-text-primary">{task.title}</p>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-text-muted">
-            <span>{humanizeLane(task.lane)}</span>
-            <span className="h-1 w-1 rounded-full bg-borderStrong/60" />
-            <span>{formatMinutes(task.estimated_minutes)}</span>
-            <span className="h-1 w-1 rounded-full bg-borderStrong/60" />
-            <span>{formatRelativeTime(task.updated_at)}</span>
-          </div>
-          <p className="mt-3 line-clamp-2 text-sm leading-6 text-text-secondary">
-            {task.description || task.raw_input}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <Badge tone={priorityTone(task.priority)}>{humanizePriority(task.priority)}</Badge>
-          {isFrog ? <Badge tone="accent">Top</Badge> : null}
-        </div>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between gap-3 text-xs text-text-muted">
-        <span>Drag to move lanes</span>
-        <span>
-          {completedSubtasks}/{visibleSubtasks.length || 0} steps
-          {openQuestions > 0 ? ` · ${openQuestions} open` : ''}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function ThemeTile({
-  name,
-  preview,
-  active,
-  onClick,
-}: {
-  name: string;
-  preview: [string, string, string];
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={cn(
-        'rounded-[24px] border p-4 text-left transition-all',
-        active
-          ? 'border-accent/45 bg-accent/10 shadow-glow'
-          : 'border-borderSoft/35 bg-panel/54 hover:border-borderStrong/40 hover:bg-panel/68',
-      )}
-      onClick={onClick}
-      type="button"
-    >
-      <div className="mb-4 flex gap-2">
-        {preview.map((color) => (
-          <span
-            key={color}
-            className="h-12 flex-1 rounded-[18px]"
-            style={{ background: `linear-gradient(135deg, ${color}, ${color}CC)` }}
-          />
-        ))}
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-text-primary">{name}</span>
-        {active ? <Badge tone="accent">Live</Badge> : null}
-      </div>
-    </button>
-  );
-}
-
-function SettingsChoiceCard({
-  title,
-  description,
-  active,
-  onClick,
-}: {
-  title: string;
-  description: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={cn(
-        'rounded-[24px] border p-5 text-left transition-all',
-        active
-          ? 'border-accent/45 bg-accent/10 shadow-glow'
-          : 'border-borderSoft/35 bg-panel/54 hover:border-borderStrong/40 hover:bg-panel/68',
-      )}
-      onClick={onClick}
-      type="button"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-text-primary">{title}</p>
-          <p className="mt-3 text-sm leading-6 text-text-secondary">{description}</p>
-        </div>
-        <Badge tone={active ? 'accent' : 'neutral'}>{active ? 'Active' : 'Available'}</Badge>
-      </div>
-    </button>
-  );
-}
-
 function SectionHeading({
-  label,
   title,
+  detail,
   action,
 }: {
-  label: string;
   title: string;
+  detail?: string;
   action?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="mb-4 flex items-start justify-between gap-3">
       <div>
-        <p className="text-[10px] uppercase tracking-[0.3em] text-text-muted">{label}</p>
-        <h2 className="mt-2 text-2xl font-semibold text-text-primary">{title}</h2>
+        <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+        {detail ? <p className="mt-1 text-sm text-text-secondary">{detail}</p> : null}
       </div>
       {action}
     </div>
   );
 }
 
-function SubtaskComposer({
+function ProgressBar({
   value,
-  onChange,
-  onSubmit,
+  tone = 'accent',
 }: {
-  value: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
+  value: number;
+  tone?: 'accent' | 'warning' | 'success';
 }) {
+  const barTone = tone === 'warning' ? 'bg-warning' : tone === 'success' ? 'bg-success' : 'bg-accent';
+
   return (
-    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-      <Input
-        className="h-11"
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            onSubmit();
-          }
-        }}
-        placeholder="Add a subtask or next step..."
-        value={value}
+    <div className="h-3 overflow-hidden rounded-full bg-panel2/80">
+      <motion.div
+        animate={{ width: `${clamp(value, 0, 100)}%` }}
+        className={cn('h-full rounded-full', barTone)}
+        transition={{ type: 'spring', stiffness: 180, damping: 26 }}
       />
-      <Button
-        className="sm:shrink-0"
-        disabled={!value.trim()}
-        onClick={onSubmit}
-        size="sm"
-        variant="secondary"
-      >
-        Add Step
-      </Button>
     </div>
   );
 }
 
-function RightRail({
-  currentMission,
-  focusQueue,
-  focusStatusLabel,
-  focusStatusTone,
-  sessionGoalHours,
-  completedTasks,
-  onOpenQuickAdd,
-  onOpenTask,
-  onStartFocus,
+function TimeWheelSelector({
+  value,
+  presetId,
+  disabled,
+  onChange,
+  onPresetChange,
 }: {
-  currentMission: Task | null;
-  focusQueue: Task[];
-  focusStatusLabel: string;
-  focusStatusTone: 'neutral' | 'success' | 'warning' | 'accent';
-  sessionGoalHours: string;
-  completedTasks: number;
-  onOpenQuickAdd: () => void;
-  onOpenTask: (task: Task) => void;
-  onStartFocus: (task: Task) => void;
+  value: number;
+  presetId: SessionPresetId;
+  disabled?: boolean;
+  onChange: (minutes: number) => void;
+  onPresetChange: (presetId: SessionPresetId) => void;
 }) {
+  const selectedIndex = Math.max(CUSTOM_SESSION_MINUTES.indexOf(value), 0);
+
+  function commitValue(minutes: number) {
+    onChange(minutes);
+    onPresetChange(matchPreset(minutes));
+  }
+
+  function handleDragEnd(_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
+    if (disabled) {
+      return;
+    }
+
+    const rawIndex = selectedIndex - info.offset.x / wheelStep;
+    const nextIndex = clamp(Math.round(rawIndex), 0, CUSTOM_SESSION_MINUTES.length - 1);
+    commitValue(CUSTOM_SESSION_MINUTES[nextIndex]);
+  }
+
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <Card className="rounded-[28px] p-5">
-        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">New objective</p>
-        <h3 className="mt-3 text-lg font-semibold text-text-primary">
-          Capture what needs to be tracked.
-        </h3>
-        <p className="mt-2 text-sm leading-6 text-text-secondary">
-          Keep capture fast. Clean it up only when needed.
-        </p>
-        <Button className="mt-5 w-full" onClick={onOpenQuickAdd}>
-          Add Task
-        </Button>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-1">
-        <Card className="rounded-[24px] p-5">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Time load</p>
-          <p className="mt-4 text-3xl font-semibold text-text-primary">{sessionGoalHours}</p>
-          <p className="mt-2 text-sm text-text-secondary">Estimated load across active and next tasks.</p>
-        </Card>
-
-        <Card className="rounded-[24px] p-5">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Completed today</p>
-          <p className="mt-4 text-3xl font-semibold text-accent">{String(completedTasks).padStart(2, '0')}</p>
-          <p className="mt-2 text-sm text-text-secondary">Completed work for today.</p>
-        </Card>
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {SESSION_PRESETS.map((preset) => (
+          <button
+            className={cn(
+              'rounded-full border px-4 py-2 text-xs font-medium transition-all',
+              presetId === preset.id
+                ? 'border-accent/35 bg-accent/14 text-accent'
+                : 'border-borderSoft/40 bg-panel/38 text-text-secondary hover:bg-panel/56 hover:text-text-primary',
+            )}
+            disabled={disabled}
+            key={preset.id}
+            onClick={() => {
+              commitValue(preset.minutes);
+              onPresetChange(preset.id);
+            }}
+            type="button"
+          >
+            {preset.label}
+          </button>
+        ))}
       </div>
 
-      <Card className="min-h-0 flex-1 rounded-[28px] p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Task manager</p>
-            <h3 className="mt-2 text-lg font-semibold text-text-primary">Current tasks</h3>
-          </div>
-          <Badge tone={focusStatusTone}>{focusStatusLabel}</Badge>
-        </div>
+      <div className="relative overflow-hidden rounded-[30px] border border-borderSoft/35 bg-panel/44 px-3 py-5">
+        <div className="pointer-events-none absolute inset-y-3 left-1/2 z-10 w-[108px] -translate-x-1/2 rounded-[24px] border border-accent/28 bg-accent/10 shadow-glow" />
 
-        <div className="scrollbar-hidden mt-5 min-h-0 space-y-3 overflow-y-auto pr-1">
-          {focusQueue.map((task) => (
-            <button
-              key={task.id}
-              className="w-full rounded-[22px] border border-borderSoft/35 bg-panel/58 px-4 py-4 text-left transition hover:border-borderStrong/40 hover:bg-panel/72"
-              onClick={() => onOpenTask(task)}
-              type="button"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-text-primary">{task.title}</p>
-                  <p className="mt-2 text-[10px] uppercase tracking-[0.24em] text-text-muted">
-                    {humanizeLane(task.lane)} / {formatMinutes(task.estimated_minutes)}
-                  </p>
-                </div>
-                <Badge tone={priorityTone(task.priority)}>{task.priority}</Badge>
-              </div>
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <span className="text-xs text-text-secondary">{formatRelativeTime(task.updated_at)}</span>
-                <span className="text-xs font-medium uppercase tracking-[0.22em] text-accent">
-                  Open brief
-                </span>
-              </div>
-            </button>
-          ))}
-          {focusQueue.length === 0 ? (
-            <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-8 text-center text-sm text-text-muted">
-              Queue clear
-            </div>
-          ) : null}
-        </div>
-      </Card>
+        <motion.div
+          animate={{ x: -selectedIndex * wheelStep }}
+          className="flex gap-[14px]"
+          drag={disabled ? false : 'x'}
+          dragConstraints={{
+            left: -wheelStep * (CUSTOM_SESSION_MINUTES.length - 1),
+            right: 0,
+          }}
+          onDragEnd={handleDragEnd}
+          style={{
+            paddingLeft: 'calc(50% - 54px)',
+            paddingRight: 'calc(50% - 54px)',
+          }}
+          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+        >
+          {CUSTOM_SESSION_MINUTES.map((minutes, index) => {
+            const active = index === selectedIndex;
+            const near = Math.abs(index - selectedIndex) <= 1;
 
-      <Card className="rounded-[24px] p-4">
-        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Focusing on</p>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-text-primary">
-              {currentMission?.title ?? 'No task selected'}
-            </p>
-            <p className="mt-1 text-xs text-text-secondary">
-              {currentMission ? formatMinutes(currentMission.estimated_minutes) : 'Pick a task to begin'}
-            </p>
-          </div>
-          {currentMission ? (
-            <Button onClick={() => onStartFocus(currentMission)} size="sm">
-              Start
-            </Button>
-          ) : null}
+            return (
+              <button
+                className={cn(
+                  'flex h-20 w-[108px] shrink-0 flex-col items-center justify-center rounded-[22px] border text-center transition-all',
+                  active
+                    ? 'border-accent/30 bg-accent/12 text-text-primary'
+                    : 'border-borderSoft/30 bg-panel2/56 text-text-secondary',
+                  near ? 'opacity-100' : 'opacity-45',
+                )}
+                disabled={disabled}
+                key={minutes}
+                onClick={() => commitValue(minutes)}
+                type="button"
+              >
+                <span className="text-[11px] uppercase tracking-[0.24em] text-text-muted">Focus</span>
+                <span className="mt-1 text-2xl font-semibold">{minutes}</span>
+                <span className="text-xs text-text-muted">minutes</span>
+              </button>
+            );
+          })}
+        </motion.div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs text-text-muted">
+          <span>Custom drag selector</span>
+          <span>{value} min</span>
         </div>
-      </Card>
+        <input
+          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-panel2 accent-[rgb(var(--accent))]"
+          disabled={disabled}
+          max={120}
+          min={10}
+          onChange={(event) => {
+            commitValue(Number(event.target.value));
+            onPresetChange('custom');
+          }}
+          step={5}
+          type="range"
+          value={value}
+        />
+      </div>
     </div>
+  );
+}
+
+function TaskListItem({
+  task,
+  selected,
+  blocked,
+  active,
+  footer,
+  onSelect,
+}: {
+  task: Task;
+  selected?: boolean;
+  blocked?: boolean;
+  active?: boolean;
+  footer?: ReactNode;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-[24px] border p-4 transition-all',
+        selected
+          ? 'border-accent/30 bg-accent/10 shadow-glow'
+          : 'border-borderSoft/35 bg-panel/42 hover:border-borderStrong/35 hover:bg-panel/56',
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <button className="min-w-0 flex-1 text-left" onClick={onSelect} type="button">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-text-primary">{task.title}</p>
+            {active ? <Badge tone="accent">Current</Badge> : null}
+            {blocked ? <Badge tone="warning">Blocked</Badge> : null}
+          </div>
+          {describeTask(task) ? <p className="mt-2 text-sm text-text-secondary">{describeTask(task)}</p> : null}
+        </button>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge tone={getTaskTone(task)}>{humanizePriority(task.priority)}</Badge>
+          <Badge tone="neutral">{task.estimated_minutes}m</Badge>
+        </div>
+      </div>
+
+      {footer ? <div className="mt-4">{footer}</div> : null}
+    </div>
+  );
+}
+
+function ActivityBars({
+  points,
+}: {
+  points: Array<{ label: string; focusSeconds: number; distractionSeconds: number }>;
+}) {
+  const maxValue = Math.max(
+    1,
+    ...points.map((point) => Math.max(point.focusSeconds, point.distractionSeconds)),
+  );
+
+  return (
+    <div className="grid h-40 grid-cols-7 items-end gap-3">
+      {points.map((point) => (
+        <div className="flex min-w-0 flex-col items-center gap-2" key={point.label}>
+          <div className="flex h-28 items-end gap-1">
+            <div
+              className="w-3 rounded-full bg-accent/85"
+              style={{ height: `${Math.max(10, (point.focusSeconds / maxValue) * 100)}%` }}
+            />
+            <div
+              className="w-3 rounded-full bg-warning/80"
+              style={{ height: `${Math.max(point.distractionSeconds ? 10 : 0, (point.distractionSeconds / maxValue) * 100)}%` }}
+            />
+          </div>
+          <span className="text-[11px] text-text-muted">{point.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CapturePopup({
+  state,
+  loading,
+  onChange,
+  onClose,
+  onSave,
+}: {
+  state: CaptureState;
+  loading: boolean;
+  onChange: (value: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (!state) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 30);
+
+    return () => window.clearTimeout(timeout);
+  }, [state]);
+
+  if (!state) {
+    return null;
+  }
+
+  const option = captureOptions.find((item) => item.kind === state.kind);
+
+  if (!option) {
+    return null;
+  }
+
+  const isLongForm = option.kind === 'note' || option.kind === 'blocker' || option.kind === 'idea';
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="absolute bottom-6 right-6 z-30 w-[360px]"
+        exit={{ opacity: 0, y: 16, scale: 0.98 }}
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+      >
+        <Card className="rounded-[28px] border border-accent/20 bg-panel/94 p-5 shadow-panel">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">{option.label}</p>
+              <h3 className="mt-2 text-lg font-semibold text-text-primary">{option.icon} Quick capture</h3>
+            </div>
+
+            <Button onClick={onClose} size="sm" type="button" variant="ghost">
+              Esc
+            </Button>
+          </div>
+
+          <div className="mt-4">
+            {isLongForm ? (
+              <Textarea
+                className="min-h-[104px]"
+                onChange={(event) => onChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    onClose();
+                  }
+
+                  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                    event.preventDefault();
+                    onSave();
+                  }
+                }}
+                placeholder={option.placeholder}
+                ref={inputRef as RefObject<HTMLTextAreaElement>}
+                value={state.value}
+              />
+            ) : (
+              <Input
+                onChange={(event) => onChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    onClose();
+                  }
+
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    onSave();
+                  }
+                }}
+                placeholder={option.placeholder}
+                ref={inputRef as RefObject<HTMLInputElement>}
+                value={state.value}
+              />
+            )}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="text-xs text-text-muted">
+              {option.kind === 'distraction' ? 'Save and pause.' : 'Enter to save.'}
+            </p>
+
+            <div className="flex gap-2">
+              <Button onClick={onClose} size="sm" type="button" variant="secondary">
+                Cancel
+              </Button>
+              <Button disabled={loading || state.value.trim().length === 0} onClick={onSave} size="sm" type="button">
+                Save
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
 export function MainApp() {
-  const [activeView, setActiveView] = useState<MainView>('inbox');
-  const [taskReturnView, setTaskReturnView] = useState<NavigationView>('today');
-  const [clockTick, bumpClockTick] = useReducer((count: number) => count + 1, 0);
-  const [captureDraft, setCaptureDraft] = useState('');
-  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-  const [workspaceNotesDraft, setWorkspaceNotesDraft] = useState('');
-  const [taskDraft, setTaskDraft] = useState<Task | null>(null);
-  const [taskEditorMode, setTaskEditorMode] = useState<'simple' | 'advanced'>('simple');
-  const [isRefreshingBrief, setIsRefreshingBrief] = useState(false);
-  const [isSavingTask, setIsSavingTask] = useState(false);
-  const [isCompletingTask, setIsCompletingTask] = useState(false);
-  const [isSavingWorkspaceNotes, setIsSavingWorkspaceNotes] = useState(false);
-  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
-  const [completionReviewTaskId, setCompletionReviewTaskId] = useState<string | null>(null);
   const tasks = useTaskStore((state) => state.tasks);
+  const tasksHydrated = useTaskStore((state) => state.hydrated);
+  const tasksLoading = useTaskStore((state) => state.loading);
   const selectedTaskId = useTaskStore((state) => state.selectedTaskId);
-  const createTask = useTaskStore((state) => state.createTask);
   const selectTask = useTaskStore((state) => state.selectTask);
-  const saveTask = useTaskStore((state) => state.saveTask);
+  const createTask = useTaskStore((state) => state.createTask);
   const moveTaskToLane = useTaskStore((state) => state.moveTaskToLane);
-  const toggleSubtask = useTaskStore((state) => state.toggleSubtask);
-  const answerQuestion = useTaskStore((state) => state.answerQuestion);
   const markDone = useTaskStore((state) => state.markDone);
 
   const currentMissionId = useFocusStore((state) => state.currentMissionId);
-  const focusSessionStart = useFocusStore((state) => state.focusSessionStart);
-  const focusElapsedSeconds = useFocusStore((state) => state.focusElapsedSeconds);
-  const focusStatus = useFocusStore((state) => state.status);
   const setCurrentMission = useFocusStore((state) => state.setCurrentMission);
-  const startSession = useFocusStore((state) => state.startSession);
-  const resumeSession = useFocusStore((state) => state.resumeSession);
-  const pauseSession = useFocusStore((state) => state.pauseSession);
-  const resetSession = useFocusStore((state) => state.resetSession);
-  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const startFocusSession = useFocusStore((state) => state.startSession);
+  const pauseFocusSession = useFocusStore((state) => state.pauseSession);
+  const resetFocusSession = useFocusStore((state) => state.resetSession);
 
-  const themeId = useThemeStore((state) => state.themeId);
-  const setTheme = useThemeStore((state) => state.setTheme);
-  const activeTheme = THEMES.find((theme) => theme.id === themeId) ?? THEMES[0];
-  const reduceMotion = useSettingsStore((state) => state.reduceMotion);
-  const setReduceMotion = useSettingsStore((state) => state.setReduceMotion);
-  const focusPromptStyle = useSettingsStore((state) => state.focusPromptStyle);
-  const setFocusPromptStyle = useSettingsStore((state) => state.setFocusPromptStyle);
-  const syncMode = useSettingsStore((state) => state.syncMode);
-  const setSyncMode = useSettingsStore((state) => state.setSyncMode);
-  const launchAtLogin = useSettingsStore((state) => state.launchAtLogin);
-  const launchAtLoginPending = useSettingsStore((state) => state.launchAtLoginPending);
-  const setLaunchAtLogin = useSettingsStore((state) => state.setLaunchAtLogin);
-  const desktopStartupAvailable = isTauriApp();
+  const sessions = useSessionStore((state) => state.sessions);
+  const sessionsHydrated = useSessionStore((state) => state.hydrated);
+  const activeSessionId = useSessionStore((state) => state.activeSessionId);
+  const recovery = useSessionStore((state) => state.recovery);
+  const startSession = useSessionStore((state) => state.startSession);
+  const pauseActiveSession = useSessionStore((state) => state.pauseActiveSession);
+  const resumeActiveSession = useSessionStore((state) => state.resumeActiveSession);
+  const completeActiveSession = useSessionStore((state) => state.completeActiveSession);
+  const addCapture = useSessionStore((state) => state.addCapture);
+  const dismissRecovery = useSessionStore((state) => state.dismissRecovery);
 
-  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
-  const currentMission =
-    tasks.find((task) => task.id === currentMissionId) ??
-    tasks.find((task) => task.lane === 'now') ??
-    null;
-  const focusMission = currentMission ?? selectedTask;
-  const detailTask = taskDraft ?? selectedTask;
-  const inboxTasks = laneTasks(tasks, 'inbox');
-  const nowTasks = laneTasks(tasks, 'now');
-  const nextTasks = laneTasks(tasks, 'next');
-  const laterTasks = laneTasks(tasks, 'later');
-  const doneTasks = laneTasks(tasks, 'done');
-  const focusQueue = uniqueTasks([focusMission, ...nowTasks, ...nextTasks, ...inboxTasks]).slice(0, 6);
-  const focusStatusTone = getFocusStatusTone(focusStatus);
-  const focusStatusLabel = getFocusStatusLabel(focusStatus);
-  const weeklyActivity = getWeeklyActivity(tasks);
-  const distractionReport = buildDistractionReport(activityLog);
-
-  const dailyFocusHours = ((doneTasks.length * 50 + nowTasks.length * 35 + nextTasks.length * 20) / 60).toFixed(1);
-  const streakDays = Math.max(4, doneTasks.length * 4 + nowTasks.length * 2 + 6);
-  const completionRate = Math.round((doneTasks.length / Math.max(1, tasks.length)) * 100);
-  const sessionGoalHours = (focusQueue.reduce((sum, task) => sum + task.estimated_minutes, 0) / 60).toFixed(1);
-  const localTime = clockTick >= 0 ? getLocalTime() : '00:00';
-  const clock = clockTick >= 0 ? formatElapsedClock(focusSessionStart, focusElapsedSeconds) : '00:00';
-  const hasPausedFocus = !focusSessionStart && focusElapsedSeconds > 0;
-  const laneCards = [
-    { lane: 'inbox' as TaskLane, label: 'Queue', tasks: inboxTasks, hint: 'Capture and clarify' },
-    { lane: 'now' as TaskLane, label: 'Active', tasks: nowTasks, hint: 'One task at a time' },
-    { lane: 'next' as TaskLane, label: 'Next', tasks: nextTasks, hint: 'Ready after current work' },
-    { lane: 'later' as TaskLane, label: 'Backlog', tasks: laterTasks, hint: 'Keep but do not touch yet' },
-  ];
-  const distractionPeriods = [
-    { label: 'Today', summary: distractionReport.today },
-    { label: '7 days', summary: distractionReport.week },
-    { label: '30 days', summary: distractionReport.month },
-  ];
-  const focusChecklistCompleted = focusMission ? getCompletedSubtasks(focusMission) : 0;
-  const focusOpenQuestions = focusMission ? getOpenQuestionCount(focusMission) : 0;
-  const detailChecklistCompleted = detailTask ? getCompletedSubtasks(detailTask) : 0;
-  const focusSubtasks = focusMission ? getVisibleSubtasks(focusMission.subtasks) : [];
-  const detailSubtasks = detailTask ? getVisibleSubtasks(detailTask.subtasks) : [];
-  const isCompletionReview = detailTask?.id === completionReviewTaskId;
-  const taskDraftChanged =
-    Boolean(detailTask && selectedTask) &&
-    JSON.stringify(detailTask) !== JSON.stringify(selectedTask);
-
-  const addTaskDraftSubtask = () => {
-    const title = newSubtaskTitle.trim();
-    if (!title) {
-      return;
-    }
-
-    setTaskDraft((current) =>
-      current
-        ? {
-            ...current,
-            subtasks: [
-              ...getVisibleSubtasks(current.subtasks),
-              {
-                id: `subtask-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                title,
-                completed: false,
-              },
-            ],
-          }
-        : current,
-    );
-    setNewSubtaskTitle('');
-  };
-
-  const removeTaskDraftSubtask = (subtaskId: string) => {
-    setTaskDraft((current) =>
-      current
-        ? {
-            ...current,
-            subtasks: getVisibleSubtasks(current.subtasks).filter((item) => item.id !== subtaskId),
-          }
-        : current,
-    );
-  };
-
-  useEffect(() => {
-    if (!selectedTaskId && tasks[0]) {
-      selectTask(tasks[0].id);
-    }
-  }, [selectedTaskId, selectTask, tasks]);
-
-  useEffect(() => {
-    if (!selectedTask) {
-      setTaskDraft(null);
-      setNewSubtaskTitle('');
-      return;
-    }
-
-    setTaskDraft(cloneTask(selectedTask));
-    setNewSubtaskTitle('');
-  }, [selectedTask]);
-
-  useEffect(() => {
-    if (activeView !== 'task' && completionReviewTaskId) {
-      setCompletionReviewTaskId(null);
-    }
-  }, [activeView, completionReviewTaskId]);
-
-  useEffect(() => {
-    setWorkspaceNotesDraft(focusMission?.workspace_notes ?? '');
-  }, [focusMission]);
+  const [activeView, setActiveView] = useState<MainView>('today');
+  const [minutes, setMinutes] = useState(25);
+  const [presetId, setPresetId] = useState<SessionPresetId>('focus');
+  const [captureState, setCaptureState] = useState<CaptureState>(null);
+  const [captureSaving, setCaptureSaving] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      bumpClockTick();
+      setNow(Date.now());
     }, 1000);
 
     return () => {
@@ -724,1916 +711,1083 @@ export function MainApp() {
     };
   }, []);
 
+  const activeSession = findActiveSession(sessions, activeSessionId);
+  const activeSessionMetrics = activeSession ? getSessionMetrics(activeSession, now) : zeroMetrics;
+  const blockedEntries = getLatestBlockedEntries(sessions);
+  const blockedTaskIds = new Set(blockedEntries.map((entry) => entry.taskId));
+
+  const activeTasks = tasks.filter((task) => task.lane === 'now' && task.status !== 'done');
+  const queueTasks = tasks.filter(
+    (task) =>
+      task.lane !== 'done' &&
+      task.status !== 'done' &&
+      task.lane !== 'now' &&
+      !blockedTaskIds.has(task.id),
+  );
+  const blockedTasks = tasks.filter(
+    (task) => task.lane !== 'done' && task.status !== 'done' && blockedTaskIds.has(task.id),
+  );
+  const completedTasks = tasks.filter((task) => task.lane === 'done' || task.status === 'done');
+
+  const selectedTask =
+    tasks.find((task) => task.id === selectedTaskId) ??
+    (activeSession ? tasks.find((task) => task.id === activeSession.task_id) : null) ??
+    activeTasks[0] ??
+    queueTasks[0] ??
+    null;
+  const currentTask =
+    (activeSession ? tasks.find((task) => task.id === activeSession.task_id) : null) ?? selectedTask;
+  const suggestedTask = getSuggestedTask(tasks, blockedTaskIds, activeSession?.task_id ?? null);
+
+  const todaySessions = sessions.filter((session) => isSameCalendarDay(session.started_at, new Date(now)));
+  const todayFocusSeconds = todaySessions.reduce(
+    (sum, session) => sum + getSessionMetrics(session, now).focus_seconds,
+    0,
+  );
+  const todayDistractionSeconds = todaySessions.reduce(
+    (sum, session) => sum + getSessionMetrics(session, now).distraction_seconds,
+    0,
+  );
+  const todayPauseSeconds = todaySessions.reduce(
+    (sum, session) => sum + getSessionMetrics(session, now).pause_seconds,
+    0,
+  );
+  const todayBreakSeconds = todaySessions.reduce(
+    (sum, session) => sum + getSessionMetrics(session, now).break_seconds,
+    0,
+  );
+  const todaySwitchCount = getTaskSwitchCount(todaySessions);
+
+  const historyRows = buildTaskHistoryRows(sessions, tasks, now);
+  const hourlyFocus = getHourlyFocusBuckets(sessions, now)
+    .filter((bucket) => bucket.totalSeconds > 0)
+    .sort((left, right) => right.totalSeconds - left.totalSeconds);
+  const distractionPatterns = getDistractionPatterns(sessions);
+  const averageSessionSeconds = getAverageFocusSessionSeconds(sessions, now);
+  const dailySeries = buildDailySeries(sessions, 7, now);
+  const lastFourteenDays = buildDailySeries(sessions, 14, now);
+  const previousWeek = lastFourteenDays.slice(0, 7);
+  const currentWeek = lastFourteenDays.slice(7);
+  const estimationAccuracy = getTaskEstimationAccuracy(tasks, sessions, now);
+  const currentWeekFocus = currentWeek.reduce((sum, point) => sum + point.focusSeconds, 0);
+  const previousWeekFocus = previousWeek.reduce((sum, point) => sum + point.focusSeconds, 0);
+  const currentWeekDistraction = currentWeek.reduce((sum, point) => sum + point.distractionSeconds, 0);
+  const previousWeekDistraction = previousWeek.reduce((sum, point) => sum + point.distractionSeconds, 0);
+  const focusConsistency = dailySeries.filter((point) => point.focusSeconds > 0).length;
+
+  const doneToday = completedTasks.filter((task) => isSameCalendarDay(task.updated_at, new Date(now)));
+  const blockersToday = todaySessions.flatMap((session) =>
+    session.captures
+      .filter((capture) => capture.kind === 'blocker')
+      .map((capture) => ({
+        taskId: session.task_id,
+        taskTitle: tasks.find((task) => task.id === session.task_id)?.title ?? session.task_title,
+        content: capture.content,
+      })),
+  );
+  const nextReviewTasks = [...queueTasks]
+    .sort((left, right) => priorityValue(right.priority) - priorityValue(left.priority))
+    .slice(0, 3);
+
+  const progressPercent = activeSession
+    ? Math.round((activeSessionMetrics.focus_seconds / Math.max(1, activeSession.planned_minutes * 60)) * 100)
+    : 0;
+  const remainingMinutes = activeSession ? Math.max(5, getRemainingMinutes(activeSession, now)) : minutes;
+  const recentCaptures = activeSession ? activeSession.captures.slice(-4).reverse() : [];
+
   useEffect(() => {
-    let cancelled = false;
-
-    const loadActivity = async () => {
-      const nextActivity = await listRecentActivity(2000);
-
-      if (!cancelled) {
-        setActivityLog(nextActivity);
-      }
-    };
-
-    void loadActivity();
-
-    const unsubscribe = subscribeAppEvent(ACTIVITY_CHANGED_EVENT, () => {
-      void loadActivity();
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe?.();
-    };
-  }, []);
+    if (!selectedTaskId && tasks[0]) {
+      selectTask(tasks[0].id);
+    }
+  }, [selectTask, selectedTaskId, tasks]);
 
   useEffect(() => {
-    if (!isTauriApp()) {
+    if (!activeSession) {
       return;
     }
 
-    let cancelled = false;
-    let unlisten: undefined | (() => void);
+    if (currentMissionId !== activeSession.task_id) {
+      setCurrentMission(activeSession.task_id, 'system');
+    }
+  }, [activeSession, currentMissionId, setCurrentMission]);
 
-    void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
-      if (cancelled) {
-        return;
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setCaptureState(null);
       }
+    }
 
-      const currentWindow = getCurrentWindow();
-
-      unlisten = await currentWindow.onCloseRequested(async (event) => {
-        event.preventDefault();
-
-        try {
-          await currentWindow.hide();
-        } catch (error) {
-          console.error('Unable to hide MissionControl', error);
-        }
-      });
-    });
+    window.addEventListener('keydown', handleEscape);
 
     return () => {
-      cancelled = true;
-      unlisten?.();
+      window.removeEventListener('keydown', handleEscape);
     };
   }, []);
 
-  const openHud = async (task: Task | null = focusMission, syncMission = true) => {
-    if (task) {
-      selectTask(task.id);
-      if (syncMission) {
-        setCurrentMission(task.id, 'main');
-      }
-    }
+  const viewCopy = getViewCopy(activeView);
 
-    await showHudWindow();
-    await logActivity({
-      action: 'hud_opened',
-      source: 'main',
-      taskId: task?.id ?? currentMissionId ?? null,
-      details: {
-        activeView,
-      },
-    });
-  };
-
-  const openTaskDetail = (task: Task, nextReturnView?: NavigationView) => {
-    selectTask(task.id);
-    setTaskEditorMode('simple');
-    setCompletionReviewTaskId(null);
-    setTaskReturnView(nextReturnView ?? (activeView === 'task' ? taskReturnView : (activeView as NavigationView)));
-    setActiveView('task');
-  };
-
-  const openTaskCompletionReview = (task: Task, nextReturnView?: NavigationView) => {
-    selectTask(task.id);
-    setTaskEditorMode('advanced');
-    setCompletionReviewTaskId(task.id);
-    setTaskReturnView(nextReturnView ?? (activeView === 'task' ? taskReturnView : (activeView as NavigationView)));
-    setActiveView('task');
-  };
-
-  const saveTaskDetail = async (task: Task) => {
-    setIsSavingTask(true);
-
-    try {
-      const generated =
-        taskEditorMode === 'simple'
-          ? generateTaskBrief(task.raw_input, {
-              subtasks: task.subtasks,
-              clarifyingQuestions: task.clarifying_questions,
-              priority: task.priority,
-              estimatedMinutes: task.estimated_minutes,
-            })
-          : null;
-      const sanitized = sanitizeTask(
-        generated
-          ? {
-              ...task,
-              title: generated.suggestedTitle,
-              description: generated.description,
-              goal: generated.goal,
-              definition_of_done: generated.definitionOfDone,
-              next_action: generated.nextAction,
-              why_it_matters: generated.whyItMatters,
-              subtasks: generated.subtasks,
-            }
-          : task,
-      );
-      await saveTask(sanitized, 'main');
-    } finally {
-      setIsSavingTask(false);
-    }
-  };
-
-  const completeTaskAfterReview = async (task: Task) => {
-    const nextTask = sanitizeTask(task);
-    const nextMission =
-      currentMissionId === nextTask.id
-        ? tasks.find((candidate) => candidate.id !== nextTask.id && candidate.lane === 'now' && candidate.status !== 'done') ?? null
-        : null;
-
-    setIsCompletingTask(true);
-
-    try {
-      await saveTaskDetail(nextTask);
-      await markDone(nextTask.id, 'main');
-
-      if (currentMissionId === nextTask.id) {
-        setCurrentMission(nextMission?.id ?? null, 'main');
-        resetSession('main');
-      }
-
-      setCompletionReviewTaskId(null);
-      setActiveView(taskReturnView);
-    } finally {
-      setIsCompletingTask(false);
-    }
-  };
-
-  const refreshTaskBrief = async () => {
-    if (!detailTask) {
-      return;
-    }
-
-    setIsRefreshingBrief(true);
-
-    try {
-      const clarified = await getTaskAiAssistant().clarifyTask(detailTask.raw_input || detailTask.title);
-      setTaskDraft((current) =>
-        current
-          ? {
-              ...current,
-              title: clarified.suggestedTitle,
-              description: clarified.description,
-              goal: clarified.goal,
-              definition_of_done: clarified.definitionOfDone,
-              next_action: clarified.nextAction,
-              why_it_matters: clarified.whyItMatters,
-              subtasks: clarified.subtasks.length > 0 ? clarified.subtasks : getVisibleSubtasks(current.subtasks),
-              clarifying_questions: clarified.questions,
-            }
-          : current,
-      );
-    } finally {
-      setIsRefreshingBrief(false);
-    }
-  };
-
-  const activateFocusTask = async (task: Task) => {
+  function handleStartSession(task: Task, nextMinutes = minutes, nextPresetId = presetId) {
     selectTask(task.id);
     setCurrentMission(task.id, 'main');
-    setActiveView('focus');
-    startSession(undefined, 'main');
 
-    if (task.lane !== 'now') {
-      await moveTaskToLane(task.id, 'now', 'main');
+    if (task.lane !== 'now' && task.lane !== 'done') {
+      void moveTaskToLane(task.id, 'now', 'main');
     }
 
-    await openHud(task, false);
-  };
+    startSession({
+      taskId: task.id,
+      taskTitle: task.title,
+      minutes: nextMinutes,
+      presetId: nextPresetId,
+    });
+    startFocusSession(nextMinutes, 'main');
+  }
 
-  const saveWorkspaceNotes = async () => {
-    if (!focusMission) {
+  function handlePause(kind: 'pause' | 'break' | 'distraction', detail = '') {
+    pauseActiveSession(kind, detail);
+    pauseFocusSession('main');
+  }
+
+  function handleResume(nextMinutes: number) {
+    resumeActiveSession(nextMinutes);
+    startFocusSession(nextMinutes, 'main');
+  }
+
+  function handleFinishSession() {
+    completeActiveSession();
+    resetFocusSession('main');
+  }
+
+  async function handleSaveCapture() {
+    if (!captureState || !activeSession || captureState.value.trim().length === 0) {
       return;
     }
 
-    setIsSavingWorkspaceNotes(true);
+    setCaptureSaving(true);
 
     try {
-      await saveTask(
-        {
-          ...focusMission,
-          workspace_notes: workspaceNotesDraft.trim(),
-        },
-        'main',
-      );
-    } finally {
-      setIsSavingWorkspaceNotes(false);
-    }
-  };
+      addCapture(captureState.kind, captureState.value);
 
-  useEffect(() => {
-    const unsubscribe = subscribeAppEvent<OpenTaskDetailPayload>(OPEN_TASK_DETAIL_EVENT, (payload) => {
-      const requestedTask = tasks.find((task) => task.id === payload.taskId);
-
-      if (!requestedTask) {
-        return;
+      if (captureState.kind === 'follow-up') {
+        await createTask(
+          {
+            rawInput: captureState.value,
+            title: captureState.value,
+            lane: 'inbox',
+            estimatedMinutes: 15,
+          },
+          'main',
+        );
       }
 
-      const nextReturnView = activeView === 'task' ? taskReturnView : (activeView as NavigationView);
-      selectTask(requestedTask.id);
-      setTaskEditorMode(payload.mode === 'completion-review' ? 'advanced' : 'simple');
-      setCompletionReviewTaskId(payload.mode === 'completion-review' ? requestedTask.id : null);
-      setTaskReturnView(nextReturnView);
-      setActiveView('task');
-    });
+      if (captureState.kind === 'distraction' && activeSession.status === 'running') {
+        handlePause('distraction', captureState.value);
+      }
 
-    return () => {
-      unsubscribe();
-    };
-  }, [activeView, selectTask, taskReturnView, tasks]);
-
-  const captureWorkspaceTask = async () => {
-    if (!captureDraft.trim()) {
-      return;
+      setCaptureState(null);
+    } finally {
+      setCaptureSaving(false);
     }
+  }
 
-    await createTask(
-      {
-        rawInput: captureDraft,
-        lane: 'inbox',
-        priority: 'normal',
-        status: 'captured',
-      },
-      'main',
-    );
-    setCaptureDraft('');
-  };
-
-  const pageHeaderTitle =
-    activeView === 'inbox'
-      ? 'Overview'
-      : activeView === 'today'
-        ? 'Tasks'
-        : activeView === 'focus'
-          ? 'Task Workspace'
-          : activeView === 'task'
-            ? isCompletionReview
-              ? 'Completion Review'
-              : 'Task Detail'
-            : 'Settings';
-
-  const pageHeaderDescription =
-    activeView === 'inbox'
-      ? 'See what is active, what is next, and what can wait.'
-      : activeView === 'today'
-        ? 'Drag tasks between lanes and open any task to edit it.'
-        : activeView === 'focus'
-          ? 'Keep one task in front of you while the rest stays out of the way.'
-          : activeView === 'task'
-            ? isCompletionReview
-              ? 'Capture final notes and update the task before you mark it complete.'
-              : 'Use the simple view by default. Open advanced edit only when you actually need it.'
-            : 'Adjust the app to match how you like to work.';
-
-  const page = (
-    <motion.div
-      animate={{ opacity: 1, y: 0 }}
-      className="min-h-full"
-      initial={{ opacity: 0, y: 12 }}
-      key={activeView}
-      transition={{ duration: 0.28, ease: 'easeOut' }}
-    >
-      {activeView === 'inbox' ? (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)]">
-          <div className="flex min-h-0 flex-col gap-5">
-            <Card className="hero-gradient relative overflow-hidden rounded-[34px] p-7 lg:p-8">
-              <div className="absolute inset-x-6 top-5 h-px bg-gradient-to-r from-accent/0 via-accent/25 to-accent/0" />
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl">
-                  <p className="text-[10px] uppercase tracking-[0.34em] text-accent/80">Task overview</p>
-                  <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-text-primary lg:text-[4.4rem]">
-                    Overview
-                  </h2>
-                  <p className="mt-4 max-w-xl text-sm leading-7 text-text-secondary lg:text-base">
-                    Keep the active task obvious, keep new work easy to capture, and move the rest without adding unnecessary overhead.
-                  </p>
-                </div>
-
-                <div className="surface-muted-strong w-full max-w-[260px] rounded-[28px] p-5">
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Local time</p>
-                  <p className="mt-3 font-mono text-[2.25rem] leading-none text-text-primary">{localTime}</p>
-                  <p className="mt-3 text-sm text-text-secondary">
-                    {focusSessionStart
-                      ? 'Session live.'
-                      : hasPausedFocus
-                        ? 'Session paused.'
-                        : 'Standby until you choose a task.'}
-                  </p>
-                </div>
+  function renderToday() {
+    return (
+      <div className="space-y-6">
+        {recovery ? (
+          <Card className="rounded-[30px] border border-warning/18 bg-warning/8 p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-warning">Recovery</p>
+                <h2 className="mt-2 text-xl font-semibold text-text-primary">
+                  You were working on {recovery.task_title}
+                </h2>
+                <p className="mt-2 text-sm text-text-secondary">
+                  Paused {formatRelativeTime(recovery.paused_at)}.
+                </p>
               </div>
 
-              <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)]">
-                <div className="surface-muted-strong rounded-[30px] p-5 lg:p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Focus volume</p>
-                      <p className="mt-4 text-5xl font-semibold tracking-[-0.05em] text-text-primary">
-                        {dailyFocusHours}
-                        <span className="ml-2 text-lg text-text-secondary">hours</span>
-                      </p>
-                    </div>
-                    <Badge tone="accent">82% of goal</Badge>
-                  </div>
-                  <div className="mt-8">
-                    <div className="h-1.5 rounded-full bg-borderSoft/40">
-                      <div className="h-full w-[82%] rounded-full bg-gradient-to-r from-accent/60 to-accent" />
-                    </div>
-                    <p className="mt-3 text-xs uppercase tracking-[0.24em] text-text-muted">
-                      Daily rhythm looks stable.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4">
-                  <StudioMetricCard
-                    caption="Recent activity"
-                    label="Streak"
-                    tone="warning"
-                    value={`${streakDays} Days`}
-                  />
-                  <StudioMetricCard
-                    caption={`${doneTasks.length} tasks completed`}
-                    label="Efficiency"
-                    tone="neutral"
-                    value={`${String(doneTasks.length).padStart(2, '0')} / ${String(tasks.length).padStart(2, '0')}`}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Button
-                  onClick={() => {
-                    if (focusMission) {
-                      void activateFocusTask(focusMission);
-                    }
-                  }}
-                >
-                  Start Task
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => handleResume(10)} size="sm" type="button">
+                  Resume 10 min
                 </Button>
                 <Button
-                  onClick={() => {
-                    void openHud();
-                  }}
+                  onClick={() => handleResume(recovery.remaining_minutes)}
+                  size="sm"
+                  type="button"
                   variant="secondary"
                 >
-                  Open HUD
+                  Resume remaining
                 </Button>
-                <Button onClick={() => void showQuickAddWindow()} variant="secondary">
-                  New Task
+                <Button
+                  onClick={() => {
+                    startTransition(() => setActiveView('tasks'));
+                    dismissRecovery();
+                  }}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  Switch task
                 </Button>
-                <span className="kbd-badge ml-1">
-                  <span className="pulse-dot" />
-                  Ctrl+Shift+Space for Quick Add
-                </span>
               </div>
+            </div>
+          </Card>
+        ) : null}
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.95fr)]">
+          <Card className="relative overflow-hidden rounded-[34px] p-6">
+            <div className="absolute inset-x-10 top-0 h-40 rounded-full bg-accent/12 blur-3xl" />
+            <div className="relative">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-[11px] uppercase tracking-[0.3em] text-text-muted">Current focus</p>
+                  <h2 className="mt-2 text-3xl font-semibold leading-tight text-text-primary">
+                    {currentTask?.title ?? 'Pick a task'}
+                  </h2>
+                </div>
+
+                <div className="grid min-w-[220px] gap-3 rounded-[26px] border border-borderSoft/30 bg-panel/46 p-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Live timer</p>
+                    <p className="mt-2 text-[2.6rem] font-semibold leading-none text-text-primary">
+                      {formatClock(activeSessionMetrics.focus_seconds)}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone={activeSession?.status === 'paused' ? 'warning' : 'accent'}>
+                      {activeSession?.status === 'paused' ? 'Paused' : activeSession ? 'Running' : 'Ready'}
+                    </Badge>
+                    <Badge tone="neutral">{activeSession?.planned_minutes ?? minutes}m target</Badge>
+                    {activeSession ? <Badge tone="neutral">{formatDurationFromSeconds(activeSessionMetrics.distraction_seconds)} distracted</Badge> : null}
+                  </div>
+                </div>
+              </div>
+
+              {activeSession ? (
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center justify-between text-sm text-text-secondary">
+                    <span>
+                      Focused {formatDurationFromSeconds(activeSessionMetrics.focus_seconds)} of{' '}
+                      {activeSession.planned_minutes}m
+                    </span>
+                    <span>{Math.max(0, 100 - progressPercent)}% left</span>
+                  </div>
+                  <ProgressBar tone={activeSession?.status === 'paused' ? 'warning' : 'accent'} value={progressPercent} />
+                </div>
+              ) : null}
+
+              <div className="mt-8">
+                <SectionHeading action={<Badge tone="neutral">Wheel</Badge>} title="Session" />
+
+                <TimeWheelSelector
+                  disabled={Boolean(activeSession && activeSession.status === 'running')}
+                  onChange={setMinutes}
+                  onPresetChange={setPresetId}
+                  presetId={presetId}
+                  value={minutes}
+                />
+              </div>
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                {!activeSession ? (
+                  <Button
+                    disabled={!currentTask}
+                    onClick={() => currentTask && handleStartSession(currentTask, minutes, presetId)}
+                    size="lg"
+                    type="button"
+                  >
+                    Start {minutes} min
+                  </Button>
+                ) : activeSession.status === 'running' ? (
+                  <>
+                    <Button onClick={() => handlePause('pause')} size="md" type="button" variant="secondary">
+                      Pause
+                    </Button>
+                    <Button onClick={() => handlePause('break')} size="md" type="button" variant="secondary">
+                      Start break
+                    </Button>
+                    <Button onClick={() => handlePause('distraction', 'Quick distraction')} size="md" type="button" variant="secondary">
+                      Distracted
+                    </Button>
+                    <Button onClick={handleFinishSession} size="md" type="button" variant="ghost">
+                      Finish session
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button onClick={() => handleResume(remainingMinutes)} size="md" type="button">
+                      Resume remaining
+                    </Button>
+                    <Button onClick={() => handleResume(10)} size="md" type="button" variant="secondary">
+                      Resume 10 min
+                    </Button>
+                    <Button onClick={() => startTransition(() => setActiveView('tasks'))} size="md" type="button" variant="ghost">
+                      Switch task
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          <div className="space-y-6">
+            <Card className="rounded-[34px] p-6">
+              <SectionHeading action={<Badge tone="accent">Live</Badge>} title="Capture" />
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {captureOptions.map((option) => (
+                  <button
+                    className={cn(
+                      'rounded-[24px] border p-4 text-left transition-all',
+                      activeSession
+                        ? 'border-borderSoft/35 bg-panel/42 hover:border-accent/24 hover:bg-panel/62'
+                        : 'cursor-not-allowed border-borderSoft/25 bg-panel/28 text-text-muted opacity-55',
+                    )}
+                    disabled={!activeSession}
+                    key={option.kind}
+                    onClick={() => setCaptureState({ kind: option.kind, value: '' })}
+                    type="button"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-lg">{option.icon}</span>
+                      <span className="text-[11px] uppercase tracking-[0.24em] text-text-muted">{option.label}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {recentCaptures.length ? (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {recentCaptures.map((capture) => (
+                    <Badge key={capture.id} tone={capture.kind === 'blocker' ? 'warning' : 'neutral'}>
+                      {capture.kind}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
             </Card>
 
-            <div className="grid min-h-0 gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(260px,0.75fr)]">
-              <Card className="min-h-0 rounded-[32px] p-6">
-                <SectionHeading
-                  action={<Badge tone="neutral">Minutes</Badge>}
-                  label="Weekly activity"
-                  title="Distribution across the last 7 days"
-                />
-                <div className="mt-8 flex min-h-[260px] items-end justify-between gap-3">
-                  {weeklyActivity.map((day) => {
-                    const height = Math.max(14, Math.min(100, Math.round(day.minutes / 2.2)));
+            <Card className="rounded-[34px] p-6">
+              <SectionHeading action={<Badge tone="neutral">{todaySessions.length}</Badge>} title="Tracked" />
+
+              <div className="space-y-3 text-sm text-text-secondary">
+                <div className="flex items-center justify-between">
+                  <span>Focus time</span>
+                  <span className="font-medium text-text-primary">{formatDurationFromSeconds(todayFocusSeconds)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Pause time</span>
+                  <span className="font-medium text-text-primary">{formatDurationFromSeconds(todayPauseSeconds)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Break time</span>
+                  <span className="font-medium text-text-primary">{formatDurationFromSeconds(todayBreakSeconds)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Distraction time</span>
+                  <span className="font-medium text-text-primary">{formatDurationFromSeconds(todayDistractionSeconds)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Task switching</span>
+                  <span className="font-medium text-text-primary">{todaySwitchCount}</span>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-4">
+          <MetricCard label="Focus" value={formatDurationFromSeconds(todayFocusSeconds)} />
+          <MetricCard label="Sessions" tone="neutral" value={String(todaySessions.length).padStart(2, '0')} />
+          <MetricCard label="Distraction" tone="warning" value={formatDurationFromSeconds(todayDistractionSeconds)} />
+          <MetricCard label="Switches" tone="success" value={String(todaySwitchCount).padStart(2, '0')} />
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="neutral">Today</Badge>} title="Sessions" />
+
+            <div className="space-y-3">
+              {todaySessions.length ? (
+                [...todaySessions]
+                  .sort(
+                    (left, right) => new Date(right.started_at).getTime() - new Date(left.started_at).getTime(),
+                  )
+                  .map((session) => {
+                    const metrics = getSessionMetrics(session, now);
 
                     return (
-                      <div key={day.label} className="flex flex-1 flex-col items-center gap-3">
-                        <div className="flex h-52 w-full items-end rounded-[20px] border border-borderSoft/35 bg-panel2/60 px-2 py-3">
-                          <div
-                            className="accent-glow-soft w-full rounded-[16px] bg-gradient-to-t from-accent/35 via-accent/55 to-accent"
-                            style={{ height: `${height}%` }}
-                          />
+                      <div
+                        className="flex flex-col gap-3 rounded-[24px] border border-borderSoft/30 bg-panel/40 p-4 sm:flex-row sm:items-center sm:justify-between"
+                        key={session.id}
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">
+                            {tasks.find((task) => task.id === session.task_id)?.title ?? session.task_title}
+                          </p>
+                          <p className="mt-1 text-sm text-text-secondary">
+                            {formatTimeRange(session.started_at, session.ended_at)} · {formatDurationFromSeconds(metrics.focus_seconds)}
+                          </p>
                         </div>
-                        <div className="text-center">
-                          <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted">{day.label}</p>
-                          <p className="mt-1 text-xs text-text-secondary">{day.minutes}m</p>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Badge tone="neutral">{session.captures.length} captures</Badge>
+                          <Badge tone="warning">{formatDurationFromSeconds(metrics.distraction_seconds)} distracted</Badge>
                         </div>
                       </div>
                     );
-                  })}
-                </div>
-              </Card>
-
-              <div className="grid gap-5">
-                <Card className="rounded-[28px] p-5">
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Current task</p>
-                  <div className="surface-muted-strong mt-5 rounded-[24px] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="h-10 w-10 rounded-full border border-accent/35 bg-accent/10 text-center font-mono text-[11px] leading-[2.4rem] text-accent">
-                        {clock}
-                      </div>
-                      <Badge tone={focusStatusTone}>{focusStatusLabel}</Badge>
-                    </div>
-                    <p className="mt-4 text-base font-medium text-text-primary">
-                      {focusMission?.title ?? 'No active task'}
-                    </p>
-                    <p className="mt-2 text-sm text-text-secondary">
-                      {focusMission ? focusMission.description || focusMission.raw_input : 'Pick a task to start.'}
-                    </p>
-                  </div>
-                </Card>
-
-                <Card className="rounded-[28px] p-5">
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Lane counts</p>
-                  <div className="mt-5 space-y-3">
-                    {laneOrder.map((lane) => (
-                      <div key={lane} className="flex items-center justify-between gap-3 rounded-[18px] bg-panel/58 px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <span className={cn('h-2.5 w-2.5 rounded-full', laneAccent[lane])} />
-                          <span className="text-sm text-text-primary">{laneLabel[lane]}</span>
-                        </div>
-                        <span className="text-sm text-text-secondary">{laneTasks(tasks, lane).length}</span>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-
-                <Card className="rounded-[28px] p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Distraction report</p>
-                      <p className="mt-2 text-sm text-text-secondary">Daily, weekly, and monthly pull-away patterns.</p>
-                    </div>
-                    <Badge tone={distractionReport.month.total > 0 ? 'warning' : 'neutral'}>
-                      {distractionReport.month.total} / 30d
-                    </Badge>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {distractionPeriods.map((period) => (
-                      <div
-                        key={period.label}
-                        className="flex items-center justify-between gap-3 rounded-[18px] bg-panel/58 px-4 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">{period.label}</p>
-                          <p className="mt-1 text-xs text-text-secondary">
-                            {period.summary.topCategory
-                              ? `${period.summary.topCategory.label} leads`
-                              : 'No distractions logged'}
-                          </p>
-                        </div>
-                        <p className="text-lg font-semibold text-text-primary">{period.summary.total}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="surface-muted-strong mt-5 rounded-[22px] p-4">
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Main pattern</p>
-                    <p className="mt-3 text-sm font-medium text-text-primary">
-                      {distractionReport.month.topTrigger?.label ?? 'Nothing recurring yet'}
-                    </p>
-                    <p className="mt-2 text-xs leading-5 text-text-secondary">{distractionReport.avoidanceTip}</p>
-                  </div>
-
-                  <div className="mt-5 space-y-2">
-                    {distractionReport.recent.slice(0, 3).map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="rounded-[18px] border border-borderSoft/35 bg-panel/54 px-4 py-3"
-                      >
-                        <p className="text-sm font-medium text-text-primary">{entry.trigger}</p>
-                        <p className="mt-1 text-xs text-text-secondary">
-                          {entry.categoryLabel} · {entry.taskTitle || 'No active task'} · {formatRelativeTime(entry.createdAt)}
-                        </p>
-                      </div>
-                    ))}
-                    {distractionReport.recent.length === 0 ? (
-                      <div className="rounded-[18px] border border-dashed border-borderSoft/40 px-4 py-6 text-center text-sm text-text-muted">
-                        Log distractions from the HUD to build these reports.
-                      </div>
-                    ) : null}
-                  </div>
-                </Card>
-              </div>
-            </div>
-          </div>
-
-          <RightRail
-            completedTasks={doneTasks.length}
-            currentMission={currentMission}
-            focusQueue={focusQueue}
-            focusStatusLabel={focusStatusLabel}
-            focusStatusTone={focusStatusTone}
-            onOpenQuickAdd={() => void showQuickAddWindow()}
-            onOpenTask={(task) => {
-              openTaskDetail(task, 'inbox');
-            }}
-            onStartFocus={(task) => void activateFocusTask(task)}
-            sessionGoalHours={`${sessionGoalHours} hours`}
-          />
-        </div>
-      ) : null}
-
-      {activeView === 'today' ? (
-        <div className="flex flex-col gap-5">
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
-            <Card className="rounded-[32px] p-6">
-              <SectionHeading
-                action={<Badge tone="neutral">{tasks.length} total</Badge>}
-                label="Task manager"
-                title="Drag to change lanes. Click to edit the task."
-              />
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-text-secondary">
-                The board should stay quiet. Drag to move work. Click a card only when the task needs more detail.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button onClick={() => void showQuickAddWindow()}>New Task</Button>
-                <Button
-                  onClick={() => {
-                    if (focusMission) {
-                      void activateFocusTask(focusMission);
-                    }
-                  }}
-                  variant="secondary"
-                >
-                  Start Current Task
-                </Button>
-              </div>
-            </Card>
-
-            <Card className="rounded-[32px] p-6">
-              <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">System status</p>
-              <div className="mt-5 space-y-4">
-                <div className="surface-muted-strong rounded-[22px] p-4">
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Active task</p>
-                  <p className="mt-3 text-lg font-medium text-text-primary">
-                    {currentMission?.title ?? 'No task selected'}
-                  </p>
-                </div>
-                <div className="surface-muted-strong rounded-[22px] p-4">
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Completion rate</p>
-                  <p className="mt-3 text-3xl font-semibold text-accent">{completionRate}%</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          <div className="flex min-h-0 gap-5 overflow-x-auto pb-4 snap-x scrollbar-hidden">
-            {laneCards.map((lane) => (
-              <Card key={lane.lane} className="flex min-h-0 w-[320px] shrink-0 flex-col rounded-[30px] p-5 snap-start xl:w-[350px]">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">
-                      {humanizeLane(lane.lane)}
-                    </p>
-                    <h3 className="mt-2 text-xl font-semibold text-text-primary">{lane.label}</h3>
-                    <p className="mt-2 text-xs text-text-secondary">{lane.hint}</p>
-                  </div>
-                  <Badge tone="neutral">{lane.tasks.length}</Badge>
-                </div>
-
-                <div
-                  className={cn(
-                    "scrollbar-hidden mt-5 min-h-0 space-y-3 overflow-y-auto pr-1 flex-1 transition-colors rounded-xl",
-                    draggingTaskId ? "bg-panel/20 outline-dashed outline-2 outline-borderSoft/30 outline-offset-4" : ""
-                  )}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDraggingTaskId(null);
-                    const taskId = e.dataTransfer.getData('text/plain');
-                    if (!taskId) return;
-                    void moveTaskToLane(taskId, lane.lane, 'main');
-                  }}
-                >
-                  {lane.tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      draggable
-                      onDragStart={(e) => {
-                        setDraggingTaskId(task.id);
-                        e.dataTransfer.setData('text/plain', task.id);
-                        e.dataTransfer.effectAllowed = 'move';
-                      }}
-                      onDragEnd={() => setDraggingTaskId(null)}
-                      className={cn(
-                        "cursor-grab active:cursor-grabbing transition-opacity",
-                        draggingTaskId === task.id ? "opacity-50" : "opacity-100"
-                      )}
-                    >
-                      <TaskQueueItem
-                        active={task.id === selectedTask?.id}
-                        onSelect={() => {
-                          openTaskDetail(task, 'today');
-                        }}
-                        task={task}
-                        isFrog={lane.lane === 'now' && lane.tasks.indexOf(task) === 0}
-                      />
-                    </div>
-                  ))}
-                  {lane.tasks.length === 0 ? (
-                    <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
-                      No tasks here yet
-                    </div>
-                  ) : null}
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {activeView === 'task' ? (
-        detailTask ? (
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.18fr)_360px]">
-            <div className="space-y-5">
-              <Card className="rounded-[34px] p-6 lg:p-7">
-                <div className="flex flex-col gap-4 border-b border-borderSoft/35 pb-6 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <button
-                      className="text-[11px] uppercase tracking-[0.28em] text-text-muted transition hover:text-text-primary"
-                      onClick={() => {
-                        setCompletionReviewTaskId(null);
-                        setActiveView(taskReturnView);
-                      }}
-                      type="button"
-                    >
-                      Back to {taskReturnView === 'inbox' ? 'dashboard' : taskReturnView}
-                    </button>
-                    <p className="mt-4 text-[10px] uppercase tracking-[0.3em] text-accent/80">
-                      {isCompletionReview ? 'Completion review' : 'Task detail'}
-                    </p>
-                    <p className="mt-2 max-w-xl text-sm leading-7 text-text-secondary">
-                      {isCompletionReview
-                        ? 'Add final notes, update anything that changed, then finish with Save Notes & Complete.'
-                        : 'Use this page only when the task needs more context than a quick capture.'}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      onClick={() => setTaskEditorMode(taskEditorMode === 'simple' ? 'advanced' : 'simple')}
-                      variant="ghost"
-                    >
-                      {taskEditorMode === 'simple' ? 'Advanced Edit' : 'Simple Mode'}
-                    </Button>
-                    <Button
-                      disabled={isRefreshingBrief}
-                      onClick={() => void refreshTaskBrief()}
-                      variant="secondary"
-                    >
-                      {isRefreshingBrief ? 'Clarifying' : 'Refresh Brief'}
-                    </Button>
-                    <Button
-                      disabled={!taskDraftChanged || isSavingTask}
-                      onClick={() => void saveTaskDetail(detailTask)}
-                      variant={isCompletionReview ? 'secondary' : 'primary'}
-                    >
-                      {isSavingTask ? 'Saving' : 'Save Task'}
-                    </Button>
-                    {isCompletionReview ? (
-                      <Button
-                        disabled={isSavingTask || isCompletingTask}
-                        onClick={() => void completeTaskAfterReview(detailTask)}
-                      >
-                        {isCompletingTask ? 'Completing' : 'Save Notes & Complete'}
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-
-                {isCompletionReview ? (
-                  <div className="mt-6 rounded-[24px] border border-success/30 bg-success/10 p-5">
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-success">Before you finish</p>
-                    <p className="mt-3 text-sm leading-6 text-text-primary">
-                      Capture the outcome, final notes, or follow-up context here so this completed task stays useful later.
-                    </p>
-                  </div>
-                ) : null}
-
-                <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_220px]">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Title</p>
-                    <Input
-                      className="mt-3"
-                      onChange={(event) =>
-                        setTaskDraft((current) =>
-                          current
-                            ? {
-                                ...current,
-                                title: event.target.value,
-                              }
-                            : current,
-                        )
-                      }
-                      value={detailTask.title}
-                    />
-
-                    <p className="mt-5 text-[10px] uppercase tracking-[0.28em] text-text-muted">Summary</p>
-                    <Textarea
-                      className="mt-3 min-h-[110px] resize-none"
-                      onChange={(event) =>
-                        setTaskDraft((current) =>
-                          current
-                            ? {
-                                ...current,
-                                description: event.target.value,
-                              }
-                            : current,
-                        )
-                      }
-                      rows={4}
-                      value={detailTask.description}
-                    />
-                  </div>
-
-                  <div className="grid gap-4">
-                    <Card className="rounded-[24px] p-4">
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Checklist progress</p>
-                      <p className="mt-4 text-3xl font-semibold text-text-primary">
-                        {detailChecklistCompleted}/{detailSubtasks.length || 0}
-                      </p>
-                      <p className="mt-2 text-sm text-text-secondary">Subtasks with a visible done state.</p>
-                    </Card>
-                    <Card className="rounded-[24px] p-4">
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Open questions</p>
-                      <p className="mt-4 text-3xl font-semibold text-warning">
-                        {getOpenQuestionCount(detailTask)}
-                      </p>
-                      <p className="mt-2 text-sm text-text-secondary">Questions still blocking clarity.</p>
-                    </Card>
-                  </div>
-                </div>
-              </Card>
-
-              {taskEditorMode === 'simple' ? (
-                <>
-                  <Card className="rounded-[32px] p-6">
-                    <SectionHeading label="Assistant summary" title="Read this first, edit only if needed" />
-                    <div className="mt-6 grid gap-4 lg:grid-cols-2">
-                      <div className="rounded-[24px] border border-borderSoft/35 bg-panel/56 p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Goal</p>
-                        <p className="mt-3 text-sm leading-6 text-text-primary">{detailTask.goal}</p>
-                      </div>
-                      <div className="rounded-[24px] border border-borderSoft/35 bg-panel/56 p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Definition of done</p>
-                        <p className="mt-3 text-sm leading-6 text-text-primary">{detailTask.definition_of_done}</p>
-                      </div>
-                      <div className="rounded-[24px] border border-borderSoft/35 bg-panel/56 p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Next action</p>
-                        <p className="mt-3 text-sm leading-6 text-text-primary">{detailTask.next_action}</p>
-                      </div>
-                      <div className="rounded-[24px] border border-borderSoft/35 bg-panel/56 p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Why it matters</p>
-                        <p className="mt-3 text-sm leading-6 text-text-primary">{detailTask.why_it_matters}</p>
-                      </div>
-                    </div>
-                  </Card>
-
-                  <Card className="rounded-[32px] p-6">
-                    <SectionHeading label="Clarifications" title="Answer only the missing context" />
-                    <div className="mt-6 space-y-4">
-                      {detailTask.clarifying_questions.map((question) => (
-                        <div key={question.id} className="rounded-[24px] border border-borderSoft/35 bg-panel/58 p-4">
-                          <p className="text-sm font-medium text-text-primary">{question.question}</p>
-                          <Textarea
-                            className="mt-3 min-h-[96px] resize-none"
-                            onChange={(event) =>
-                              setTaskDraft((current) =>
-                                current
-                                  ? {
-                                      ...current,
-                                      clarifying_questions: current.clarifying_questions.map((item) =>
-                                        item.id === question.id ? { ...item, answer: event.target.value } : item,
-                                      ),
-                                    }
-                                  : current,
-                              )
-                            }
-                            placeholder="If you know the answer, add it here and refresh the brief."
-                            rows={4}
-                            value={question.answer}
-                          />
-                        </div>
-                      ))}
-                      {!detailTask.clarifying_questions.length ? (
-                        <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
-                          No clarification prompts right now.
-                        </div>
-                      ) : null}
-                    </div>
-                  </Card>
-
-                  <Card className="rounded-[32px] p-6">
-                    <SectionHeading label="Execution plan" title="Suggested steps" />
-                    <SubtaskComposer
-                      onChange={setNewSubtaskTitle}
-                      onSubmit={addTaskDraftSubtask}
-                      value={newSubtaskTitle}
-                    />
-                    <div className="mt-6 space-y-3">
-                      {detailSubtasks.length ? (
-                        detailSubtasks.map((subtask, index) => (
-                          <div
-                            key={subtask.id}
-                            className={cn(
-                              'flex items-center gap-3 rounded-[22px] border px-4 py-4 transition',
-                              subtask.completed
-                                ? 'border-success/30 bg-success/10'
-                                : 'border-borderSoft/35 bg-panel/56 hover:border-borderStrong/40 hover:bg-panel/72',
-                            )}
-                          >
-                            <button
-                              className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                              onClick={() =>
-                                setTaskDraft((current) =>
-                                  current
-                                    ? {
-                                        ...current,
-                                        subtasks: current.subtasks.map((item) =>
-                                          item.id === subtask.id ? { ...item, completed: !item.completed } : item,
-                                        ),
-                                      }
-                                    : current,
-                                )
-                              }
-                              type="button"
-                            >
-                              <span
-                                className={cn(
-                                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
-                                  subtask.completed
-                                    ? 'border-success/40 bg-success/20 text-success'
-                                    : 'border-borderStrong/30 text-text-muted',
-                                )}
-                              >
-                                {index + 1}
-                              </span>
-                              <span
-                                className={cn(
-                                  'min-w-0 text-sm',
-                                  subtask.completed ? 'line-through text-text-secondary' : 'text-text-primary',
-                                )}
-                              >
-                                {subtask.title}
-                              </span>
-                            </button>
-                            <Button
-                              onClick={() => removeTaskDraftSubtask(subtask.id)}
-                              size="sm"
-                              variant="ghost"
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
-                          No steps yet. Add your first real step above.
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                </>
+                  })
               ) : (
-                <>
-                  <Card className="rounded-[32px] p-6">
-                    <SectionHeading label="Outcome" title="Make the goal and finish line unmissable" />
-                    <div className="mt-6 grid gap-5">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Goal</p>
-                        <Textarea
-                          className="mt-3 min-h-[96px] resize-none"
-                          onChange={(event) =>
-                            setTaskDraft((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    goal: event.target.value,
-                                  }
-                                : current,
-                            )
-                          }
-                          rows={4}
-                          value={detailTask.goal}
-                        />
-                      </div>
-
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Definition of done</p>
-                        <Textarea
-                          className="mt-3 min-h-[96px] resize-none"
-                          onChange={(event) =>
-                            setTaskDraft((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    definition_of_done: event.target.value,
-                                  }
-                                : current,
-                            )
-                          }
-                          rows={4}
-                          value={detailTask.definition_of_done}
-                        />
-                      </div>
-
-                      <div className="grid gap-5 lg:grid-cols-2">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Next action</p>
-                          <Textarea
-                            className="mt-3 min-h-[96px] resize-none"
-                            onChange={(event) =>
-                              setTaskDraft((current) =>
-                                current
-                                  ? {
-                                      ...current,
-                                      next_action: event.target.value,
-                                    }
-                                  : current,
-                              )
-                            }
-                            rows={4}
-                            value={detailTask.next_action}
-                          />
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Why it matters</p>
-                          <Textarea
-                            className="mt-3 min-h-[96px] resize-none"
-                            onChange={(event) =>
-                              setTaskDraft((current) =>
-                                current
-                                  ? {
-                                      ...current,
-                                      why_it_matters: event.target.value,
-                                    }
-                                  : current,
-                              )
-                            }
-                            rows={4}
-                            value={detailTask.why_it_matters}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-
-                  <Card className="rounded-[32px] p-6">
-                    <SectionHeading label="Execution plan" title="Subtasks that move the task forward" />
-                    <SubtaskComposer
-                      onChange={setNewSubtaskTitle}
-                      onSubmit={addTaskDraftSubtask}
-                      value={newSubtaskTitle}
-                    />
-                    <div className="mt-6 space-y-3">
-                      {detailSubtasks.length ? (
-                        detailSubtasks.map((subtask, index) => (
-                          <div
-                            key={subtask.id}
-                            className={cn(
-                              'rounded-[22px] border p-4 transition-all',
-                              subtask.completed
-                                ? 'border-success/30 bg-success/10'
-                                : 'border-borderSoft/35 bg-panel/56',
-                            )}
-                          >
-                            <div className="flex items-start gap-3">
-                              <button
-                                className={cn(
-                                  'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold transition',
-                                  subtask.completed
-                                    ? 'border-success/40 bg-success/20 text-success'
-                                    : 'border-borderStrong/30 text-text-muted hover:border-accent/40 hover:text-accent',
-                                )}
-                                onClick={() =>
-                                  setTaskDraft((current) =>
-                                    current
-                                      ? {
-                                          ...current,
-                                          subtasks: current.subtasks.map((item) =>
-                                            item.id === subtask.id ? { ...item, completed: !item.completed } : item,
-                                          ),
-                                        }
-                                      : current,
-                                  )
-                                }
-                                type="button"
-                              >
-                                {index + 1}
-                              </button>
-                              <Input
-                                className={cn(
-                                  'h-11',
-                                  subtask.completed ? 'border-success/25 bg-success/10 text-text-primary line-through' : '',
-                                )}
-                                onChange={(event) =>
-                                  setTaskDraft((current) =>
-                                    current
-                                      ? {
-                                          ...current,
-                                          subtasks: current.subtasks.map((item) =>
-                                            item.id === subtask.id ? { ...item, title: event.target.value } : item,
-                                          ),
-                                        }
-                                      : current,
-                                  )
-                                }
-                                value={subtask.title}
-                              />
-                              <Button
-                                onClick={() => removeTaskDraftSubtask(subtask.id)}
-                                size="sm"
-                                variant="ghost"
-                              >
-                                Remove
-                              </Button>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="rounded-[24px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
-                          No steps yet. Add your first real step above.
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-
-                  <Card className="rounded-[32px] p-6">
-                    <SectionHeading
-                      action={
-                        <Button
-                          onClick={() =>
-                            setTaskDraft((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    clarifying_questions: [
-                                      ...current.clarifying_questions,
-                                      {
-                                        id: `question-${Date.now()}`,
-                                        question: 'New clarification question',
-                                        answer: '',
-                                      },
-                                    ],
-                                  }
-                                : current,
-                            )
-                          }
-                          size="sm"
-                          variant="secondary"
-                        >
-                          Add Question
-                        </Button>
-                      }
-                      label="Clarifications"
-                      title="Ask the questions a good task brief should answer"
-                    />
-                    <div className="mt-6 space-y-4">
-                      {detailTask.clarifying_questions.map((question) => (
-                        <div key={question.id} className="rounded-[24px] border border-borderSoft/35 bg-panel/58 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <Input
-                              className="h-11"
-                              onChange={(event) =>
-                                setTaskDraft((current) =>
-                                  current
-                                    ? {
-                                        ...current,
-                                        clarifying_questions: current.clarifying_questions.map((item) =>
-                                          item.id === question.id ? { ...item, question: event.target.value } : item,
-                                        ),
-                                      }
-                                    : current,
-                                )
-                              }
-                              value={question.question}
-                            />
-                            <Button
-                              onClick={() =>
-                                setTaskDraft((current) =>
-                                  current
-                                    ? {
-                                        ...current,
-                                        clarifying_questions: current.clarifying_questions.filter(
-                                          (item) => item.id !== question.id,
-                                        ),
-                                      }
-                                    : current,
-                                )
-                              }
-                              size="sm"
-                              variant="ghost"
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                          <Textarea
-                            className="mt-3 min-h-[96px] resize-none"
-                            onChange={(event) =>
-                              setTaskDraft((current) =>
-                                current
-                                  ? {
-                                      ...current,
-                                      clarifying_questions: current.clarifying_questions.map((item) =>
-                                        item.id === question.id ? { ...item, answer: event.target.value } : item,
-                                      ),
-                                    }
-                                  : current,
-                              )
-                            }
-                            placeholder="Answer this so the task becomes easier to execute."
-                            rows={4}
-                            value={question.answer}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                </>
+                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
+                  No sessions yet.
+                </div>
               )}
             </div>
-
-            <div className="space-y-5">
-              <Card className="rounded-[28px] p-5">
-              <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Task controls</p>
-                <div className="mt-5">
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Lane</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {(['inbox', 'now', 'next', 'later', 'done'] as TaskLane[]).map((lane) => (
-                      <button
-                        key={lane}
-                        className={cn(
-                          'rounded-[18px] border px-3 py-3 text-left text-sm transition',
-                          detailTask.lane === lane
-                            ? 'border-accent/40 bg-accent/10 text-text-primary'
-                            : 'border-borderSoft/35 bg-panel/56 text-text-secondary hover:border-borderStrong/40 hover:text-text-primary',
-                        )}
-                        onClick={() =>
-                          setTaskDraft((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  lane,
-                                  status: deriveStatusFromLane(lane, current.status),
-                                }
-                              : current,
-                          )
-                        }
-                        type="button"
-                      >
-                        {laneLabel[lane]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Priority</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {(['critical', 'high', 'normal', 'low'] as TaskPriority[]).map((priority) => (
-                      <button
-                        key={priority}
-                        className={cn(
-                          'rounded-[18px] border px-3 py-3 text-left text-sm transition',
-                          detailTask.priority === priority
-                            ? 'border-accent/40 bg-accent/10 text-text-primary'
-                            : 'border-borderSoft/35 bg-panel/56 text-text-secondary hover:border-borderStrong/40 hover:text-text-primary',
-                        )}
-                        onClick={() =>
-                          setTaskDraft((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  priority,
-                                }
-                              : current,
-                          )
-                        }
-                        type="button"
-                      >
-                        {humanizePriority(priority)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Estimate (minutes)</p>
-                  <Input
-                    className="mt-3"
-                    min={5}
-                    onChange={(event) =>
-                      setTaskDraft((current) =>
-                        current
-                          ? {
-                              ...current,
-                              estimated_minutes: Number(event.target.value) || 25,
-                            }
-                          : current,
-                      )
-                    }
-                    type="number"
-                    value={detailTask.estimated_minutes}
-                  />
-                </div>
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Button
-                    onClick={async () => {
-                      const nextTask = sanitizeTask(detailTask);
-                      await saveTaskDetail(nextTask);
-                      await activateFocusTask(nextTask);
-                    }}
-                  >
-                    Start in Workspace
-                  </Button>
-                  <Button
-                    onClick={async () => {
-                      const nextTask = sanitizeTask(detailTask);
-                      await saveTaskDetail(nextTask);
-                      selectTask(nextTask.id);
-                      setCurrentMission(nextTask.id, 'main');
-                      setActiveView('focus');
-                    }}
-                    variant="secondary"
-                  >
-                    Open Workspace
-                  </Button>
-                  <Button
-                    disabled={isSavingTask || isCompletingTask}
-                    onClick={() => {
-                      if (isCompletionReview) {
-                        void completeTaskAfterReview(detailTask);
-                        return;
-                      }
-
-                      openTaskCompletionReview(detailTask);
-                    }}
-                    variant={isCompletionReview ? 'primary' : 'ghost'}
-                  >
-                    {isCompletionReview ? (isCompletingTask ? 'Completing' : 'Save Notes & Complete') : 'Review Before Done'}
-                  </Button>
-                </div>
-              </Card>
-
-              {taskEditorMode === 'simple' ? (
-                <>
-                  <Card className="rounded-[28px] p-5">
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Captured request</p>
-                    <p className="mt-4 text-sm leading-7 text-text-primary">{detailTask.raw_input}</p>
-                    <p className="mt-3 text-sm leading-6 text-text-secondary">
-                      Stay in simple mode unless the original wording itself needs to change.
-                    </p>
-                  </Card>
-
-                  <Card className="rounded-[28px] p-5">
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Mission notes</p>
-                    <Textarea
-                      className="mt-4 min-h-[180px] resize-none"
-                      onChange={(event) =>
-                        setTaskDraft((current) =>
-                          current
-                            ? {
-                                ...current,
-                                workspace_notes: event.target.value,
-                              }
-                            : current,
-                        )
-                      }
-                      placeholder="Useful context, decisions, or links for the person doing the work."
-                      rows={8}
-                      value={detailTask.workspace_notes}
-                    />
-                  </Card>
-                </>
-              ) : (
-                <>
-                  <Card className="rounded-[28px] p-5">
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Captured request</p>
-                    <Textarea
-                      className="mt-4 min-h-[160px] resize-none"
-                      onChange={(event) =>
-                        setTaskDraft((current) =>
-                          current
-                            ? {
-                                ...current,
-                                raw_input: event.target.value,
-                              }
-                            : current,
-                        )
-                      }
-                      rows={7}
-                      value={detailTask.raw_input}
-                    />
-                    <p className="mt-3 text-sm leading-6 text-text-secondary">
-                      Keep the original request here. Use refresh if you want the assistant summary rebuilt from the latest wording.
-                    </p>
-                  </Card>
-
-                  <Card className="rounded-[28px] p-5">
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Mission notes</p>
-                    <Textarea
-                      className="mt-4 min-h-[180px] resize-none"
-                      onChange={(event) =>
-                        setTaskDraft((current) =>
-                          current
-                            ? {
-                                ...current,
-                                workspace_notes: event.target.value,
-                              }
-                            : current,
-                        )
-                      }
-                      placeholder="Useful context, decisions, or links for the person doing the work."
-                      rows={8}
-                      value={detailTask.workspace_notes}
-                    />
-                  </Card>
-                </>
-              )}
-            </div>
-          </div>
-        ) : (
-          <Card className="rounded-[32px] p-8 text-center">
-            <h2 className="text-2xl font-semibold text-text-primary">No task selected</h2>
-            <p className="mt-3 text-sm text-text-secondary">
-              Open a task from the board to see its details.
-            </p>
           </Card>
-        )
-      ) : null}
 
-      {activeView === 'focus' ? (
-        <div className="flex flex-col gap-5">
-          <Card className="rounded-[34px] p-0">
-            <div className="grid min-h-[620px] gap-0 xl:grid-cols-[minmax(0,1.28fr)_360px]">
-              <div className="border-b border-borderSoft/35 p-6 xl:border-b-0 xl:border-r">
-                <div className="flex items-center justify-between gap-4">
-                  <button
-                    className="text-[11px] uppercase tracking-[0.28em] text-text-muted transition hover:text-text-primary"
-                    onClick={() => setActiveView('today')}
-                    type="button"
-                  >
-                    Back to tasks
-                  </button>
-                  <Badge tone={focusStatusTone}>{focusStatusLabel}</Badge>
-                </div>
+          <div className="space-y-6">
+            <Card className="rounded-[34px] p-6">
+              <SectionHeading action={suggestedTask ? <Badge tone="accent">Next</Badge> : null} title="Suggested" />
 
-                {focusMission ? (
-                  <div className="mt-8 space-y-6">
-                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_260px]">
-                      <div>
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-accent/80">Current task</p>
-                        <h2 className="mt-4 max-w-2xl text-4xl font-semibold tracking-[-0.04em] text-text-primary lg:text-5xl">
-                          {focusMission.title}
-                        </h2>
-                        <p className="mt-5 max-w-2xl text-base leading-8 text-text-secondary">
-                          {focusMission.goal}
-                        </p>
-
-                        <div className="mt-8 flex flex-wrap gap-3">
-                          <Badge tone="neutral">{humanizeLane(focusMission.lane)}</Badge>
-                          <Badge tone={priorityTone(focusMission.priority)}>{humanizePriority(focusMission.priority)}</Badge>
-                          <Badge tone="neutral">{formatMinutes(focusMission.estimated_minutes)}</Badge>
-                        </div>
-
-                        <div className="mt-10 flex flex-wrap gap-3">
-                          <Button
-                            onClick={async () => {
-                              setCurrentMission(focusMission.id, 'main');
-                              if (hasPausedFocus) {
-                                resumeSession('main');
-                              } else {
-                                startSession(undefined, 'main');
-                              }
-                              await openHud(focusMission, false);
-                            }}
-                          >
-                            {focusSessionStart ? 'Restart Session' : hasPausedFocus ? 'Resume Session' : 'Start Session'}
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              void openHud(focusMission);
-                            }}
-                            variant="secondary"
-                          >
-                            Open HUD
-                          </Button>
-                          <Button onClick={() => pauseSession('main')} variant="secondary">
-                            Pause Session
-                          </Button>
-                          <Button onClick={() => openTaskDetail(focusMission, 'focus')} variant="ghost">
-                            View / Edit Brief
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="surface-muted rounded-[28px] p-5">
-                        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Session clock</p>
-                        <p className="mt-4 font-mono text-[4rem] leading-none tracking-[-0.06em] text-text-primary">
-                          {clock}
-                        </p>
-                        <p className="mt-3 text-sm leading-6 text-text-secondary">
-                        Keep the next action visible and let the rest wait until this task is done or moved.
-                        </p>
-                        <div className="mt-6 grid gap-3">
-                          <div className="rounded-[20px] border border-borderSoft/35 bg-panel/54 p-4">
-                            <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Next action</p>
-                            <p className="mt-3 text-sm leading-6 text-text-primary">{focusMission.next_action}</p>
-                          </div>
-                          <div className="rounded-[20px] border border-borderSoft/35 bg-panel/54 p-4">
-                            <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Definition of done</p>
-                            <p className="mt-3 text-sm leading-6 text-text-primary">{focusMission.definition_of_done}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-5 lg:grid-cols-2">
-                      <Card className="rounded-[30px] p-5">
-                        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Task summary</p>
-                        <div className="mt-5 space-y-4">
-                          <div className="rounded-[22px] border border-borderSoft/35 bg-panel/56 p-4">
-                            <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Summary</p>
-                            <p className="mt-3 text-sm leading-6 text-text-primary">{focusMission.description}</p>
-                          </div>
-                          <div className="rounded-[22px] border border-borderSoft/35 bg-panel/56 p-4">
-                            <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Why it matters</p>
-                            <p className="mt-3 text-sm leading-6 text-text-primary">{focusMission.why_it_matters}</p>
-                          </div>
-                        </div>
-                      </Card>
-
-                      <Card className="rounded-[30px] p-5">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Execution checklist</p>
-                            <p className="mt-2 text-sm text-text-secondary">
-                              Check off the work that actually moves the task.
-                            </p>
-                          </div>
-                          <Badge tone="neutral">
-                            {focusChecklistCompleted}/{focusSubtasks.length || 0}
-                          </Badge>
-                        </div>
-                        <div className="mt-5 space-y-3">
-                          {focusSubtasks.length ? (
-                            focusSubtasks.map((subtask, index) => (
-                              <button
-                                key={subtask.id}
-                                className={cn(
-                                  'flex w-full items-center gap-3 rounded-[20px] border px-4 py-3 text-left transition',
-                                  subtask.completed
-                                    ? 'border-success/30 bg-success/10'
-                                    : 'border-borderSoft/35 bg-panel/58 hover:border-borderStrong/40 hover:bg-panel/72',
-                                )}
-                                onClick={() => void toggleSubtask(focusMission.id, subtask.id, 'main')}
-                                type="button"
-                              >
-                                <span
-                                  className={cn(
-                                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
-                                    subtask.completed
-                                      ? 'border-success/40 bg-success/20 text-success'
-                                      : 'border-borderStrong/30 text-text-muted',
-                                  )}
-                                >
-                                  {index + 1}
-                                </span>
-                                <span
-                                  className={cn(
-                                    'text-sm',
-                                    subtask.completed ? 'text-text-secondary line-through' : 'text-text-primary',
-                                  )}
-                                >
-                                  {subtask.title}
-                                </span>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="rounded-[22px] border border-dashed border-borderSoft/40 px-4 py-10 text-center text-sm text-text-muted">
-                              No checklist yet. Add real steps from the task page if you want them here.
-                            </div>
-                          )}
-                        </div>
-                      </Card>
-                    </div>
-
-                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-                      <Card className="rounded-[30px] p-5">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Working notes</p>
-                            <p className="mt-2 text-sm text-text-secondary">
-                              Keep short notes so you do not have to reload context later.
-                            </p>
-                          </div>
-                          <Button
-                            disabled={isSavingWorkspaceNotes}
-                            onClick={() => void saveWorkspaceNotes()}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            {isSavingWorkspaceNotes ? 'Saving' : 'Save Notes'}
-                          </Button>
-                        </div>
-                        <Textarea
-                          className="mt-5 min-h-[190px] resize-none"
-                          onChange={(event) => setWorkspaceNotesDraft(event.target.value)}
-                          placeholder="Capture the useful thinking, not every thought."
-                          rows={8}
-                          value={workspaceNotesDraft}
-                        />
-                      </Card>
-
-                      <Card className="rounded-[30px] p-5">
-                        <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Instant inbox</p>
-                        <Input
-                          className="mt-4"
-                          onChange={(event) => setCaptureDraft(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                              event.preventDefault();
-                              void captureWorkspaceTask();
-                            }
-                          }}
-                          placeholder="Capture a new task without leaving the session..."
-                          value={captureDraft}
-                        />
-                        <p className="mt-3 text-sm leading-6 text-text-secondary">
-                          Captured items go to Inbox so the current task stays protected.
-                        </p>
-                        <div className="mt-5 flex flex-wrap gap-3">
-                          <Button
-                            disabled={!captureDraft.trim()}
-                            onClick={() => void captureWorkspaceTask()}
-                            size="sm"
-                          >
-                            Add to Inbox
-                          </Button>
-                          <Button onClick={() => void showQuickAddWindow()} size="sm" variant="ghost">
-                            Open Quick Add
-                          </Button>
-                        </div>
-                      </Card>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex h-full min-h-[420px] items-center justify-center">
-                    <div className="max-w-md text-center">
-                      <h2 className="text-3xl font-semibold text-text-primary">Choose one task</h2>
-                      <p className="mt-4 text-sm leading-7 text-text-secondary">
-                        The workspace becomes useful only when one task owns the screen. Open a task and move it to Active when you are ready.
-                      </p>
-                      <Button className="mt-6" onClick={() => setActiveView('today')}>
-                        Open Task Board
+              {suggestedTask ? (
+                <TaskListItem
+                  footer={
+                    <div className="flex gap-2">
+                      <Button onClick={() => handleStartSession(suggestedTask)} size="sm" type="button">
+                        Start focus
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          selectTask(suggestedTask.id);
+                          startTransition(() => setActiveView('tasks'));
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        Open task
                       </Button>
                     </div>
+                  }
+                  onSelect={() => selectTask(suggestedTask.id)}
+                  task={suggestedTask}
+                />
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
+                  No suggestion.
+                </div>
+              )}
+            </Card>
+
+            <Card className="rounded-[34px] p-6">
+              <SectionHeading action={<Badge tone="warning">{blockedTasks.length}</Badge>} title="Blocked" />
+
+              <div className="space-y-3">
+                {blockedTasks.length ? (
+                  blockedTasks.slice(0, 4).map((task) => {
+                    const blocker = blockedEntries.find((entry) => entry.taskId === task.id);
+
+                    return (
+                      <div className="rounded-[22px] border border-warning/20 bg-warning/8 p-4" key={task.id}>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-text-primary">{task.title}</p>
+                          <Badge tone="warning">Blocked</Badge>
+                        </div>
+                        <p className="mt-2 text-sm text-text-secondary">{blocker?.blocker ?? 'Open blocker logged earlier.'}</p>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
+                    No blocked tasks.
                   </div>
                 )}
               </div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-              <div className="p-6">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Mission signal</p>
-                <div className="mt-6 grid gap-4">
-                  <StudioMetricCard
-                    caption="Steps already completed for the current task."
-                    label="Progress"
-                    value={
-                      focusMission
-                        ? `${String(focusChecklistCompleted).padStart(2, '0')} / ${String(focusSubtasks.length || 0).padStart(2, '0')}`
-                        : '00 / 00'
-                    }
-                  />
-                  <StudioMetricCard
-                    caption="Questions still open enough to slow the task down."
-                    label="Open gaps"
-                    tone="warning"
-                    value={String(focusOpenQuestions).padStart(2, '0')}
-                  />
-                  <StudioMetricCard
-                    caption="Current estimate for the selected task."
-                    label="Time budget"
-                    tone="neutral"
-                    value={focusMission ? formatMinutes(focusMission.estimated_minutes) : 'No task'}
-                  />
-                </div>
+  function renderTasks() {
+    return (
+      <div className="space-y-6">
+        <Card className="rounded-[34px] p-6">
+          <SectionHeading action={<Badge tone="accent">New</Badge>} title="Add task" />
+          <TaskCreationComposer
+            initialMode="interaction"
+            onSubmitted={() => {
+              startTransition(() => setActiveView('tasks'));
+            }}
+            source="main"
+            submitLabel="Save task"
+          />
+        </Card>
 
-                <Card className="mt-5 rounded-[26px] p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Questions</p>
-                      <p className="mt-2 text-sm text-text-secondary">
-                        Answer only the gaps that still matter.
-                      </p>
-                    </div>
-                    <Button
-                      onClick={() => {
-                        if (focusMission) {
-                          openTaskDetail(focusMission, 'focus');
-                        }
-                      }}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      Full Edit
-                    </Button>
-                  </div>
-                  <div className="mt-5 space-y-3">
-                    {focusMission?.clarifying_questions.length ? (
-                      focusMission.clarifying_questions.map((question) => (
-                        <div key={`${question.id}-${question.answer}`} className="rounded-[20px] border border-borderSoft/35 bg-panel/58 p-4">
-                          <p className="text-sm font-medium text-text-primary">{question.question}</p>
-                          <Textarea
-                            className="mt-3 min-h-[88px] resize-none"
-                            defaultValue={question.answer}
-                            onBlur={(event) =>
-                              void answerQuestion(focusMission.id, question.id, event.target.value, 'main')
-                            }
-                            placeholder="Answer here when you know it."
-                            rows={3}
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-[20px] border border-dashed border-borderSoft/40 px-4 py-8 text-center text-sm text-text-muted">
-                        No extra questions for this task.
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="accent">{activeTasks.length}</Badge>} title="Active" />
+
+            <div className="space-y-3">
+              {activeTasks.length ? (
+                activeTasks.map((task) => (
+                  <TaskListItem
+                    active={activeSession?.task_id === task.id}
+                    footer={
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={() => handleStartSession(task)} size="sm" type="button">
+                          Focus
+                        </Button>
+                        <Button onClick={() => void markDone(task.id, 'main')} size="sm" type="button" variant="ghost">
+                          Mark done
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                </Card>
+                    }
+                    key={task.id}
+                    onSelect={() => selectTask(task.id)}
+                    selected={selectedTaskId === task.id}
+                    task={task}
+                  />
+                ))
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
+                  No active tasks.
+                </div>
+              )}
+            </div>
+          </Card>
 
-                <Card className="mt-5 rounded-[26px] p-5">
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Queue in view</p>
-                  <div className="mt-4 space-y-3">
-                    {focusQueue.map((task) => (
-                      <button
-                        key={task.id}
-                        className={cn(
-                          'flex w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-left transition',
-                          task.id === focusMission?.id
-                            ? 'border-accent/40 bg-accent/10'
-                            : 'border-borderSoft/35 bg-panel/58 hover:border-borderStrong/40 hover:bg-panel/72',
-                        )}
-                        onClick={() => {
-                          openTaskDetail(task, 'focus');
-                        }}
-                        type="button"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-text-primary">{task.title}</p>
-                          <p className="mt-1 text-xs text-text-secondary">
-                            {humanizeLane(task.lane)} / {formatMinutes(task.estimated_minutes)}
-                          </p>
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="neutral">{queueTasks.length}</Badge>} title="Queue" />
+
+            <div className="space-y-3">
+              {queueTasks.length ? (
+                queueTasks.map((task) => (
+                  <TaskListItem
+                    footer={
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={() => handleStartSession(task)} size="sm" type="button">
+                          Start focus
+                        </Button>
+                        <Button
+                          onClick={() => void moveTaskToLane(task.id, 'later', 'main')}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          Move later
+                        </Button>
+                      </div>
+                    }
+                    key={task.id}
+                    onSelect={() => selectTask(task.id)}
+                    selected={selectedTaskId === task.id}
+                    task={task}
+                  />
+                ))
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
+                  Queue is clear.
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="warning">{blockedTasks.length}</Badge>} title="Blocked" />
+
+            <div className="space-y-3">
+              {blockedTasks.length ? (
+                blockedTasks.map((task) => {
+                  const blocker = blockedEntries.find((entry) => entry.taskId === task.id);
+
+                  return (
+                    <TaskListItem
+                      blocked
+                      footer={
+                        <div className="space-y-3">
+                          <p className="text-sm text-text-secondary">{blocker?.blocker ?? 'Blocker logged earlier.'}</p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button onClick={() => handleStartSession(task)} size="sm" type="button">
+                              Try again
+                            </Button>
+                          </div>
                         </div>
-                        <span className={cn('h-2.5 w-2.5 rounded-full', laneAccent[task.lane])} />
-                      </button>
-                    ))}
+                      }
+                      key={task.id}
+                      onSelect={() => selectTask(task.id)}
+                      selected={selectedTaskId === task.id}
+                      task={task}
+                    />
+                  );
+                })
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
+                  No blocked tasks.
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="success">{completedTasks.length}</Badge>} title="Completed" />
+
+            <div className="space-y-3">
+              {completedTasks.length ? (
+                completedTasks.slice(0, 8).map((task) => (
+                  <TaskListItem
+                    footer={<p className="text-xs text-text-muted">Completed {formatRelativeTime(task.updated_at)}</p>}
+                    key={task.id}
+                    onSelect={() => selectTask(task.id)}
+                    task={task}
+                  />
+                ))
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
+                  No completed tasks.
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  function renderHistory() {
+    return (
+      <Card className="rounded-[34px] p-6">
+        <SectionHeading action={<Badge tone="neutral">{historyRows.length}</Badge>} title="History" />
+
+        <div className="space-y-3">
+          {historyRows.length ? (
+            historyRows.map((row) => {
+              const expanded = expandedHistoryId === row.taskId;
+
+              return (
+                <div
+                  className="overflow-hidden rounded-[28px] border border-borderSoft/30 bg-panel/42 transition-all"
+                  key={row.taskId}
+                >
+                  <button
+                    className="grid w-full gap-4 px-5 py-4 text-left lg:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr_0.9fr_1.3fr_0.6fr]"
+                    onClick={() => setExpandedHistoryId(expanded ? null : row.taskId)}
+                    type="button"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">{row.taskTitle}</p>
+                      <p className="mt-1 text-xs text-text-muted">{row.sessions.length} tracked blocks</p>
+                    </div>
+                    <p className="text-sm text-text-secondary">{formatDurationFromSeconds(row.totalFocusSeconds)}</p>
+                    <p className="text-sm text-text-secondary">{row.sessionCount} sessions</p>
+                    <p className="text-sm text-text-secondary">{formatDurationFromSeconds(row.totalDistractionSeconds)}</p>
+                    <p className="text-sm text-text-secondary">{row.sessionRanges.slice(0, 3).join(', ')}</p>
+                    <p className="text-sm text-warning">⚠ {row.blockerCount}</p>
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {expanded ? (
+                      <motion.div
+                        animate={{ height: 'auto', opacity: 1 }}
+                        className="border-t border-borderSoft/24"
+                        exit={{ height: 0, opacity: 0 }}
+                        initial={{ height: 0, opacity: 0 }}
+                      >
+                        <div className="grid gap-6 px-5 py-5 lg:grid-cols-3">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Sessions</p>
+                            <div className="mt-3 space-y-2">
+                              {row.sessions.map((session) => (
+                                <div className="rounded-[20px] border border-borderSoft/24 bg-panel2/44 px-4 py-3" key={session.id}>
+                                  <p className="text-sm text-text-primary">{formatTimeRange(session.started_at, session.ended_at)}</p>
+                                  <p className="mt-1 text-xs text-text-muted">
+                                    {formatDurationFromSeconds(getSessionMetrics(session, now).focus_seconds)} focused
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Distractions</p>
+                            <div className="mt-3 space-y-2">
+                              {row.distractions.length ? (
+                                row.distractions.map((distraction, index) => (
+                                  <div className="rounded-[20px] border border-borderSoft/24 bg-panel2/44 px-4 py-3 text-sm text-text-secondary" key={`${row.taskId}-distraction-${index}`}>
+                                    {distraction}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="rounded-[20px] border border-dashed border-borderSoft/24 bg-panel2/32 px-4 py-3 text-sm text-text-muted">
+                                  No distractions.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Resources and blockers</p>
+                            <div className="mt-3 space-y-2">
+                              {row.resources.map((resource, index) => (
+                                <a
+                                  className="block rounded-[20px] border border-borderSoft/24 bg-panel2/44 px-4 py-3 text-sm text-accent transition hover:bg-panel2/60"
+                                  href={resource}
+                                  key={`${row.taskId}-resource-${index}`}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  {resource}
+                                </a>
+                              ))}
+                              {row.blockers.map((blocker, index) => (
+                                <div
+                                  className="rounded-[20px] border border-warning/18 bg-warning/8 px-4 py-3 text-sm text-text-secondary"
+                                  key={`${row.taskId}-blocker-${index}`}
+                                >
+                                  {blocker}
+                                </div>
+                              ))}
+                              {!row.resources.length && !row.blockers.length ? (
+                                <div className="rounded-[20px] border border-dashed border-borderSoft/24 bg-panel2/32 px-4 py-3 text-sm text-text-muted">
+                                  Empty.
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+                </div>
+              );
+            })
+          ) : (
+            <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
+              No history yet.
+            </div>
+          )}
+        </div>
+      </Card>
+    );
+  }
+
+  function renderInsights() {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-4">
+          <MetricCard
+            label="Best focus hours"
+            value={hourlyFocus[0]?.label ?? 'n/a'}
+          />
+          <MetricCard label="Average session" tone="neutral" value={formatDurationFromSeconds(averageSessionSeconds)} />
+          <MetricCard label="Consistency" tone="success" value={`${focusConsistency}/7`} />
+          <MetricCard
+            label="Accuracy"
+            tone="warning"
+            value={estimationAccuracy.sampleSize ? `${estimationAccuracy.accuracy}%` : 'n/a'}
+          />
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="accent">7d</Badge>} title="Focus vs distraction" />
+
+            <ActivityBars points={dailySeries} />
+          </Card>
+
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="warning">Top</Badge>} title="Distraction patterns" />
+
+            <div className="space-y-3">
+              {distractionPatterns.length ? (
+                distractionPatterns.slice(0, 6).map((pattern) => (
+                  <div className="flex items-center justify-between rounded-[22px] border border-borderSoft/30 bg-panel/40 px-4 py-3" key={pattern.label}>
+                    <span className="text-sm text-text-primary">{pattern.label}</span>
+                    <Badge tone="warning">{pattern.count}</Badge>
                   </div>
-                </Card>
+                ))
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
+                  No data.
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading title="Best hours" />
+
+            <div className="space-y-3">
+              {hourlyFocus.length ? (
+                hourlyFocus.slice(0, 3).map((bucket) => (
+                  <div className="rounded-[22px] border border-borderSoft/30 bg-panel/40 px-4 py-3" key={bucket.hour}>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-text-primary">{bucket.label}</p>
+                      <p className="text-sm text-text-secondary">{formatDurationFromSeconds(bucket.totalSeconds)}</p>
+                    </div>
+                    <div className="mt-3">
+                      <ProgressBar value={(bucket.totalSeconds / Math.max(hourlyFocus[0]?.totalSeconds ?? 1, 1)) * 100} />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-borderSoft/35 bg-panel/28 p-6 text-sm text-text-secondary">
+                  No data.
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading title="Task accuracy" />
+
+            <div className="space-y-4 text-sm text-text-secondary">
+              <div className="rounded-[24px] border border-borderSoft/30 bg-panel/40 p-4">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Accuracy</p>
+                <p className="mt-2 text-3xl font-semibold text-text-primary">
+                  {estimationAccuracy.sampleSize ? `${estimationAccuracy.accuracy}%` : 'n/a'}
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-borderSoft/30 bg-panel/40 p-4">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Average drift</p>
+                <p className="mt-2 text-2xl font-semibold text-text-primary">
+                  {estimationAccuracy.sampleSize ? `${estimationAccuracy.deltaMinutes > 0 ? '+' : ''}${estimationAccuracy.deltaMinutes}m` : 'n/a'}
+                </p>
               </div>
             </div>
           </Card>
 
-          <Card className="rounded-[28px] p-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-full border border-accent/35 bg-accent/10 px-4 py-2 font-mono text-lg text-accent">
-                  {clock}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Active task</p>
-                  <p className="truncate text-sm font-medium text-text-primary">
-                    {focusMission?.title ?? 'No task selected'}
-                  </p>
-                </div>
-              </div>
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading title="Trends" />
 
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge tone={focusStatusTone}>{focusStatusLabel}</Badge>
-                <Badge tone="neutral">{focusMission ? formatMinutes(focusMission.estimated_minutes) : 'No estimate'}</Badge>
-                <Button onClick={() => resetSession('main')} size="sm" variant="secondary">
-                  Finish Session
-                </Button>
+            <div className="space-y-3 text-sm text-text-secondary">
+              <div className="flex items-center justify-between rounded-[22px] border border-borderSoft/30 bg-panel/40 px-4 py-3">
+                <span>Focus trend</span>
+                <span className="font-medium text-text-primary">
+                  {currentWeekFocus >= previousWeekFocus ? '+' : ''}
+                  {formatDurationFromSeconds(Math.abs(currentWeekFocus - previousWeekFocus))}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-[22px] border border-borderSoft/30 bg-panel/40 px-4 py-3">
+                <span>Distraction trend</span>
+                <span className="font-medium text-text-primary">
+                  {currentWeekDistraction >= previousWeekDistraction ? '+' : ''}
+                  {formatDurationFromSeconds(Math.abs(currentWeekDistraction - previousWeekDistraction))}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-[22px] border border-borderSoft/30 bg-panel/40 px-4 py-3">
+                <span>Average session</span>
+                <span className="font-medium text-text-primary">{formatDurationFromSeconds(averageSessionSeconds)}</span>
               </div>
             </div>
           </Card>
         </div>
-      ) : null}
+      </div>
+    );
+  }
 
-      {activeView === 'settings' ? (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
-          <div className="space-y-5">
-            <Card className="rounded-[32px] p-6">
-              <SectionHeading label="Visual system" title="Theme direction" />
-              <div className="mt-6 grid gap-4 xl:grid-cols-2">
-                {THEMES.map((theme) => (
-                  <ThemeTile
-                    active={theme.id === themeId}
-                    key={theme.id}
-                    name={theme.name}
-                    onClick={() => setTheme(theme.id)}
-                    preview={theme.preview}
-                  />
-                ))}
+  function renderReview() {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="accent">Today</Badge>} title="Daily review" />
+
+            <div className="grid gap-6 md:grid-cols-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">What done</p>
+                <div className="mt-3 space-y-2">
+                  {doneToday.length ? (
+                    doneToday.map((task) => (
+                      <div className="rounded-[20px] border border-success/18 bg-success/10 px-4 py-3 text-sm text-text-primary" key={task.id}>
+                        {task.title}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[20px] border border-dashed border-borderSoft/25 bg-panel/24 px-4 py-3 text-sm text-text-muted">
+                      None.
+                    </div>
+                  )}
+                </div>
               </div>
-            </Card>
 
-            <Card className="rounded-[32px] p-6">
-              <SectionHeading
-                label="Data mode"
-                title="Choose how this workspace stores and shares data"
-                action={
-                  <Badge tone={syncMode === 'cloud' ? 'accent' : 'neutral'}>
-                    {syncModeContent[syncMode].label}
-                  </Badge>
-                }
-              />
-              <div className="mt-6 grid gap-4 xl:grid-cols-2">
-                <SettingsChoiceCard
-                  active={syncMode === 'local'}
-                  description="Keep tasks, focus state, and preferences on this device only. Best for a private single-machine setup."
-                  onClick={() => setSyncMode('local')}
-                  title="Local only"
-                />
-                <SettingsChoiceCard
-                  active={syncMode === 'cloud'}
-                  description="Use this when you're ready for sign-in, mobile task access, and future sync across devices. Cloud wiring comes next."
-                  onClick={() => setSyncMode('cloud')}
-                  title="Cloud option"
-                />
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">What stuck</p>
+                <div className="mt-3 space-y-2">
+                  {blockersToday.length ? (
+                    blockersToday.map((blocker, index) => (
+                      <div
+                        className="rounded-[20px] border border-warning/18 bg-warning/8 px-4 py-3 text-sm text-text-secondary"
+                        key={`${blocker.taskId}-${index}`}
+                      >
+                        <span className="font-medium text-text-primary">{blocker.taskTitle}</span>
+                        <p className="mt-1">{blocker.content}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[20px] border border-dashed border-borderSoft/25 bg-panel/24 px-4 py-3 text-sm text-text-muted">
+                      None.
+                    </div>
+                  )}
+                </div>
               </div>
-            </Card>
 
-            <div className="grid gap-5 xl:grid-cols-2">
-              <Card className="rounded-[28px] p-5">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Startup</p>
-                <button
-                  className="mt-5 flex w-full items-start justify-between gap-4 rounded-[22px] border border-borderSoft/35 bg-panel/60 px-4 py-4 text-left disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={!desktopStartupAvailable || launchAtLoginPending}
-                  onClick={() => {
-                    void setLaunchAtLogin(!launchAtLogin);
-                  }}
-                  type="button"
-                >
-                  <div>
-                    <span className="text-sm font-medium text-text-primary">Launch at login</span>
-                    <p className="mt-2 text-xs leading-6 text-text-secondary">
-                      {desktopStartupAvailable
-                        ? 'Clicking the app icon opens the compact HUD first. Login launches start quietly in the same HUD.'
-                        : 'Available in the native desktop build.'}
-                    </p>
-                  </div>
-                  <Badge tone={launchAtLogin ? 'success' : 'neutral'}>
-                    {launchAtLoginPending ? 'Saving' : launchAtLogin ? 'On' : 'Off'}
-                  </Badge>
-                </button>
-              </Card>
-
-              <Card className="rounded-[28px] p-5">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Motion</p>
-                <button
-                  className="mt-5 flex w-full items-center justify-between rounded-[22px] border border-borderSoft/35 bg-panel/60 px-4 py-4"
-                  onClick={() => setReduceMotion(!reduceMotion)}
-                  type="button"
-                >
-                  <span className="text-sm font-medium text-text-primary">Reduce motion</span>
-                  <Badge tone={reduceMotion ? 'success' : 'neutral'}>
-                    {reduceMotion ? 'On' : 'Off'}
-                  </Badge>
-                </button>
-              </Card>
-
-              <Card className="rounded-[28px] p-5">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Prompt style</p>
-                <button
-                  className="mt-5 flex w-full items-center justify-between rounded-[22px] border border-borderSoft/35 bg-panel/60 px-4 py-4"
-                  onClick={() => setFocusPromptStyle(focusPromptStyle === 'gentle' ? 'direct' : 'gentle')}
-                  type="button"
-                >
-                  <span className="text-sm font-medium capitalize text-text-primary">{focusPromptStyle}</span>
-                  <Badge tone="accent">Switch</Badge>
-                </button>
-              </Card>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">What next</p>
+                <div className="mt-3 space-y-2">
+                  {nextReviewTasks.length ? (
+                    nextReviewTasks.map((task) => (
+                      <div className="rounded-[20px] border border-borderSoft/25 bg-panel/24 px-4 py-3 text-sm text-text-primary" key={task.id}>
+                        {task.title}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[20px] border border-dashed border-borderSoft/25 bg-panel/24 px-4 py-3 text-sm text-text-muted">
+                      Queue is empty.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+          </Card>
+
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="warning">7d</Badge>} title="Weekly review" />
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-[22px] border border-borderSoft/30 bg-panel/40 px-4 py-3">
+                <span className="text-sm text-text-secondary">Focus trend</span>
+                <span className="text-sm font-medium text-text-primary">
+                  {currentWeekFocus >= previousWeekFocus ? '+' : ''}
+                  {formatDurationFromSeconds(Math.abs(currentWeekFocus - previousWeekFocus))}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-[22px] border border-borderSoft/30 bg-panel/40 px-4 py-3">
+                <span className="text-sm text-text-secondary">Distraction trend</span>
+                <span className="text-sm font-medium text-text-primary">
+                  {currentWeekDistraction >= previousWeekDistraction ? '+' : ''}
+                  {formatDurationFromSeconds(Math.abs(currentWeekDistraction - previousWeekDistraction))}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-[22px] border border-borderSoft/30 bg-panel/40 px-4 py-3">
+                <span className="text-sm text-text-secondary">Progress</span>
+                <span className="text-sm font-medium text-text-primary">
+                  {completedTasks.filter((task) => new Date(task.updated_at).getTime() >= now - 7 * 24 * 60 * 60 * 1000).length}{' '}
+                  completed
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <ActivityBars points={currentWeek} />
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tasksHydrated || !sessionsHydrated || tasksLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <Card className="w-full max-w-xl rounded-[34px] p-8 text-center">
+          <p className="text-[11px] uppercase tracking-[0.3em] text-text-muted">MissionControl</p>
+          <h1 className="mt-3 text-3xl font-semibold text-text-primary">Loading</h1>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full p-5">
+      <div className="app-frame relative flex h-full overflow-hidden rounded-[42px] border border-borderSoft/20">
+        <aside className="sidebar-shell relative z-10 flex w-[248px] flex-col border-r border-borderSoft/24 p-6">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted">MissionControl</p>
+            <h1 className="mt-3 text-2xl font-semibold text-text-primary">Focus</h1>
           </div>
 
-          <div className="space-y-5">
-            <StudioMetricCard
-              caption={syncModeContent[syncMode].caption}
-              label="Data mode"
-              tone={syncMode === 'cloud' ? 'accent' : 'neutral'}
-              value={syncModeContent[syncMode].label}
-            />
-            <StudioMetricCard
-              caption={
-                desktopStartupAvailable
-                  ? launchAtLogin
-                    ? 'MissionControl will open its HUD automatically when your desktop session starts.'
-                    : 'Clicking the app icon opens the compact HUD first. Enable this when you also want it at sign-in.'
-                  : 'Desktop-only control'
-              }
-              label="Launch at login"
-              tone={launchAtLogin ? 'accent' : 'neutral'}
-              value={desktopStartupAvailable ? (launchAtLogin ? 'Enabled' : 'Off') : 'Desktop'}
-            />
-            <StudioMetricCard
-              caption={activeTheme.eyebrow}
-              label="Theme"
-              tone="neutral"
-              value={activeTheme.name}
-            />
+          <div className="mt-8 space-y-2">
+            {views.map((view) => (
+              <NavButton
+                active={activeView === view.id}
+                caption={view.caption}
+                key={view.id}
+                label={view.label}
+                onClick={() => startTransition(() => setActiveView(view.id))}
+              />
+            ))}
+          </div>
+
+          <div className="mt-auto">
             <Card className="rounded-[28px] p-5">
-              <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">What changes</p>
-              <p className="mt-4 text-sm leading-7 text-text-secondary">
-                {syncMode === 'local'
-                  ? 'Local only keeps the app fast and private on this machine. Nothing new leaves the device unless you switch to cloud later.'
-                  : 'Cloud option marks this workspace as ready for sign-in, mobile visibility, and central monitoring once the backend is connected.'}
+              <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Live status</p>
+              <p className="mt-3 text-xl font-semibold text-text-primary">
+                {activeSession ? activeSession.task_title : 'Idle'}
+              </p>
+              <p className="mt-2 text-sm text-text-secondary">
+                {activeSession ? `${formatClock(activeSessionMetrics.focus_seconds)} · ${activeSession.status}` : 'No session'}
               </p>
             </Card>
           </div>
-        </div>
-      ) : null}
-    </motion.div>
-  );
-
-  return (
-    <div className="h-full p-3 sm:p-4 lg:p-5">
-      <div className="app-frame relative flex h-full w-full overflow-hidden rounded-[36px] border border-borderStrong/25">
-        <aside className="sidebar-shell hidden w-[248px] shrink-0 border-r border-borderSoft/35 p-5 lg:flex lg:flex-col">
-          <div className="surface-muted rounded-[24px] p-4">
-            <p className="text-[10px] uppercase tracking-[0.34em] text-accent/80">Deep Focus</p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-text-primary">Work</h1>
-            <p className="mt-2 text-sm text-text-secondary">Level 4 flow</p>
-          </div>
-
-          <nav className="mt-6 space-y-2">
-            {navItems.map((item) => (
-              <SidebarNavButton
-                active={item.id === activeView}
-                eyebrow={item.eyebrow}
-                key={item.id}
-                label={item.label}
-                onClick={() => setActiveView(item.id)}
-              />
-            ))}
-          </nav>
-
-          <div className="mt-auto space-y-4">
-            <Card className="rounded-[24px] p-4">
-              <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Operator</p>
-              <div className="mt-4 flex items-center gap-3">
-                <div className="accent-avatar flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold">
-                  AC
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-text-primary">Alex Chen</p>
-                  <p className="text-xs text-text-secondary">Session active</p>
-                </div>
-              </div>
-            </Card>
-            <Button className="w-full" onClick={() => void showQuickAddWindow()}>
-              Start Task
-            </Button>
-          </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1">
-          <main className="flex min-w-0 flex-1 flex-col p-5 lg:p-7">
-            <div className="mb-5 flex flex-col gap-3 border-b border-borderSoft/35 pb-5 xl:flex-row xl:items-end xl:justify-between">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
-                  {activeView === 'task'
-                    ? 'Mission detail'
-                    : navItems.find((item) => item.id === activeView)?.eyebrow}
-                </p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-text-primary lg:text-[3.4rem]">
-                  {pageHeaderTitle}
-                </h1>
-              </div>
-
-              <div className="max-w-xl">
-                <p className="text-sm leading-7 text-text-secondary lg:text-right">
-                  {pageHeaderDescription}
-                </p>
-              </div>
+        <div className="relative z-10 flex min-w-0 flex-1 flex-col">
+          <header className="flex items-center justify-between gap-4 border-b border-borderSoft/24 px-6 py-5">
+            <div className="min-w-0">
+              <h2 className="text-2xl font-semibold text-text-primary">{viewCopy}</h2>
             </div>
 
-            <div className="scrollbar-hidden min-h-0 flex-1 overflow-y-auto pr-1">
-              <AnimatePresence mode="wait">{page}</AnimatePresence>
+            <div className="flex items-center gap-3">
+              <div className="hidden rounded-full border border-borderSoft/28 bg-panel/36 px-4 py-2 text-sm text-text-secondary lg:block">
+                {new Intl.DateTimeFormat(undefined, {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                }).format(new Date(now))}
+              </div>
+              <Button onClick={() => void showQuickAddWindow()} size="sm" type="button" variant="secondary">
+                Quick Add
+              </Button>
+              <Button onClick={() => void showHudWindow()} size="sm" type="button" variant="ghost">
+                HUD
+              </Button>
             </div>
+          </header>
+
+          <main className="relative flex-1 overflow-y-auto px-6 py-6">
+            <AnimatePresence mode="wait">
+              <motion.div
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 10 }}
+                key={activeView}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+              >
+                {activeView === 'today' ? renderToday() : null}
+                {activeView === 'tasks' ? renderTasks() : null}
+                {activeView === 'history' ? renderHistory() : null}
+                {activeView === 'insights' ? renderInsights() : null}
+                {activeView === 'review' ? renderReview() : null}
+              </motion.div>
+            </AnimatePresence>
+
+            <CapturePopup
+              loading={captureSaving}
+              onChange={(value) =>
+                setCaptureState((current) => (current ? { ...current, value } : current))
+              }
+              onClose={() => setCaptureState(null)}
+              onSave={() => void handleSaveCapture()}
+              state={captureState}
+            />
           </main>
         </div>
       </div>

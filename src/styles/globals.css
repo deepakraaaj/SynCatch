@@ -204,9 +204,11 @@
   }
 
   .quick-add-shell {
-    background:
-      radial-gradient(circle at top right, rgb(var(--accent) / 0.12), transparent 34%),
-      linear-gradient(180deg, rgb(var(--surface-1) / 0.98), rgb(var(--surface-2) / 0.96));
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .surface-muted {

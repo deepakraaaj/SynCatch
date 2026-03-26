@@ -2,10 +2,15 @@ import type { PropsWithChildren } from 'react';
 import { useEffect } from 'react';
 import type { FocusSyncState } from '../features/focus/focus-store';
 import { useFocusStore } from '../features/focus/focus-store';
-import type { SettingsSnapshot, ThemeSnapshot } from '../features/preferences/preferences-types';
+import {
+  DEFAULT_THEME_SNAPSHOT,
+  type SettingsSnapshot,
+  type ThemeSnapshot,
+} from '../features/preferences/preferences-types';
+import { useSessionStore } from '../features/sessions/session-store';
 import { useSettingsStore } from '../features/settings/settings-store';
 import { useTaskStore } from '../features/tasks/task-store';
-import { useThemeStore } from '../features/themes/theme-store';
+import { applyThemeToDocument, useThemeStore } from '../features/themes/theme-store';
 import {
   FOCUS_CHANGED_EVENT,
   SETTINGS_CHANGED_EVENT,
@@ -17,17 +22,28 @@ import {
 
 export function AppBootstrap({ children }: PropsWithChildren) {
   const themeId = useThemeStore((state) => state.themeId);
+  const themeHydrated = useThemeStore((state) => state.hydrated);
+  const themeHydrating = useThemeStore((state) => state.hydrating);
   const hydrateTheme = useThemeStore((state) => state.hydrate);
   const hydrateSettings = useSettingsStore((state) => state.hydrate);
   const hydrateFocus = useFocusStore((state) => state.hydrate);
+  const hydrateSessions = useSessionStore((state) => state.hydrate);
   const hydrateTasks = useTaskStore((state) => state.hydrate);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = themeId;
-  }, [themeId]);
+    if (
+      !themeHydrated &&
+      !themeHydrating &&
+      themeId === DEFAULT_THEME_SNAPSHOT.themeId
+    ) {
+      return;
+    }
+
+    applyThemeToDocument(themeId);
+  }, [themeHydrated, themeHydrating, themeId]);
 
   useEffect(() => {
-    void Promise.all([hydrateTheme(), hydrateSettings(), hydrateFocus(), hydrateTasks()]);
+    void Promise.all([hydrateTheme(), hydrateSettings(), hydrateFocus(), hydrateSessions(), hydrateTasks()]);
 
     const unsubscribe = subscribeAppEvent(TASKS_CHANGED_EVENT, () => {
       void useTaskStore.getState().refresh();
@@ -56,7 +72,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
       unsubscribeSettings();
       unsubscribeHudTransparency();
     };
-  }, [hydrateFocus, hydrateSettings, hydrateTasks, hydrateTheme]);
+  }, [hydrateFocus, hydrateSessions, hydrateSettings, hydrateTasks, hydrateTheme]);
 
   return <>{children}</>;
 }

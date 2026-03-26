@@ -16,8 +16,8 @@ export interface OpenTaskDetailPayload {
 
 const HUD_WIDTH = 360;
 const HUD_HEIGHT = 78;
-export const QUICK_ADD_WIDTH = 540;
-export const QUICK_ADD_HEIGHT = 560;
+export const QUICK_ADD_WIDTH = 640;
+export const QUICK_ADD_HEIGHT = 720;
 const MAIN_WINDOW_WIDTH = 1480;
 const MAIN_WINDOW_HEIGHT = 940;
 const MAIN_WINDOW_MIN_WIDTH = 1180;

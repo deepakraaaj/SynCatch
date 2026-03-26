@@ -13,7 +13,7 @@ const THEME_PREFERENCE_KEY = 'theme';
 const SETTINGS_PREFERENCE_KEY = 'settings';
 
 interface PreferencesRepository {
-  loadTheme(): Promise<ThemeSnapshot>;
+  loadTheme(): Promise<ThemeSnapshot | null>;
   saveTheme(snapshot: ThemeSnapshot): Promise<void>;
   loadSettings(): Promise<SettingsSnapshot>;
   saveSettings(snapshot: SettingsSnapshot): Promise<void>;
@@ -45,8 +45,14 @@ function mergeParsedState<T extends object>(raw: string | null, defaults: T): T 
 }
 
 class BrowserPreferencesRepository implements PreferencesRepository {
-  async loadTheme(): Promise<ThemeSnapshot> {
-    return mergeParsedState(localStorage.getItem(THEME_STORAGE_KEY), DEFAULT_THEME_SNAPSHOT);
+  async loadTheme(): Promise<ThemeSnapshot | null> {
+    const raw = localStorage.getItem(THEME_STORAGE_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    return mergeParsedState(raw, DEFAULT_THEME_SNAPSHOT);
   }
 
   async saveTheme(snapshot: ThemeSnapshot) {
@@ -63,15 +69,23 @@ class BrowserPreferencesRepository implements PreferencesRepository {
 }
 
 class SqlPreferencesRepository implements PreferencesRepository {
-  private async loadPreference<T extends object>(key: string, defaults: T): Promise<T> {
+  private async loadPreferenceValue(key: string): Promise<string | null> {
     const db = await getSqlDatabase();
     const rows = await db.select<{ value: string }>(
       'SELECT value FROM app_preferences WHERE key = ? LIMIT 1',
       [key],
     );
-    const value = rows[0]?.value;
+    return rows[0]?.value ?? null;
+  }
 
-    return mergeParsedState(value ?? null, defaults);
+  private async loadPreference<T extends object>(key: string, defaults: T): Promise<T | null> {
+    const value = await this.loadPreferenceValue(key);
+
+    if (!value) {
+      return null;
+    }
+
+    return mergeParsedState(value, defaults);
   }
 
   private async savePreference<T extends object>(key: string, snapshot: T): Promise<void> {
@@ -88,7 +102,7 @@ class SqlPreferencesRepository implements PreferencesRepository {
     );
   }
 
-  async loadTheme(): Promise<ThemeSnapshot> {
+  async loadTheme(): Promise<ThemeSnapshot | null> {
     return this.loadPreference<ThemeSnapshot>(THEME_PREFERENCE_KEY, DEFAULT_THEME_SNAPSHOT);
   }
 
@@ -97,9 +111,11 @@ class SqlPreferencesRepository implements PreferencesRepository {
   }
 
   async loadSettings(): Promise<SettingsSnapshot> {
-    return this.loadPreference<SettingsSnapshot>(
-      SETTINGS_PREFERENCE_KEY,
-      DEFAULT_SETTINGS_SNAPSHOT,
+    return (
+      (await this.loadPreference<SettingsSnapshot>(
+        SETTINGS_PREFERENCE_KEY,
+        DEFAULT_SETTINGS_SNAPSHOT,
+      )) ?? DEFAULT_SETTINGS_SNAPSHOT
     );
   }
 
