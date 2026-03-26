@@ -34,15 +34,18 @@ import {
   type SessionPresetId,
   type WorkSession,
 } from '../../features/sessions/session-types';
+import { useSettingsStore } from '../../features/settings/settings-store';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
 import { humanizePriority } from '../../features/tasks/task-helpers';
 import { useTaskStore } from '../../features/tasks/task-store';
+import { useThemeStore } from '../../features/themes/theme-store';
+import { THEMES } from '../../features/themes/themes';
 import type { Task, TaskLane } from '../../features/tasks/task-types';
 import { cn } from '../../lib/cn';
 import { formatRelativeTime } from '../../lib/date';
 import { showHudWindow, showQuickAddWindow } from '../../lib/tauri';
 
-type MainView = 'today' | 'tasks' | 'history' | 'insights' | 'review';
+type MainView = 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'settings';
 
 type CaptureState = {
   kind: SessionCaptureKind;
@@ -62,6 +65,7 @@ const views: Array<{ id: MainView; label: string; caption?: string }> = [
   { id: 'history', label: 'History' },
   { id: 'insights', label: 'Insights' },
   { id: 'review', label: 'Review' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 const captureOptions: Array<{
@@ -311,6 +315,10 @@ function getViewCopy(view: MainView) {
     return 'Insights';
   }
 
+  if (view === 'settings') {
+    return 'Settings';
+  }
+
   return 'Review';
 }
 
@@ -410,6 +418,34 @@ function ProgressBar({
         }}
       />
     </div>
+  );
+}
+
+function SettingChoice({
+  active,
+  children,
+  disabled,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={cn(
+        'rounded-full border px-3 py-2 text-xs font-medium tracking-[0.02em] transition-colors duration-150',
+        active
+          ? 'border-accent/28 bg-accent/12 text-text-primary'
+          : 'border-borderSoft/35 bg-panel/30 text-text-secondary hover:border-borderStrong/35 hover:bg-panel/50',
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -1006,6 +1042,18 @@ function TodayFocusCard({
 }
 
 export function MainApp() {
+  const themeId = useThemeStore((state) => state.themeId);
+  const setTheme = useThemeStore((state) => state.setTheme);
+  const reduceMotion = useSettingsStore((state) => state.reduceMotion);
+  const quickAddShortcut = useSettingsStore((state) => state.quickAddShortcut);
+  const focusPromptStyle = useSettingsStore((state) => state.focusPromptStyle);
+  const syncMode = useSettingsStore((state) => state.syncMode);
+  const launchAtLogin = useSettingsStore((state) => state.launchAtLogin);
+  const launchAtLoginPending = useSettingsStore((state) => state.launchAtLoginPending);
+  const setReduceMotion = useSettingsStore((state) => state.setReduceMotion);
+  const setFocusPromptStyle = useSettingsStore((state) => state.setFocusPromptStyle);
+  const setSyncMode = useSettingsStore((state) => state.setSyncMode);
+  const setLaunchAtLogin = useSettingsStore((state) => state.setLaunchAtLogin);
   const tasks = useTaskStore((state) => state.tasks);
   const tasksHydrated = useTaskStore((state) => state.hydrated);
   const tasksLoading = useTaskStore((state) => state.loading);
@@ -2079,6 +2127,158 @@ export function MainApp() {
     );
   }
 
+  function renderSettings() {
+    return (
+      <div className="space-y-6">
+        <Card className="rounded-[34px] p-6">
+          <SectionHeading action={<Badge tone="accent">Theme</Badge>} title="Appearance" />
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {THEMES.map((theme) => {
+              const active = theme.id === themeId;
+
+              return (
+                <button
+                  className={cn(
+                    'rounded-[28px] border p-4 text-left transition-[transform,border-color,background-color,box-shadow] duration-150',
+                    active
+                      ? 'border-accent/30 bg-accent/10 shadow-[0_12px_30px_rgb(var(--accent)/0.10)]'
+                      : 'border-borderSoft/30 bg-panel/34 hover:border-borderStrong/34 hover:bg-panel/50',
+                  )}
+                  key={theme.id}
+                  onClick={() => setTheme(theme.id)}
+                  type="button"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-text-primary">{theme.name}</p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.24em] text-text-muted">
+                        {theme.eyebrow}
+                      </p>
+                    </div>
+                    {active ? <Badge tone="accent">Live</Badge> : null}
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    {theme.preview.map((color) => (
+                      <span
+                        className="h-10 flex-1 rounded-2xl border border-white/10"
+                        key={color}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="neutral">Live</Badge>} title="Behavior" />
+
+            <div className="space-y-4">
+              <div className="rounded-[24px] border border-borderSoft/30 bg-panel/32 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Reduce motion</p>
+                    <p className="mt-1 text-sm text-text-secondary">Trim extra movement across the app.</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <SettingChoice active={!reduceMotion} onClick={() => setReduceMotion(false)}>
+                      Off
+                    </SettingChoice>
+                    <SettingChoice active={reduceMotion} onClick={() => setReduceMotion(true)}>
+                      On
+                    </SettingChoice>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-borderSoft/30 bg-panel/32 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Focus prompts</p>
+                    <p className="mt-1 text-sm text-text-secondary">Choose how direct recovery prompts should feel.</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <SettingChoice
+                      active={focusPromptStyle === 'gentle'}
+                      onClick={() => setFocusPromptStyle('gentle')}
+                    >
+                      Gentle
+                    </SettingChoice>
+                    <SettingChoice
+                      active={focusPromptStyle === 'direct'}
+                      onClick={() => setFocusPromptStyle('direct')}
+                    >
+                      Direct
+                    </SettingChoice>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-borderSoft/30 bg-panel/32 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Launch at login</p>
+                    <p className="mt-1 text-sm text-text-secondary">Open MissionControl when your desktop starts.</p>
+                  </div>
+
+                  <Button
+                    disabled={launchAtLoginPending}
+                    onClick={() => void setLaunchAtLogin(!launchAtLogin)}
+                    size="sm"
+                    type="button"
+                    variant={launchAtLogin ? 'primary' : 'secondary'}
+                  >
+                    {launchAtLoginPending ? 'Saving' : launchAtLogin ? 'On' : 'Off'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="neutral">System</Badge>} title="Workspace" />
+
+            <div className="space-y-4">
+              <div className="rounded-[24px] border border-borderSoft/30 bg-panel/32 p-4">
+                <p className="text-sm font-medium text-text-primary">Quick Add shortcut</p>
+                <div className="mt-3">
+                  <Badge className="text-xs" tone="accent">
+                    {quickAddShortcut}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-borderSoft/30 bg-panel/32 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Sync mode</p>
+                    <p className="mt-1 text-sm text-text-secondary">Keep this device local or prep for cloud sync.</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <SettingChoice active={syncMode === 'local'} onClick={() => setSyncMode('local')}>
+                      Local
+                    </SettingChoice>
+                    <SettingChoice active={syncMode === 'cloud'} onClick={() => setSyncMode('cloud')}>
+                      Cloud
+                    </SettingChoice>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   if (!tasksHydrated || !sessionsHydrated || tasksLoading) {
     return (
       <div className="flex h-full items-center justify-center p-6">
@@ -2150,6 +2350,7 @@ export function MainApp() {
             {activeView === 'history' ? renderHistory() : null}
             {activeView === 'insights' ? renderInsights() : null}
             {activeView === 'review' ? renderReview() : null}
+            {activeView === 'settings' ? renderSettings() : null}
 
             <CapturePopup
               loading={captureSaving}
