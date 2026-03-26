@@ -132,6 +132,11 @@
     background: transparent;
   }
 
+  body[data-overlay-window='quick-add'],
+  body[data-overlay-window='quick-add'] #root {
+    background: transparent;
+  }
+
   button,
   input,
   textarea {
@@ -179,11 +184,12 @@
   }
 
   .quick-add-shell {
-    background: transparent;
-    border: 0;
-    box-shadow: none;
+    background: linear-gradient(180deg, rgb(var(--surface-1)), rgb(var(--surface-2)));
+    border: 1px solid rgb(var(--border-strong) / 0.2);
+    box-shadow: 0 14px 40px rgb(var(--shadow-color) / 0.18);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    isolation: isolate;
   }
 
   .surface-muted {

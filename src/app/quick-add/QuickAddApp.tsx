@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { useEffect } from 'react';
 import { Badge } from '../../components/ui/badge';
 import { WindowDragHandle } from '../../components/ui/window-drag-handle';
@@ -44,12 +43,7 @@ export function QuickAddApp() {
 
   return (
     <div className="overlay-root items-center justify-center p-4">
-      <motion.div
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="flex h-full max-h-[calc(100vh-1rem)] w-full max-w-[680px]"
-        initial={{ opacity: 0, y: 16, scale: 0.98 }}
-        transition={{ duration: 0.24, ease: 'easeOut' }}
-      >
+      <div className="flex h-full max-h-[calc(100vh-1rem)] w-full max-w-[680px]">
         <div className="quick-add-shell flex h-full w-full flex-col overflow-hidden rounded-[32px] p-3">
           <WindowDragHandle className="surface-muted mb-3 flex items-center justify-between rounded-[20px] px-4 py-3">
             <div>
@@ -72,7 +66,7 @@ export function QuickAddApp() {
             />
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

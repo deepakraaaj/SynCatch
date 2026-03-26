@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import {
   startTransition,
   useDeferredValue,
@@ -420,12 +419,7 @@ export function TaskCreationComposer({
             </div>
           </div>
         ) : (
-          <motion.div
-            animate={{ opacity: 1, y: 0 }}
-            className={cn('surface-muted rounded-[26px]', compact ? 'p-3' : 'p-4')}
-            key={currentStep.id}
-            initial={{ opacity: 0, y: 8 }}
-          >
+          <div className={cn('surface-muted rounded-[26px]', compact ? 'p-3' : 'p-4')} key={currentStep.id}>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Badge tone="accent">{currentStep.label}</Badge>
@@ -478,7 +472,7 @@ export function TaskCreationComposer({
                 value={draft[currentStep.field]}
               />
             )}
-          </motion.div>
+          </div>
         )}
 
         <div className="space-y-2">
