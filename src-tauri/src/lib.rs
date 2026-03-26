@@ -4,6 +4,7 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 const DATABASE_PATH: &str = "sqlite:mission-control.db";
 const TOGGLE_HUD_TRANSPARENCY_EVENT: &str = "missioncontrol://toggle-hud-transparency";
 const SHOW_COMPACT_HUD_EVENT: &str = "missioncontrol://show-compact-hud";
+const SHOW_HUD_TASK_COMPOSER_EVENT: &str = "missioncontrol://show-hud-task-composer";
 const AUTOSTART_LAUNCH_ARG: &str = "--autostart";
 
 #[tauri::command]
@@ -104,11 +105,16 @@ fn database_migrations() -> Vec<Migration> {
     ]
 }
 
-fn show_quick_add(app: &tauri::AppHandle) -> tauri::Result<()> {
+fn show_hud_task_composer(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("quick-add") {
+        window.hide()?;
+    }
+
+    if let Some(window) = app.get_webview_window("hud") {
         window.show()?;
+        window.unminimize()?;
         window.set_focus()?;
-        app.emit_to("quick-add", "quick-add:focus", ())?;
+        app.emit_to("hud", SHOW_HUD_TASK_COMPOSER_EVENT, ())?;
     }
 
     Ok(())
@@ -201,8 +207,8 @@ pub fn run() {
                             if pressed_shortcut == &quick_add_handler_shortcut
                                 && event.state() == ShortcutState::Pressed
                             {
-                                if let Err(error) = show_quick_add(app_handle) {
-                                    eprintln!("quick add shortcut error: {error}");
+                                if let Err(error) = show_hud_task_composer(app_handle) {
+                                    eprintln!("hud task composer shortcut error: {error}");
                                 }
                             }
 

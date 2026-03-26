@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { logActivity } from '../../features/activity/activity-repository';
 import {
@@ -19,8 +19,8 @@ import {
   isTauriApp,
   OPEN_TASK_DETAIL_EVENT,
   SHOW_COMPACT_HUD_EVENT,
+  SHOW_HUD_TASK_COMPOSER_EVENT,
   showMainWindow,
-  showQuickAddWindow,
   subscribeAppEvent,
 } from '../../lib/tauri';
 import { Badge } from '../../components/ui/badge';
@@ -453,6 +453,8 @@ export function HudApp() {
   const [isSavingDistraction, setIsSavingDistraction] = useState(false);
   const [customTime, setCustomTime] = useState('');
   const hasNormalizedLaunchHudMode = useRef(false);
+  const expandedTaskComposerRef = useRef<HTMLDivElement>(null);
+  const compactTaskComposerRef = useRef<HTMLDivElement>(null);
 
   const currentMission =
     tasks.find((task) => task.id === currentMissionId && task.lane === 'now') ?? tasks.find((task) => task.lane === 'now') ?? null;
@@ -511,6 +513,33 @@ export function HudApp() {
       setShowCompactTaskComposer(false);
       setShowCompactDistractionComposer(false);
       setIsCompactHudExpanded(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [setHudMode]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAppEvent(SHOW_HUD_TASK_COMPOSER_EVENT, () => {
+      setHudMode('compact');
+      setHudTaskLane('inbox');
+      setShowCompactTaskPicker(false);
+      setShowCompactDistractionComposer(false);
+      setShowCompactTaskComposer(true);
+      setIsCompactHudExpanded(true);
+
+      window.requestAnimationFrame(() => {
+        const node = compactTaskComposerRef.current;
+        node?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+        const input = node?.querySelector('textarea, input') as
+          | HTMLTextAreaElement
+          | HTMLInputElement
+          | null;
+
+        input?.focus();
+      });
     });
 
     return () => {
@@ -676,6 +705,36 @@ export function HudApp() {
     setShowCompactTaskComposer(false);
   }
 
+  function focusTaskComposer(targetRef: RefObject<HTMLDivElement | null>) {
+    window.requestAnimationFrame(() => {
+      const node = targetRef.current;
+
+      node?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+      const input = node?.querySelector('textarea, input') as
+        | HTMLTextAreaElement
+        | HTMLInputElement
+        | null;
+
+      input?.focus();
+    });
+  }
+
+  function openHudTaskComposer() {
+    setHudTaskLane('inbox');
+
+    if (hudMode === 'compact') {
+      setIsCompactHudExpanded(true);
+      setShowCompactTaskPicker(false);
+      setShowCompactDistractionComposer(false);
+      setShowCompactTaskComposer(true);
+      focusTaskComposer(compactTaskComposerRef);
+      return;
+    }
+
+    focusTaskComposer(expandedTaskComposerRef);
+  }
+
   function resetDistractionComposer() {
     setDistractionTrigger('');
     setDistractionCategory('context_switch');
@@ -791,9 +850,9 @@ export function HudApp() {
               />
               <HudActionButton
                 icon={<QuickAddIcon />}
-                label="Open quick add"
+                label="Add task"
                 onClick={() => {
-                  void showQuickAddWindow();
+                  openHudTaskComposer();
                 }}
               />
               <HudActionButton
@@ -1046,7 +1105,7 @@ export function HudApp() {
                   </div>
                 </div>
 
-                <div className="surface-muted rounded-[24px] p-4">
+                <div className="surface-muted rounded-[24px] p-4" ref={expandedTaskComposerRef}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span className="flex h-10 w-10 items-center justify-center rounded-full border border-accent/18 bg-accent/10 text-accent">
@@ -1212,9 +1271,9 @@ export function HudApp() {
                   />
                   <HudActionButton
                     icon={<QuickAddIcon />}
-                    label="Open quick add"
+                    label="Add task"
                     onClick={() => {
-                      void showQuickAddWindow();
+                      openHudTaskComposer();
                     }}
                   />
                   <HudActionButton
@@ -1541,7 +1600,7 @@ export function HudApp() {
             ) : null}
             {showCompactTaskComposer ? (
               <div className="mt-3 min-h-0 flex-1 border-t border-borderSoft/28 pt-3">
-                <div className="surface-muted flex h-full min-h-0 flex-col rounded-[22px] p-3">
+                <div className="surface-muted flex h-full min-h-0 flex-col rounded-[22px] p-3" ref={compactTaskComposerRef}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span className="flex h-9 w-9 items-center justify-center rounded-full border border-accent/18 bg-accent/10 text-accent">

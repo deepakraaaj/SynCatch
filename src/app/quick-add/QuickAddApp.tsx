@@ -15,8 +15,6 @@ export function QuickAddApp() {
       return;
     }
 
-    let cleanup = () => {};
-
     void Promise.all([
       import('@tauri-apps/api/webviewWindow'),
       import('@tauri-apps/api/dpi'),
@@ -25,20 +23,7 @@ export function QuickAddApp() {
 
       void currentWindow.setSize(new LogicalSize(QUICK_ADD_WIDTH, QUICK_ADD_HEIGHT));
       void currentWindow.center();
-
-      void currentWindow
-        .listen('quick-add:focus', () => {
-          void currentWindow.setSize(new LogicalSize(QUICK_ADD_WIDTH, QUICK_ADD_HEIGHT));
-          void currentWindow.center();
-        })
-        .then((unlisten) => {
-          cleanup = () => {
-            void unlisten();
-          };
-        });
     });
-
-    return () => cleanup();
   }, []);
 
   return (
@@ -50,7 +35,7 @@ export function QuickAddApp() {
               <p className="text-[10px] uppercase tracking-[0.3em] text-accent/80">Quick Add</p>
               <p className="mt-1 text-sm font-medium text-text-primary">Task composer</p>
             </div>
-            <Badge tone="accent">Ctrl+Shift+Space</Badge>
+            <Badge tone="neutral">Window</Badge>
           </WindowDragHandle>
 
           <div className="min-h-0 flex-1">
