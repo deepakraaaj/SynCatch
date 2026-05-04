@@ -2,6 +2,7 @@ import {
   startTransition,
   useDeferredValue,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -14,28 +15,7 @@ import type { ActivitySource } from '../activity/activity-repository';
 import type { TaskClarification } from '../ai/ai-types';
 import { getTaskAiAssistant } from '../ai/mock-ai-provider';
 import { useTaskStore } from './task-store';
-import type { Task, TaskClarifyingQuestion, TaskDraft } from './task-types';
-
-type ComposerMode = 'interaction' | 'one-shot';
-type DraftField =
-  | 'title'
-  | 'description'
-  | 'goal'
-  | 'definitionOfDone'
-  | 'nextAction'
-  | 'whyItMatters'
-  | 'estimatedMinutes';
-
-interface ComposerDraft {
-  rawInput: string;
-  title: string;
-  description: string;
-  goal: string;
-  definitionOfDone: string;
-  nextAction: string;
-  whyItMatters: string;
-  estimatedMinutes: number;
-}
+import type { Task, TaskClarifyingQuestion, TaskDraft, TaskLane, TaskPriority } from './task-types';
 
 interface TaskCreationComposerProps {
   source: ActivitySource;
@@ -44,7 +24,7 @@ interface TaskCreationComposerProps {
   onSubmitted?: () => void | Promise<void>;
   onCreated?: (task: Task) => void | Promise<void>;
   autoFocus?: boolean;
-  initialMode?: ComposerMode;
+  initialMode?: 'interaction' | 'one-shot';
   compact?: boolean;
   fillHeight?: boolean;
   lane?: TaskDraft['lane'];
@@ -52,142 +32,113 @@ interface TaskCreationComposerProps {
   status?: TaskDraft['status'];
 }
 
-interface InteractionStep {
-  id: string;
-  label: string;
-  question: string;
-  placeholder: string;
-  field: Exclude<DraftField, 'estimatedMinutes'>;
-  multiline?: boolean;
+interface ComposerDraft {
+  title: string;
+  doneLooksLike: string;
+  firstStep: string;
+  notes: string;
+  lane: TaskLane;
+  priority: TaskPriority;
+  estimatedMinutes: number;
+  estimateAuto: boolean;
 }
 
-const INTERACTION_STEPS: InteractionStep[] = [
-  {
-    id: 'title',
-    label: 'Title',
-    question: 'What is the task?',
-    placeholder: 'Short title',
-    field: 'title',
-  },
-  {
-    id: 'goal',
-    label: 'Outcome',
-    question: 'What should exist when this is done?',
-    placeholder: 'Outcome',
-    field: 'goal',
-    multiline: true,
-  },
-  {
-    id: 'next',
-    label: 'Next',
-    question: 'What is the next action?',
-    placeholder: 'Next step',
-    field: 'nextAction',
-    multiline: true,
-  },
-  {
-    id: 'done',
-    label: 'Done',
-    question: 'What counts as done?',
-    placeholder: 'Definition of done',
-    field: 'definitionOfDone',
-    multiline: true,
-  },
-  {
-    id: 'why',
-    label: 'Why',
-    question: 'Why does it matter?',
-    placeholder: 'Why',
-    field: 'whyItMatters',
-    multiline: true,
-  },
-  {
-    id: 'context',
-    label: 'Context',
-    question: 'Any extra context?',
-    placeholder: 'Context',
-    field: 'description',
-    multiline: true,
-  },
+const LANE_OPTIONS: Array<{ id: TaskLane; label: string }> = [
+  { id: 'inbox', label: 'Inbox' },
+  { id: 'now', label: 'Now' },
+  { id: 'next', label: 'Next' },
+  { id: 'later', label: 'Later' },
 ];
 
-const MINUTE_OPTIONS = [10, 15, 25, 40, 50, 90];
+const PRIORITY_OPTIONS: Array<{ id: TaskPriority; label: string }> = [
+  { id: 'low', label: 'Low' },
+  { id: 'normal', label: 'Normal' },
+  { id: 'high', label: 'High' },
+  { id: 'critical', label: 'Critical' },
+];
+
+const ESTIMATE_OPTIONS = [15, 25, 50, 90];
+
+const VAGUE_ANSWERS = new Set([
+  'done',
+  'finished',
+  'complete',
+  'completed',
+  'ready',
+  'shipped',
+  'fixed',
+  'good',
+  'ok',
+]);
+
+const ESTIMATE_KEYWORDS: Array<{ minutes: number; words: RegExp }> = [
+  { minutes: 15, words: /\b(quick|fix|tweak|patch|nudge|bump|small|tiny)\b/i },
+  { minutes: 25, words: /\b(review|respond|reply|check|skim|read|update)\b/i },
+  { minutes: 50, words: /\b(build|implement|create|draft|write|wire|setup|set up)\b/i },
+  { minutes: 90, words: /\b(redesign|research|investigate|rewrite|migrate|refactor|design)\b/i },
+];
+
+function detectEstimate(title: string): number | null {
+  const trimmed = title.trim();
+  if (trimmed.length < 4) return null;
+
+  for (const { minutes, words } of ESTIMATE_KEYWORDS) {
+    if (words.test(trimmed)) return minutes;
+  }
+  return null;
+}
+
+function isVague(value: string) {
+  const trimmed = value.trim().toLowerCase().replace(/[.!?]+$/, '');
+  return VAGUE_ANSWERS.has(trimmed);
+}
 
 const INITIAL_DRAFT: ComposerDraft = {
-  rawInput: '',
   title: '',
-  description: '',
-  goal: '',
-  definitionOfDone: '',
-  nextAction: '',
-  whyItMatters: '',
+  doneLooksLike: '',
+  firstStep: '',
+  notes: '',
+  lane: 'inbox',
+  priority: 'normal',
   estimatedMinutes: 25,
+  estimateAuto: false,
 };
 
-function draftsMatch(left: ComposerDraft, right: ComposerDraft) {
-  return (
-    left.rawInput === right.rawInput &&
-    left.title === right.title &&
-    left.description === right.description &&
-    left.goal === right.goal &&
-    left.definitionOfDone === right.definitionOfDone &&
-    left.nextAction === right.nextAction &&
-    left.whyItMatters === right.whyItMatters &&
-    left.estimatedMinutes === right.estimatedMinutes
-  );
-}
-
-function mergeClarification(
-  clarification: TaskClarification,
-  current: ComposerDraft,
-  touched: Partial<Record<DraftField, boolean>>,
-): ComposerDraft {
-  return {
-    ...current,
-    title: touched.title ? current.title : clarification.suggestedTitle,
-    description: touched.description ? current.description : clarification.description,
-    goal: touched.goal ? current.goal : clarification.goal,
-    definitionOfDone: touched.definitionOfDone
-      ? current.definitionOfDone
-      : clarification.definitionOfDone,
-    nextAction: touched.nextAction ? current.nextAction : clarification.nextAction,
-    whyItMatters: touched.whyItMatters ? current.whyItMatters : clarification.whyItMatters,
-    estimatedMinutes: touched.estimatedMinutes
-      ? current.estimatedMinutes
-      : clarification.questions.length > 1
-        ? Math.max(current.estimatedMinutes, 25)
-        : current.estimatedMinutes,
-  };
-}
-
 function buildClarifyingQuestions(draft: ComposerDraft): TaskClarifyingQuestion[] {
-  return INTERACTION_STEPS.map((step, index) => ({
-    id: `question-${step.id}-${index + 1}`,
-    question: step.question,
-    answer: draft[step.field].trim(),
-  })).filter((question) => question.answer.length > 0);
+  const entries = [
+    { id: 'done', question: 'What does done look like?', answer: draft.doneLooksLike.trim() },
+    { id: 'first-step', question: 'What is the first step?', answer: draft.firstStep.trim() },
+    { id: 'notes', question: 'Any extra notes?', answer: draft.notes.trim() },
+  ];
+  return entries
+    .filter((entry) => entry.answer.length > 0)
+    .map((entry, index) => ({
+      id: `q-${entry.id}-${index + 1}`,
+      question: entry.question,
+      answer: entry.answer,
+    }));
 }
 
 function normalizeTaskDraft(
   draft: ComposerDraft,
   clarification: TaskClarification | null,
-  defaults: Pick<TaskDraft, 'lane' | 'priority' | 'status'>,
+  defaults: Pick<TaskDraft, 'status'>,
 ): TaskDraft {
-  const rawInput = draft.rawInput.trim() || draft.title.trim();
-  const title = draft.title.trim() || clarification?.suggestedTitle || rawInput;
+  const title = draft.title.trim() || clarification?.suggestedTitle || '';
 
   return {
-    rawInput,
+    rawInput: title,
     title,
-    description: draft.description.trim() || clarification?.description,
-    goal: draft.goal.trim() || clarification?.goal,
-    definitionOfDone: draft.definitionOfDone.trim() || clarification?.definitionOfDone,
-    nextAction: draft.nextAction.trim() || clarification?.nextAction,
-    whyItMatters: draft.whyItMatters.trim() || clarification?.whyItMatters,
+    description: draft.notes.trim(),
+    goal: draft.doneLooksLike.trim() || clarification?.goal,
+    definitionOfDone: draft.doneLooksLike.trim() || clarification?.definitionOfDone,
+    nextAction: draft.firstStep.trim() || clarification?.nextAction,
+    whyItMatters: '',
+    workspaceNotes: '',
     estimatedMinutes: draft.estimatedMinutes,
     clarifyingQuestions: buildClarifyingQuestions(draft),
-    lane: defaults.lane,
-    priority: defaults.priority,
+    lane: draft.lane,
+    priority: draft.priority,
     status: defaults.status,
   };
 }
@@ -199,7 +150,6 @@ export function TaskCreationComposer({
   onSubmitted,
   onCreated,
   autoFocus = false,
-  initialMode = 'interaction',
   compact = false,
   fillHeight = false,
   lane = 'inbox',
@@ -207,31 +157,42 @@ export function TaskCreationComposer({
   status = 'captured',
 }: TaskCreationComposerProps) {
   const createTask = useTaskStore((state) => state.createTask);
-  const rawInputRef = useRef<HTMLTextAreaElement>(null);
-  const [mode, setMode] = useState<ComposerMode>(initialMode);
-  const [draft, setDraft] = useState<ComposerDraft>(INITIAL_DRAFT);
-  const [touched, setTouched] = useState<Partial<Record<DraftField, boolean>>>({});
+  const titleRef = useRef<HTMLInputElement>(null);
+  const [draft, setDraft] = useState<ComposerDraft>({
+    ...INITIAL_DRAFT,
+    lane,
+    priority,
+  });
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [clarification, setClarification] = useState<TaskClarification | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [stepIndex, setStepIndex] = useState(0);
-  const deferredRawInput = useDeferredValue(draft.rawInput);
-  const touchedRef = useRef<Partial<Record<DraftField, boolean>>>({});
+  const deferredTitle = useDeferredValue(draft.title);
 
   useEffect(() => {
     if (autoFocus) {
-      rawInputRef.current?.focus();
+      titleRef.current?.focus();
     }
   }, [autoFocus]);
 
   useEffect(() => {
-    touchedRef.current = touched;
-  }, [touched]);
+    if (!draft.estimateAuto && draft.estimatedMinutes !== INITIAL_DRAFT.estimatedMinutes) {
+      return;
+    }
+
+    const detected = detectEstimate(deferredTitle);
+    if (detected !== null) {
+      setDraft((current) =>
+        current.estimatedMinutes === detected
+          ? current
+          : { ...current, estimatedMinutes: detected, estimateAuto: true },
+      );
+    }
+  }, [deferredTitle, draft.estimateAuto, draft.estimatedMinutes]);
 
   useEffect(() => {
-    const trimmedRawInput = deferredRawInput.trim();
-
-    if (trimmedRawInput.length < 4) {
+    const trimmed = deferredTitle.trim();
+    if (trimmed.length < 6) {
       setClarification(null);
       setIsThinking(false);
       return;
@@ -239,284 +200,345 @@ export function TaskCreationComposer({
 
     let cancelled = false;
     const timeout = window.setTimeout(() => {
-      startTransition(() => {
-        setIsThinking(true);
-      });
-
+      startTransition(() => setIsThinking(true));
       void getTaskAiAssistant()
-        .clarifyTask(trimmedRawInput)
-        .then((nextClarification) => {
-          if (cancelled) {
-            return;
-          }
-
-          setClarification(nextClarification);
-          setDraft((current) => {
-            const merged = mergeClarification(nextClarification, current, touchedRef.current);
-            return draftsMatch(current, merged) ? current : merged;
-          });
+        .clarifyTask(trimmed)
+        .then((next) => {
+          if (cancelled) return;
+          setClarification(next);
           setIsThinking(false);
         })
         .catch(() => {
-          if (!cancelled) {
-            setIsThinking(false);
-          }
+          if (!cancelled) setIsThinking(false);
         });
-    }, 180);
+    }, 240);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [deferredRawInput]);
+  }, [deferredTitle]);
 
-  const currentStep = INTERACTION_STEPS[stepIndex];
-  const canSave = Boolean(draft.rawInput.trim() || draft.title.trim());
+  const canSave = draft.title.trim().length > 0;
+  const doneIsVague = draft.doneLooksLike.length > 0 && isVague(draft.doneLooksLike);
 
-  function updateField(field: keyof ComposerDraft, value: string | number) {
-    setDraft((current) => ({
-      ...current,
-      [field]: value,
-    }));
-
-    if (field !== 'rawInput') {
-      setTouched((current) => ({
-        ...current,
-        [field]: true,
-      }));
-    }
+  function update<K extends keyof ComposerDraft>(field: K, value: ComposerDraft[K]) {
+    setDraft((current) => ({ ...current, [field]: value }));
   }
 
-  function resetComposer() {
-    setDraft(INITIAL_DRAFT);
-    setTouched({});
+  function applyClarification() {
+    if (!clarification) return;
+    setDraft((current) => ({
+      ...current,
+      doneLooksLike:
+        current.doneLooksLike ||
+        clarification.definitionOfDone ||
+        clarification.goal ||
+        '',
+      firstStep: current.firstStep || clarification.nextAction || '',
+      notes: current.notes || clarification.description || '',
+    }));
+    setDetailsOpen(true);
+  }
+
+  function reset() {
+    setDraft({ ...INITIAL_DRAFT, lane, priority });
     setClarification(null);
-    setStepIndex(0);
-    setMode(initialMode);
+    setDetailsOpen(false);
   }
 
   async function handleSubmit() {
-    if (!canSave) {
-      return;
-    }
-
+    if (!canSave || isSaving) return;
     setIsSaving(true);
-
     try {
-      const task = await createTask(
-        normalizeTaskDraft(draft, clarification, {
-          lane,
-          priority,
-          status,
-        }),
-        source,
-      );
+      const task = await createTask(normalizeTaskDraft(draft, clarification, { status }), source);
       await onCreated?.(task);
-      resetComposer();
+      reset();
       await onSubmitted?.();
     } finally {
       setIsSaving(false);
     }
   }
 
-  function handleEditorKeyDown(event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void handleSubmit();
+    }
+  }
+
+  function handleTextareaKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault();
       void handleSubmit();
     }
   }
 
+  function handleEscape(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === 'Escape' && onCancel) {
+      event.preventDefault();
+      onCancel();
+    }
+  }
+
+  const previewTitle = useMemo(
+    () => draft.title.trim() || clarification?.suggestedTitle || 'New task',
+    [draft.title, clarification],
+  );
+
+  const showClarificationCta = Boolean(
+    clarification &&
+      (clarification.definitionOfDone || clarification.nextAction || clarification.description) &&
+      !draft.doneLooksLike &&
+      !draft.firstStep &&
+      !draft.notes,
+  );
+
   return (
-    <div className={cn(fillHeight ? 'flex h-full min-h-0 flex-col' : 'space-y-4')}>
+    <div className={cn(fillHeight ? 'flex h-full min-h-0 flex-col' : '')} onKeyDown={handleEscape}>
       <div
         className={cn(
           fillHeight ? 'min-h-0 flex-1 overflow-y-auto pr-1' : '',
-          compact ? 'space-y-3' : 'space-y-4',
+          compact ? 'space-y-4' : 'space-y-5',
         )}
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex gap-2">
-            {(['interaction', 'one-shot'] as ComposerMode[]).map((option) => (
-              <button
-                className={
-                  option === mode
-                    ? 'rounded-full border border-accent/30 bg-accent/12 px-4 py-2 text-xs font-medium text-accent'
-                    : 'rounded-full border border-borderSoft/35 bg-panel/36 px-4 py-2 text-xs font-medium text-text-secondary'
-                }
-                key={option}
-                onClick={() => setMode(option)}
-                type="button"
-              >
-                {option === 'interaction' ? 'Interaction' : 'One shot'}
-              </button>
-            ))}
-          </div>
-
-          <Badge tone="neutral">{isThinking ? 'Thinking' : 'Ready'}</Badge>
+        {/* Title — the only required field */}
+        <div className="space-y-2">
+          <label className="block text-[11px] uppercase tracking-[0.28em] text-text-muted">
+            What are you working on?
+          </label>
+          <Input
+            ref={titleRef}
+            value={draft.title}
+            onChange={(event) => update('title', event.target.value)}
+            onKeyDown={handleTitleKeyDown}
+            placeholder='e.g. "Fix kanban drag handle on touch devices"'
+            className="h-14 text-base"
+          />
+          {isThinking ? (
+            <p className="text-xs text-text-muted">Thinking…</p>
+          ) : showClarificationCta ? (
+            <button
+              type="button"
+              onClick={applyClarification}
+              className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/8 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/15"
+            >
+              ✨ Use AI suggestions
+            </button>
+          ) : null}
         </div>
 
-        <Textarea
-          ref={rawInputRef}
-          className={cn('resize-none', compact ? 'min-h-[84px]' : 'min-h-[110px]')}
-          onChange={(event) => updateField('rawInput', event.target.value)}
-          onKeyDown={handleEditorKeyDown}
-          placeholder="Messy input"
-          rows={compact ? 3 : 4}
-          value={draft.rawInput}
-        />
+        {/* Inline metadata chips */}
+        <div className="space-y-3">
+          <ChipRow label="Lane">
+            {LANE_OPTIONS.map((option) => (
+              <Chip
+                key={option.id}
+                active={draft.lane === option.id}
+                onClick={() => update('lane', option.id)}
+              >
+                {option.label}
+              </Chip>
+            ))}
+          </ChipRow>
 
-        {mode === 'one-shot' ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <Input
-                onChange={(event) => updateField('title', event.target.value)}
-                onKeyDown={handleEditorKeyDown}
-                placeholder="Title"
-                value={draft.title}
-              />
-            </div>
-            <Textarea
-              className={cn('resize-none', compact ? 'min-h-[74px]' : 'min-h-[92px]')}
-              onChange={(event) => updateField('goal', event.target.value)}
-              onKeyDown={handleEditorKeyDown}
-              placeholder="Outcome"
-              rows={compact ? 2 : 3}
-              value={draft.goal}
-            />
-            <Textarea
-              className={cn('resize-none', compact ? 'min-h-[74px]' : 'min-h-[92px]')}
-              onChange={(event) => updateField('nextAction', event.target.value)}
-              onKeyDown={handleEditorKeyDown}
-              placeholder="Next action"
-              rows={compact ? 2 : 3}
-              value={draft.nextAction}
-            />
-            <Textarea
-              className={cn('resize-none', compact ? 'min-h-[74px]' : 'min-h-[92px]')}
-              onChange={(event) => updateField('definitionOfDone', event.target.value)}
-              onKeyDown={handleEditorKeyDown}
-              placeholder="Done means"
-              rows={compact ? 2 : 3}
-              value={draft.definitionOfDone}
-            />
-            <Textarea
-              className={cn('resize-none', compact ? 'min-h-[74px]' : 'min-h-[92px]')}
-              onChange={(event) => updateField('whyItMatters', event.target.value)}
-              onKeyDown={handleEditorKeyDown}
-              placeholder="Why"
-              rows={compact ? 2 : 3}
-              value={draft.whyItMatters}
-            />
-            <div className="md:col-span-2">
-              <Textarea
-                className={cn('resize-none', compact ? 'min-h-[74px]' : 'min-h-[92px]')}
-                onChange={(event) => updateField('description', event.target.value)}
-                onKeyDown={handleEditorKeyDown}
-                placeholder="Context"
-                rows={compact ? 2 : 3}
-                value={draft.description}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className={cn('surface-muted rounded-[26px]', compact ? 'p-3' : 'p-4')} key={currentStep.id}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Badge tone="accent">{currentStep.label}</Badge>
-                <span className="text-xs text-text-muted">
-                  {stepIndex + 1}/{INTERACTION_STEPS.length}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  disabled={stepIndex === 0}
-                  onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() =>
-                    setStepIndex((current) => Math.min(INTERACTION_STEPS.length - 1, current + 1))
-                  }
-                  size="sm"
-                  type="button"
-                  variant="secondary"
-                >
-                  {stepIndex === INTERACTION_STEPS.length - 1 ? 'Done' : 'Next'}
-                </Button>
-              </div>
-            </div>
-
-            <p className={cn(compact ? 'mt-3' : 'mt-4', 'text-sm font-medium text-text-primary')}>
-              {currentStep.question}
-            </p>
-
-            {currentStep.multiline ? (
-              <Textarea
-                className={cn('mt-3 resize-none', compact ? 'min-h-[88px]' : 'min-h-[110px]')}
-                onChange={(event) => updateField(currentStep.field, event.target.value)}
-                onKeyDown={handleEditorKeyDown}
-                placeholder={currentStep.placeholder}
-                rows={compact ? 3 : 4}
-                value={draft[currentStep.field]}
-              />
-            ) : (
-              <Input
-                className="mt-3"
-                onChange={(event) => updateField(currentStep.field, event.target.value)}
-                onKeyDown={handleEditorKeyDown}
-                placeholder={currentStep.placeholder}
-                value={draft[currentStep.field]}
-              />
-            )}
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-text-muted">Estimate</p>
-            <p className="text-sm text-text-primary">{draft.estimatedMinutes}m</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {MINUTE_OPTIONS.map((minutes) => (
-              <button
-                className={
-                  draft.estimatedMinutes === minutes
-                    ? 'rounded-full border border-accent/30 bg-accent/12 px-3 py-2 text-xs font-medium text-accent'
-                    : 'rounded-full border border-borderSoft/35 bg-panel/36 px-3 py-2 text-xs font-medium text-text-secondary'
-                }
+          <ChipRow
+            label="Estimate"
+            trailing={
+              draft.estimateAuto ? (
+                <Badge tone="accent" className="text-[10px]">
+                  auto
+                </Badge>
+              ) : null
+            }
+          >
+            {ESTIMATE_OPTIONS.map((minutes) => (
+              <Chip
                 key={minutes}
-                onClick={() => updateField('estimatedMinutes', minutes)}
-                type="button"
+                active={draft.estimatedMinutes === minutes}
+                onClick={() => setDraft((c) => ({ ...c, estimatedMinutes: minutes, estimateAuto: false }))}
               >
                 {minutes}m
-              </button>
+              </Chip>
             ))}
-          </div>
+          </ChipRow>
+
+          <ChipRow label="Priority">
+            {PRIORITY_OPTIONS.map((option) => (
+              <Chip
+                key={option.id}
+                active={draft.priority === option.id}
+                tone={option.id === 'critical' ? 'warning' : option.id === 'high' ? 'attention' : 'default'}
+                onClick={() => update('priority', option.id)}
+              >
+                {option.label}
+              </Chip>
+            ))}
+          </ChipRow>
+        </div>
+
+        {/* Add details — collapsible */}
+        <div className="rounded-[24px] border border-borderSoft/30 bg-panel/24">
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((open) => !open)}
+            className="flex w-full items-center justify-between gap-3 rounded-[24px] px-4 py-3 text-left transition-colors hover:bg-panel/36"
+          >
+            <span className="text-sm font-medium text-text-primary">
+              {detailsOpen ? '▾ Details' : '▸ Add details (optional)'}
+            </span>
+            <span className="text-xs text-text-muted">
+              {[draft.doneLooksLike, draft.firstStep, draft.notes].filter((s) => s.trim().length > 0).length} filled
+            </span>
+          </button>
+
+          {detailsOpen ? (
+            <div className="space-y-4 border-t border-borderSoft/24 px-4 py-4">
+              <div className="space-y-2">
+                <label className="block text-[11px] uppercase tracking-[0.28em] text-text-muted">
+                  Done looks like
+                </label>
+                <Textarea
+                  value={draft.doneLooksLike}
+                  onChange={(event) => update('doneLooksLike', event.target.value)}
+                  onKeyDown={handleTextareaKeyDown}
+                  placeholder="A concrete signal you can point to. Not just 'done'."
+                  rows={2}
+                  className="resize-none"
+                />
+                {doneIsVague ? (
+                  <p className="text-xs text-warning">
+                    Try something more concrete — what would prove it&rsquo;s actually done?
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[11px] uppercase tracking-[0.28em] text-text-muted">
+                  First step
+                </label>
+                <Input
+                  value={draft.firstStep}
+                  onChange={(event) => update('firstStep', event.target.value)}
+                  onKeyDown={(event) => {
+                    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleSubmit();
+                    }
+                  }}
+                  placeholder="The smallest action that breaks inertia."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[11px] uppercase tracking-[0.28em] text-text-muted">
+                  Notes
+                </label>
+                <Textarea
+                  value={draft.notes}
+                  onChange={(event) => update('notes', event.target.value)}
+                  onKeyDown={handleTextareaKeyDown}
+                  placeholder="Links, context, anything else."
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      <div className={cn('flex items-center justify-between gap-3 border-t border-borderSoft/24', fillHeight ? 'mt-3 pt-3' : 'pt-4')}>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-text-primary">
-            {draft.title.trim() || clarification?.suggestedTitle || 'New task'}
-          </p>
+      {/* Footer — Save sits LEFT to eliminate cursor travel */}
+      <div
+        className={cn(
+          'flex items-center justify-between gap-3 border-t border-borderSoft/24',
+          fillHeight ? 'mt-4 pt-4' : 'mt-5 pt-4',
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <Button disabled={!canSave || isSaving} onClick={() => void handleSubmit()} size="md">
+            {isSaving ? 'Saving…' : submitLabel}
+          </Button>
+          <span className="hidden text-[11px] text-text-muted sm:inline">
+            <kbd className="rounded border border-borderSoft/40 bg-panel/50 px-1.5 py-0.5 font-mono text-[10px]">
+              ↵
+            </kbd>{' '}
+            to save
+          </span>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <p className="hidden max-w-[240px] truncate text-xs text-text-muted sm:block">{previewTitle}</p>
           {onCancel ? (
-            <Button onClick={onCancel} size="sm" type="button" variant="ghost">
+            <Button onClick={onCancel} size="md" type="button" variant="ghost">
               Cancel
             </Button>
           ) : null}
-          <Button disabled={!canSave || isSaving} onClick={() => void handleSubmit()} size="sm" type="button">
-            {isSaving ? 'Saving' : submitLabel}
-          </Button>
         </div>
       </div>
     </div>
+  );
+}
+
+// ──────────────────────────────────────────
+// Internal UI helpers
+// ──────────────────────────────────────────
+
+function ChipRow({
+  label,
+  children,
+  trailing,
+}: {
+  label: string;
+  children: React.ReactNode;
+  trailing?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="w-[68px] shrink-0 text-[10px] uppercase tracking-[0.28em] text-text-muted">
+        {label}
+      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        {children}
+        {trailing}
+      </div>
+    </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+  tone = 'default',
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  tone?: 'default' | 'attention' | 'warning';
+}) {
+  const inactiveTone =
+    tone === 'warning'
+      ? 'border-warning/30 text-warning hover:border-warning/50'
+      : tone === 'attention'
+        ? 'border-borderSoft/40 text-text-secondary hover:border-accent/35 hover:text-text-primary'
+        : 'border-borderSoft/40 text-text-secondary hover:border-borderStrong/40 hover:text-text-primary';
+
+  const activeTone =
+    tone === 'warning'
+      ? 'border-warning/40 bg-warning/12 text-warning'
+      : 'border-accent/35 bg-accent/12 text-accent';
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-8 items-center rounded-full border bg-panel/40 px-3 text-xs font-medium transition-colors',
+        active ? activeTone : inactiveTone,
+      )}
+    >
+      {children}
+    </button>
   );
 }
