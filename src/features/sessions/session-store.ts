@@ -11,6 +11,7 @@ import {
 import type { SessionCaptureKind, SessionRecoveryState, SessionSegmentType, WorkSession } from './session-types';
 
 const STORAGE_KEY = 'missioncontrol-smart-sessions-v1';
+const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
 
 interface SessionStoreSnapshot {
   sessions: WorkSession[];
@@ -74,6 +75,17 @@ function parseSnapshot() {
 
 function persistSnapshot(snapshot: SessionStoreSnapshot) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+
+  if (SUPABASE_CONFIGURED) {
+    // Persist any new/changed sessions to Supabase in the background
+    void import('../../lib/supabase').then(({ upsertWorkSession }) => {
+      for (const session of snapshot.sessions) {
+        void upsertWorkSession(session).catch((err) =>
+          console.warn('Failed to sync session to Supabase:', err),
+        );
+      }
+    });
+  }
 }
 
 function replaceSession(sessions: WorkSession[], nextSession: WorkSession) {
@@ -99,6 +111,19 @@ export const useSessionStore = create<SessionStore>((set, get) => {
     hydrate: async () => {
       if (get().hydrated) {
         return;
+      }
+
+      if (SUPABASE_CONFIGURED) {
+        try {
+          const { selectWorkSessions } = await import('../../lib/supabase');
+          const sessions = await selectWorkSessions();
+          const activeSessionId =
+            sessions.find((s) => s.status === 'running' || s.status === 'paused')?.id ?? null;
+          set({ sessions, activeSessionId, hydrated: true });
+          return;
+        } catch (err) {
+          console.warn('Failed to load sessions from Supabase, falling back to localStorage:', err);
+        }
       }
 
       set({

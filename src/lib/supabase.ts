@@ -2,6 +2,7 @@ import { getSupabaseClient } from './auth';
 import type { Task } from '../features/tasks/task-types';
 import type { FocusSyncState } from '../features/focus/focus-store';
 import type { ActivityLogEntry } from '../features/activity/activity-repository';
+import type { WorkSession } from '../features/sessions/session-types';
 
 export async function getSupabaseUser() {
   const client = getSupabaseClient();
@@ -229,5 +230,58 @@ export async function selectRecentActivity(limit: number = 50): Promise<Activity
     task_id: row.task_id,
     details: row.details ?? {},
     created_at: row.created_at,
+  }));
+}
+
+// Work session queries
+export async function upsertWorkSession(session: WorkSession): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('work_sessions').upsert(
+    {
+      id: session.id,
+      user_id: userId,
+      task_id: session.task_id,
+      task_title: session.task_title,
+      preset_id: session.preset_id,
+      planned_minutes: session.planned_minutes,
+      status: session.status,
+      segments: session.segments,
+      captures: session.captures,
+      started_at: session.started_at,
+      ended_at: session.ended_at,
+      updated_at: session.updated_at,
+    },
+    { onConflict: 'id' },
+  ) as any);
+
+  if (error) throw error;
+}
+
+export async function selectWorkSessions(): Promise<WorkSession[]> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { data, error } = await (client
+    .from('work_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('started_at', { ascending: false }) as any);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    task_id: row.task_id,
+    task_title: row.task_title,
+    preset_id: row.preset_id,
+    planned_minutes: row.planned_minutes,
+    status: row.status,
+    segments: row.segments ?? [],
+    captures: row.captures ?? [],
+    started_at: row.started_at,
+    ended_at: row.ended_at,
+    updated_at: row.updated_at,
   }));
 }
