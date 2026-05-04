@@ -250,9 +250,40 @@ class SqlTaskRepository implements TaskRepository {
   }
 }
 
+class SupabaseTaskRepository implements TaskRepository {
+  async initialize() {
+    // Supabase handles seed data through migrations
+  }
+
+  async listTasks() {
+    const { selectTasksByUser } = await import('../../lib/supabase');
+    return await selectTasksByUser();
+  }
+
+  async createTask(draft: TaskDraft) {
+    const { insertTask } = await import('../../lib/supabase');
+    const task = normalizeTaskDraft(draft);
+    await insertTask(task);
+    return task;
+  }
+
+  async updateTask(task: Task) {
+    const { updateTask } = await import('../../lib/supabase');
+    await updateTask(task);
+  }
+}
+
 let repositoryPromise: Promise<TaskRepository> | null = null;
 
+const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
+
 export function getTaskRepository() {
-  repositoryPromise ??= Promise.resolve(isTauriApp() ? new SqlTaskRepository() : new BrowserTaskRepository());
+  repositoryPromise ??= Promise.resolve(
+    SUPABASE_CONFIGURED
+      ? new SupabaseTaskRepository()
+      : isTauriApp()
+        ? new SqlTaskRepository()
+        : new BrowserTaskRepository(),
+  );
   return repositoryPromise;
 }

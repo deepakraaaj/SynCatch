@@ -124,12 +124,44 @@ class SqlPreferencesRepository implements PreferencesRepository {
   }
 }
 
+class SupabasePreferencesRepository implements PreferencesRepository {
+  async loadTheme(): Promise<ThemeSnapshot | null> {
+    const { selectPreference } = await import('../../lib/supabase');
+    const value = await selectPreference('theme');
+    if (!value) return null;
+    return JSON.parse(value) as ThemeSnapshot;
+  }
+
+  async saveTheme(snapshot: ThemeSnapshot) {
+    const { upsertPreference } = await import('../../lib/supabase');
+    await upsertPreference('theme', snapshot);
+  }
+
+  async loadSettings(): Promise<SettingsSnapshot> {
+    const { selectPreference } = await import('../../lib/supabase');
+    const value = await selectPreference('settings');
+    if (!value) return DEFAULT_SETTINGS_SNAPSHOT;
+    return JSON.parse(value) as SettingsSnapshot;
+  }
+
+  async saveSettings(snapshot: SettingsSnapshot) {
+    const { upsertPreference } = await import('../../lib/supabase');
+    await upsertPreference('settings', snapshot);
+  }
+}
+
 let repositoryPromise: Promise<PreferencesRepository> | undefined;
+
+const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
 
 export function getPreferencesRepository(): Promise<PreferencesRepository> {
   if (!repositoryPromise) {
     repositoryPromise = Promise.resolve(
-      isTauriApp() ? new SqlPreferencesRepository() : new BrowserPreferencesRepository(),
+      SUPABASE_CONFIGURED
+        ? new SupabasePreferencesRepository()
+        : isTauriApp()
+          ? new SqlPreferencesRepository()
+          : new BrowserPreferencesRepository(),
     );
   }
 

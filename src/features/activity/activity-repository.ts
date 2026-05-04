@@ -154,11 +154,36 @@ class SqlActivityRepository implements ActivityRepository {
   }
 }
 
+class SupabaseActivityRepository implements ActivityRepository {
+  async logActivity(draft: ActivityLogDraft) {
+    const { insertActivity } = await import('../../lib/supabase');
+    const entry: Omit<ActivityLogEntry, 'created_at'> = {
+      id: `activity-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      action: draft.action,
+      source: draft.source ?? 'system',
+      task_id: draft.taskId ?? null,
+      details: draft.details ?? {},
+    };
+    await insertActivity(entry);
+  }
+
+  async listRecentActivity(limit = 50) {
+    const { selectRecentActivity } = await import('../../lib/supabase');
+    return await selectRecentActivity(limit);
+  }
+}
+
 let repositoryPromise: Promise<ActivityRepository> | null = null;
+
+const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
 
 export function getActivityRepository() {
   repositoryPromise ??= Promise.resolve(
-    isTauriApp() ? new SqlActivityRepository() : new BrowserActivityRepository(),
+    SUPABASE_CONFIGURED
+      ? new SupabaseActivityRepository()
+      : isTauriApp()
+        ? new SqlActivityRepository()
+        : new BrowserActivityRepository(),
   );
   return repositoryPromise;
 }

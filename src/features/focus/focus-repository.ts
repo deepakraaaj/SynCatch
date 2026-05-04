@@ -171,12 +171,31 @@ class SqlFocusRepository implements FocusRepository {
   }
 }
 
+class SupabaseFocusRepository implements FocusRepository {
+  async loadState() {
+    const { selectFocusState } = await import('../../lib/supabase');
+    const state = await selectFocusState();
+    return state || DEFAULT_FOCUS_STATE;
+  }
+
+  async saveState(state: FocusSyncState) {
+    const { upsertFocusState } = await import('../../lib/supabase');
+    await upsertFocusState(state);
+  }
+}
+
 let repositoryPromise: Promise<FocusRepository> | undefined;
+
+const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
 
 export function getFocusRepository(): Promise<FocusRepository> {
   if (!repositoryPromise) {
     repositoryPromise = Promise.resolve(
-      isTauriApp() ? new SqlFocusRepository() : new BrowserFocusRepository(),
+      SUPABASE_CONFIGURED
+        ? new SupabaseFocusRepository()
+        : isTauriApp()
+          ? new SqlFocusRepository()
+          : new BrowserFocusRepository(),
     );
   }
 

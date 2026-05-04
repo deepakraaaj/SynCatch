@@ -4,3 +4,5 @@ src-tauri/target
 .cargo
 .rustup
 *.log
+.env.local
+.env.*.local

@@ -11,6 +11,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input, Textarea } from '../../components/ui/input';
+import { useAuthStore } from '../../features/auth/auth-store';
 import { useFocusStore } from '../../features/focus/focus-store';
 import {
   buildDailySeries,
@@ -2022,6 +2023,25 @@ export function MainApp() {
                 <span>Average session</span>
                 <span className="font-medium text-text-primary">{formatDurationFromSeconds(averageSessionSeconds)}</span>
               </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="warning">Account</Badge>} title="Account" />
+
+            <div className="space-y-4">
+              <Button
+                onClick={() => void (async () => {
+                  await useAuthStore.getState().signOut();
+                })()}
+                size="sm"
+                type="button"
+                variant="secondary"
+                className="w-full"
+              >
+                Sign Out
+              </Button>
+              <p className="text-xs text-text-secondary">Sign out from your account to access it from another device or browser.</p>
             </div>
           </Card>
         </div>
