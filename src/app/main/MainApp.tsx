@@ -1706,7 +1706,7 @@ export function MainApp() {
           </Card>
         ) : null}
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.95fr)]">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.95fr)]">
           <TodayFocusCard
             activeSession={activeSession}
             currentTask={currentTask}
@@ -1721,8 +1721,8 @@ export function MainApp() {
             presetId={presetId}
           />
 
-          <div className="space-y-6">
-            <Card className="rounded-[34px] p-6">
+          <div className="space-y-3 sm:space-y-6">
+            <Card className="rounded-[34px] p-4 sm:p-6">
               <SectionHeading action={<Badge tone="accent">Live</Badge>} title="Capture" />
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1758,7 +1758,7 @@ export function MainApp() {
               ) : null}
             </Card>
 
-            <Card className="rounded-[34px] p-6">
+            <Card className="rounded-[34px] p-4 sm:p-6">
               <SectionHeading action={<Badge tone="neutral">{todaySessions.length}</Badge>} title="Tracked" />
 
               <div className="space-y-3 text-sm text-text-secondary">
@@ -1787,15 +1787,15 @@ export function MainApp() {
           </div>
         </div>
 
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 lg:gap-4">
           <MetricCard label="Focus" value={formatDurationFromSeconds(todayFocusSeconds)} />
           <MetricCard label="Sessions" tone="neutral" value={String(todaySessions.length).padStart(2, '0')} />
           <MetricCard label="Distraction" tone="warning" value={formatDurationFromSeconds(todayDistractionSeconds)} />
           <MetricCard label="Switches" tone="success" value={String(todaySwitchCount).padStart(2, '0')} />
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-          <Card className="rounded-[34px] p-6">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <Card className="rounded-[34px] p-4 sm:p-6">
             <SectionHeading action={<Badge tone="neutral">Today</Badge>} title="Sessions" />
 
             <div className="space-y-3">
@@ -1826,8 +1826,8 @@ export function MainApp() {
             </div>
           </Card>
 
-          <div className="space-y-6">
-            <Card className="rounded-[34px] p-6">
+          <div className="space-y-3 sm:space-y-6">
+            <Card className="rounded-[34px] p-4 sm:p-6">
               <SectionHeading action={suggestedTask ? <Badge tone="accent">Next</Badge> : null} title="Suggested" />
 
               {suggestedTask ? (
@@ -1860,7 +1860,7 @@ export function MainApp() {
               )}
             </Card>
 
-            <Card className="rounded-[34px] p-6">
+            <Card className="rounded-[34px] p-4 sm:p-6">
               <SectionHeading action={<Badge tone="warning">{blockedTasks.length}</Badge>} title="Blocked" />
 
               <div className="space-y-3">
@@ -3081,13 +3081,7 @@ export function MainApp() {
                 'mobile-bottom-nav-item',
                 isActive ? 'mobile-bottom-nav-item--active' : null,
               )}
-              onClick={() => {
-                if (isMore) {
-                  setMobileNavOpen(true);
-                } else {
-                  setActiveView(tab.id);
-                }
-              }}
+              onClick={() => setActiveView(tab.id)}
             >
               <tab.Icon size={20} strokeWidth={1.5} />
               <span>{tab.label}</span>
