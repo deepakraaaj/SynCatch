@@ -19,45 +19,58 @@
 <body style="background: linear-gradient(180deg, rgb(6, 10, 12) 0%, rgb(11, 16, 19) 100%); margin: 0; overflow: hidden;">
   <div id="root">
     <!-- Initial Loading Animation -->
-    <div id="initial-loading" style="position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: linear-gradient(180deg, rgb(6, 10, 12) 0%, rgb(11, 16, 19) 100%);">
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 24px;">
-        <!-- Logo -->
-        <div style="position: relative; width: 96px; height: 96px;">
-          <div id="logo-ring" style="position: absolute; inset: 0; border-radius: 9999px; border: 8px solid transparent; border-top-color: rgb(130, 231, 220); border-right-color: rgba(130, 231, 220, 0.5); animation: spin 2s linear infinite;"></div>
-          <div style="position: absolute; inset: 8px; border-radius: 9999px; border: 4px solid rgba(130, 231, 220, 0.3); animation: pulse 2s ease-in-out infinite;"></div>
-          <div style="position: absolute; inset: 24px; border-radius: 9999px; background: linear-gradient(to bottom right, rgba(130, 231, 220, 0.4), rgba(130, 231, 220, 0.2)); display: flex; align-items: center; justify-content: center;">
-            <div style="width: 12px; height: 12px; border-radius: 9999px; background: rgb(130, 231, 220); animation: pulse 1.5s ease-in-out infinite;"></div>
+    <div id="initial-loading" style="position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(180deg, rgb(6, 10, 12) 0%, rgb(11, 16, 19) 100%); gap: 32px;">
+      <!-- Main Content -->
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; z-index: 10;">
+        <!-- DeepZ Title - Large & Prominent -->
+        <div style="text-align: center;">
+          <h1 style="margin: 0; padding: 0; font-size: 64px; font-weight: 900; background: linear-gradient(135deg, rgb(130, 231, 220), rgb(130, 231, 220)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -2px; animation: fadeInDown 0.8s ease-out forwards; opacity: 0;">
+            DeepZ
+          </h1>
+          <!-- Tagline -->
+          <p style="margin: 12px 0 0 0; padding: 0; font-size: 16px; font-weight: 500; color: rgba(130, 231, 220, 0.8); letter-spacing: 0.05em; animation: fadeInUp 0.8s ease-out 0.2s forwards; opacity: 0;">
+            Deep Focus, Zero Distractions
+          </p>
+        </div>
+
+        <!-- Animated Logo/Ring -->
+        <div style="position: relative; width: 80px; height: 80px; animation: fadeInUp 0.8s ease-out 0.4s forwards; opacity: 0;">
+          <div style="position: absolute; inset: 0; border-radius: 9999px; border: 6px solid transparent; border-top-color: rgb(130, 231, 220); border-right-color: rgba(130, 231, 220, 0.4); animation: spin 2.5s linear infinite;"></div>
+          <div style="position: absolute; inset: 6px; border-radius: 9999px; border: 3px solid rgba(130, 231, 220, 0.25); animation: pulse 2s ease-in-out infinite;"></div>
+          <div style="position: absolute; inset: 20px; border-radius: 9999px; background: radial-gradient(circle, rgba(130, 231, 220, 0.3), rgba(130, 231, 220, 0.1)); display: flex; align-items: center; justify-content: center;">
+            <div style="width: 10px; height: 10px; border-radius: 9999px; background: rgb(130, 231, 220); animation: pulse 1.5s ease-in-out infinite;"></div>
           </div>
         </div>
-        <!-- Text -->
-        <div style="text-align: center;">
-          <div style="display: flex; gap: 4px; justify-content: center; margin-bottom: 8px;">
-            <span style="font-size: 30px; font-weight: 700; color: rgb(130, 231, 220); animation: fadeInUp 0.6s ease-out forwards; opacity: 0; animation-delay: 0s;">D</span>
-            <span style="font-size: 30px; font-weight: 700; color: rgb(130, 231, 220); animation: fadeInUp 0.6s ease-out forwards; opacity: 0; animation-delay: 0.1s;">e</span>
-            <span style="font-size: 30px; font-weight: 700; color: rgb(130, 231, 220); animation: fadeInUp 0.6s ease-out forwards; opacity: 0; animation-delay: 0.2s;">e</span>
-            <span style="font-size: 30px; font-weight: 700; color: rgb(130, 231, 220); animation: fadeInUp 0.6s ease-out forwards; opacity: 0; animation-delay: 0.3s;">p</span>
-            <span style="font-size: 30px; font-weight: 700; color: rgb(130, 231, 220); animation: fadeInUp 0.6s ease-out forwards; opacity: 0; animation-delay: 0.4s;">Z</span>
-          </div>
-          <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(111, 127, 132, 0.6); animation: fadeIn 1s ease-out 0.6s forwards; opacity: 0; margin: 0;">Loading your workspace</p>
-          <div style="display: flex; gap: 4px; justify-content: center; margin-top: 12px; animation: fadeIn 1s ease-out 0.8s forwards; opacity: 0;">
-            <div style="width: 6px; height: 6px; border-radius: 9999px; background: rgba(130, 231, 220, 0.6); animation: bounce 1.4s ease-in-out infinite; animation-delay: 0s;"></div>
-            <div style="width: 6px; height: 6px; border-radius: 9999px; background: rgba(130, 231, 220, 0.6); animation: bounce 1.4s ease-in-out infinite; animation-delay: 0.2s;"></div>
-            <div style="width: 6px; height: 6px; border-radius: 9999px; background: rgba(130, 231, 220, 0.6); animation: bounce 1.4s ease-in-out infinite; animation-delay: 0.4s;"></div>
-          </div>
+
+        <!-- Loading Indicator -->
+        <div style="display: flex; gap: 6px; animation: fadeIn 1s ease-out 0.6s forwards; opacity: 0;">
+          <div style="width: 5px; height: 5px; border-radius: 9999px; background: rgba(130, 231, 220, 0.7); animation: bounce 1.4s ease-in-out infinite; animation-delay: 0s;"></div>
+          <div style="width: 5px; height: 5px; border-radius: 9999px; background: rgba(130, 231, 220, 0.7); animation: bounce 1.4s ease-in-out infinite; animation-delay: 0.2s;"></div>
+          <div style="width: 5px; height: 5px; border-radius: 9999px; background: rgba(130, 231, 220, 0.7); animation: bounce 1.4s ease-in-out infinite; animation-delay: 0.4s;"></div>
         </div>
       </div>
+
+      <!-- Bottom Status Text -->
+      <div style="position: absolute; bottom: 40px; text-align: center; z-index: 10;">
+        <p style="margin: 0; font-size: 13px; color: rgba(111, 127, 132, 0.7); letter-spacing: 0.08em; text-transform: uppercase; animation: fadeIn 1s ease-out 0.8s forwards; opacity: 0;">
+          Preparing your workspace
+        </p>
+      </div>
+
       <!-- Floating background elements -->
       <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none;">
-        <div style="position: absolute; width: 384px; height: 384px; background: rgba(130, 231, 220, 0.05); border-radius: 9999px; filter: blur(96px); bottom: -100px; right: -100px; animation: float 6s ease-in-out infinite;"></div>
-        <div style="position: absolute; width: 384px; height: 384px; background: rgba(130, 231, 220, 0.03); border-radius: 9999px; filter: blur(96px); top: -100px; left: -100px; animation: float 8s ease-in-out infinite; animation-delay: -2s;"></div>
+        <div style="position: absolute; width: 500px; height: 500px; background: radial-gradient(circle, rgba(130, 231, 220, 0.08), transparent); border-radius: 9999px; filter: blur(120px); bottom: -200px; right: -200px; animation: float 8s ease-in-out infinite;"></div>
+        <div style="position: absolute; width: 500px; height: 500px; background: radial-gradient(circle, rgba(130, 231, 220, 0.05), transparent); border-radius: 9999px; filter: blur(120px); top: -200px; left: -200px; animation: float 10s ease-in-out infinite; animation-delay: -3s;"></div>
       </div>
+
       <style>
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.15); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes bounce { 0%, 100% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(-8px); opacity: 0.6; } }
-        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(20px); } }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(30px); } }
       </style>
     </div>
   </div>
