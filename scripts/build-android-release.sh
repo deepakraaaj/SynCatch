@@ -23,5 +23,23 @@ export ANDROID_HOME="${ANDROID_HOME:-${HOME}/Android/Sdk}"
 export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
 export NDK_HOME="${NDK_HOME:-${ANDROID_HOME}/ndk/26.1.10909125}"
 
+RUN_EMULATOR_TEST="false"
+TAURI_ARGS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --test-emulator)
+      RUN_EMULATOR_TEST="true"
+      ;;
+    *)
+      TAURI_ARGS+=("$arg")
+      ;;
+  esac
+done
+
 cd "${REPO_ROOT}"
-exec npm exec tauri android build -- --apk --aab --ci "$@"
+npm exec tauri android build -- --apk --aab --ci "${TAURI_ARGS[@]}"
+
+if [[ "${RUN_EMULATOR_TEST}" == "true" ]]; then
+  "${SCRIPT_DIR}/test-android-emulator.sh"
+fi

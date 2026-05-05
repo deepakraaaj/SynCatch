@@ -37,6 +37,18 @@ This sets:
 ./scripts/build-android-release.sh
 ```
 
+To build and then smoke-test the APK on the local emulator:
+
+```bash
+./scripts/build-android-release.sh --test-emulator
+```
+
+To run the emulator smoke test against an existing APK without rebuilding:
+
+```bash
+./scripts/test-android-emulator.sh
+```
+
 Artifacts are generated under:
 
 - `src-tauri/gen/android/app/build/outputs/apk/`
