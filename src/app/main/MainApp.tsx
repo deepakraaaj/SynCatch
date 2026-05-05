@@ -11,7 +11,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input, Textarea } from '../../components/ui/input';
-import { useAuthStore } from '../../features/auth/auth-store';
+import { ProfileSettingsCard } from '../../features/auth/ProfileSettingsCard';
 import { useFocusStore } from '../../features/focus/focus-store';
 import {
   buildDailySeries,
@@ -1395,6 +1395,15 @@ export function MainApp() {
     ],
     [activeTasks, backlogTasks, completedTasks, nextTasks, queueTasks, subtaskBoard],
   );
+  const rootTasksForSettings = useMemo(() => getRootTasks(tasks), [tasks]);
+  const completedRootTaskCount = useMemo(
+    () => rootTasksForSettings.filter((task) => task.lane === 'done' || task.status === 'done').length,
+    [rootTasksForSettings],
+  );
+  const completedMissionCount = useMemo(
+    () => missions.filter((mission) => mission.status === 'completed').length,
+    [missions],
+  );
 
   useEffect(() => {
     const image = new Image();
@@ -2453,24 +2462,6 @@ export function MainApp() {
             </div>
           </Card>
 
-          <Card className="rounded-[34px] p-6">
-            <SectionHeading action={<Badge tone="warning">Account</Badge>} title="Account" />
-
-            <div className="space-y-4">
-              <Button
-                onClick={() => void (async () => {
-                  await useAuthStore.getState().signOut();
-                })()}
-                size="sm"
-                type="button"
-                variant="secondary"
-                className="w-full"
-              >
-                Sign Out
-              </Button>
-              <p className="text-xs text-text-secondary">Sign out from your account to access it from another device or browser.</p>
-            </div>
-          </Card>
         </div>
       </div>
     );
@@ -2577,6 +2568,15 @@ export function MainApp() {
   function renderSettings() {
     return (
       <div className="space-y-6">
+        <ProfileSettingsCard
+          completedMissionCount={completedMissionCount}
+          completedTaskCount={completedRootTaskCount}
+          missionCount={missions.length}
+          rootTaskCount={rootTasksForSettings.length}
+          sessionCount={sessions.length}
+          syncModeLabel={syncMode === 'cloud' ? 'Cloud sync' : 'Local only'}
+        />
+
         <Card className="rounded-[34px] p-6">
           <SectionHeading action={<Badge tone="accent">Theme</Badge>} title="Appearance" />
 

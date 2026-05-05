@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect } from 'react';
+import { ToastViewport } from '../components/ui/toast-viewport';
 import { useMissionStore } from '../features/missions/mission-store';
 import type { FocusSyncState } from '../features/focus/focus-store';
 import { useFocusStore } from '../features/focus/focus-store';
@@ -83,5 +84,10 @@ export function AppBootstrap({ children }: PropsWithChildren) {
     };
   }, [hydrateFocus, hydrateMissions, hydrateSessions, hydrateSettings, hydrateTasks, hydrateTheme]);
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <ToastViewport />
+    </>
+  );
 }

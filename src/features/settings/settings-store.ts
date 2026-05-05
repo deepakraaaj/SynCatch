@@ -7,6 +7,7 @@ import {
   type SyncMode,
   type SettingsSnapshot,
 } from '../preferences/preferences-types';
+import { showErrorToast, showSuccessToast } from '../toasts/toast-store';
 
 interface SettingsState extends SettingsSnapshot {
   hydrated: boolean;
@@ -101,10 +102,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
       try {
         await setAutostartEnabled(launchAtLogin);
+        showSuccessToast(
+          launchAtLogin ? 'Launch at login enabled' : 'Launch at login disabled',
+          launchAtLogin
+            ? 'MissionControl will open automatically when your device starts.'
+            : 'MissionControl will stay closed until you launch it yourself.',
+        );
       } catch (error) {
         console.error('Unable to update launch at login', error);
         set({ launchAtLogin: previousLaunchAtLogin });
         commitSettingsUpdate();
+        showErrorToast(
+          'Launch at login update failed',
+          error instanceof Error ? error.message : 'The autostart setting could not be changed.',
+        );
       } finally {
         set({ launchAtLoginPending: false });
       }

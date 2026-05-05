@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuthStore } from './auth-store';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { ToastViewport } from '../../components/ui/toast-viewport';
 
 export function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -100,6 +101,8 @@ export function SignInScreen() {
           </p>
         </div>
       </div>
+
+      <ToastViewport />
     </div>
   );
 }
