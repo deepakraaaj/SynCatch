@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Button } from '../../components/ui/button';
 import { Input, Textarea } from '../../components/ui/input';
+import { MissionIcon, ICON_PRESETS } from '../../components/ui/mission-icon';
 import { cn } from '../../lib/cn';
 import { MISSION_COLORS, type Mission, type MissionColor, type MissionDraft } from './mission-types';
 
@@ -23,8 +24,6 @@ const COLOR_LABELS: Record<MissionColor, string> = {
   gray: '#6b7280',
 };
 
-const EMOJI_PRESETS = ['🎯', '🚀', '⚡', '🔥', '🌱', '🏗️', '🧩', '💡', '📦', '🛡️', '🎨', '🔬'];
-
 interface ComposerState {
   title: string;
   emoji: string;
@@ -44,7 +43,7 @@ export function MissionComposer({ initial, submitLabel = 'Create mission', onCan
 
   const [state, setState] = useState<ComposerState>({
     title: initial?.title ?? '',
-    emoji: initial?.emoji ?? '🎯',
+    emoji: initial?.emoji ?? 'Target',
     color: initial?.color ?? 'blue',
     objective: initial?.objective ?? '',
     notes: initial?.notes ?? '',
@@ -115,9 +114,9 @@ export function MissionComposer({ initial, submitLabel = 'Create mission', onCan
             type="button"
             aria-expanded={state.showEmojiPicker}
             onClick={() => update('showEmojiPicker', !state.showEmojiPicker)}
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-borderSoft/40 bg-panel/40 text-2xl transition-colors hover:bg-panel/60"
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-borderSoft/40 bg-panel/40 text-text-primary transition-colors hover:bg-panel/60"
           >
-            {state.emoji}
+            <MissionIcon icon={state.emoji} className="h-6 w-6" />
           </button>
 
           <div className="flex-1 space-y-1">
@@ -139,20 +138,20 @@ export function MissionComposer({ initial, submitLabel = 'Create mission', onCan
         {state.showEmojiPicker ? (
           <div className="rounded-[18px] border border-borderSoft/40 bg-panel/72 p-3 shadow-xl">
             <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
-              {EMOJI_PRESETS.map((emoji) => (
+              {ICON_PRESETS.map((iconName) => (
                 <button
-                  key={emoji}
+                  key={iconName}
                   type="button"
                   onClick={() => {
-                    update('emoji', emoji);
+                    update('emoji', iconName);
                     update('showEmojiPicker', false);
                   }}
                   className={cn(
-                    'flex h-10 w-10 items-center justify-center rounded-[12px] text-xl transition-colors hover:bg-panel2/60',
-                    state.emoji === emoji ? 'bg-panel2/80 ring-1 ring-accent/35' : 'bg-panel/20',
+                    'flex h-10 w-10 items-center justify-center rounded-[12px] text-text-primary transition-colors hover:bg-panel2/60',
+                    state.emoji === iconName ? 'bg-panel2/80 ring-1 ring-accent/35 text-accent' : 'bg-panel/20 text-text-secondary',
                   )}
                 >
-                  {emoji}
+                  <MissionIcon icon={iconName} className="h-5 w-5" />
                 </button>
               ))}
             </div>

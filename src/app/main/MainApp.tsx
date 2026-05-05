@@ -7,7 +7,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal } from 'lucide-react';
+import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2 } from 'lucide-react';
+import { MissionIcon } from '../../components/ui/mission-icon';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -1883,7 +1884,7 @@ export function MainApp() {
         {activeMission ? (
           <Card className="rounded-[28px] border-accent/20 bg-accent/6 p-5">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">{activeMission.emoji}</span>
+              <MissionIcon icon={activeMission.emoji} className="h-8 w-8 text-accent" />
               <div>
                 <p className="text-[10px] uppercase tracking-[0.28em] text-accent/70">Active mission</p>
                 <p className="font-semibold text-text-primary">{activeMission.title}</p>
@@ -1923,7 +1924,9 @@ export function MainApp() {
                           <p className="mt-0.5 truncate text-xs text-text-muted">{task.next_action}</p>
                         ) : null}
                         {missionName ? (
-                          <p className="mt-0.5 text-[10px] text-text-muted/70">{missionName.emoji} {missionName.title}</p>
+                          <p className="mt-0.5 flex items-center gap-1 text-[10px] text-text-muted/70">
+                            <MissionIcon icon={missionName.emoji} className="h-3 w-3" /> {missionName.title}
+                          </p>
                         ) : null}
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -1943,7 +1946,7 @@ export function MainApp() {
 
         {rootTasks.length === 0 ? (
           <Card className="rounded-[34px] p-10 text-center">
-            <p className="text-4xl">✓</p>
+            <CheckCircle2 className="mx-auto h-12 w-12 text-success/60" />
             <p className="mt-3 text-lg font-semibold text-text-primary">All clear</p>
             <p className="mt-1 text-sm text-text-muted">No active tasks. Add one to get started.</p>
           </Card>
@@ -1974,7 +1977,7 @@ export function MainApp() {
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] text-2xl"
               style={{ backgroundColor: `color-mix(in srgb, var(--accent) 10%, transparent)` }}
             >
-              {mission.emoji}
+              <MissionIcon icon={mission.emoji} className="h-6 w-6" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
@@ -2069,7 +2072,7 @@ export function MainApp() {
 
         {missions.length === 0 && !missionComposerOpen ? (
           <Card className="rounded-[34px] p-10 text-center">
-            <p className="text-4xl">🎯</p>
+            <Target className="mx-auto h-10 w-10 text-accent" />
             <p className="mt-3 text-lg font-semibold text-text-primary">No missions yet</p>
             <p className="mt-1 text-sm text-text-muted">A Mission is the project every task belongs to.</p>
             <div className="mt-5">

@@ -4,6 +4,7 @@ import { useAuthStore } from './auth-store';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ToastViewport } from '../../components/ui/toast-viewport';
+import { Target } from 'lucide-react';
 
 export function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -36,7 +37,10 @@ export function SignInScreen() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="w-full max-w-md px-8">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-3">🎯 MissionControl</h1>
+          <h1 className="text-4xl font-bold text-white mb-3 flex items-center justify-center gap-3">
+            <Target className="h-10 w-10 text-accent" />
+            MissionControl
+          </h1>
           <p className="text-slate-400 text-lg">One mission. One clock. Total clarity.</p>
         </div>
 

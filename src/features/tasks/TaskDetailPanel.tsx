@@ -3,6 +3,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { DatePicker } from '../../components/ui/date-picker';
 import { Input, Textarea } from '../../components/ui/input';
+import { MissionIcon } from '../../components/ui/mission-icon';
 import { cn } from '../../lib/cn';
 import { useMissionStore } from '../missions/mission-store';
 import { getSubtasks, humanizeEnergy, humanizeLane, humanizePriority } from './task-helpers';
@@ -238,8 +239,8 @@ export function TaskDetailPanel({ task, allTasks, onClose }: TaskDetailPanelProp
       <div className="flex items-start justify-between gap-3 border-b border-borderSoft/24 px-5 py-4">
         <div className="min-w-0 flex-1">
           {mission ? (
-            <p className="mb-1 text-[10px] uppercase tracking-[0.24em] text-text-muted">
-              {mission.emoji} {mission.title}
+            <p className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-[0.24em] text-text-muted">
+              <MissionIcon icon={mission.emoji} className="h-3 w-3" /> {mission.title}
             </p>
           ) : null}
           <input

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Target, CheckCircle2, Clock, Calendar, AlertCircle, Search, ArrowUpDown, LayoutGrid, List, KanbanSquare, GanttChartSquare } from 'lucide-react';
+import { MissionIcon } from '../../components/ui/mission-icon';
 import { Badge } from '../../components/ui/badge';
 import { Card } from '../../components/ui/card';
 import { cn } from '../../lib/cn';
@@ -317,7 +318,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
                   className="inline-flex items-center gap-2 rounded-full border border-borderSoft/35 bg-panel2/56 px-3 py-2 text-sm text-text-secondary"
                   key={mission.id}
                 >
-                  <span>{mission.emoji}</span>
+                  <MissionIcon icon={mission.emoji} className="h-4 w-4" />
                   <span className="text-text-primary">{mission.title}</span>
                 </span>
               ))}
@@ -369,7 +370,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
                   className="inline-flex items-center gap-2 rounded-full border border-success/28 bg-success/10 px-3 py-2 text-sm text-success"
                   key={mission.id}
                 >
-                  <span>{mission.emoji}</span>
+                  <MissionIcon icon={mission.emoji} className="h-4 w-4" />
                   <span>{mission.title}</span>
                   <span className="text-success/70">Done</span>
                 </span>
@@ -457,7 +458,7 @@ function MissionGridCard({
           <div className="min-w-0">
             <div className="flex items-start gap-3">
               <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border text-xl sm:h-12 sm:w-12 sm:rounded-[18px] sm:text-[1.7rem]', tone.border, tone.soft)}>
-                {mission.emoji}
+                <MissionIcon icon={mission.emoji} className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
 
               <div className="min-w-0">
@@ -565,7 +566,7 @@ function VerticalView({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className={cn('flex h-10 w-10 items-center justify-center rounded-[14px] border text-xl', tone.border, tone.soft)}>
-                      {mission.emoji}
+                      <MissionIcon icon={mission.emoji} className="h-5 w-5" />
                     </span>
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Mission</p>
@@ -692,7 +693,7 @@ function GanttView({
               >
                 <div className="flex min-w-0 items-center gap-3 rounded-[16px] bg-panel2/44 px-3 py-2.5">
                   <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border text-lg', tone.border, tone.soft)}>
-                    {mission.emoji}
+                    <MissionIcon icon={mission.emoji} className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-text-primary">{mission.title}</p>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Target } from 'lucide-react';
 import { useAuthStore } from '../../features/auth/auth-store';
 import { SignInScreen } from '../../features/auth/SignInScreen';
 import { AppBootstrap } from '../bootstrap';
@@ -16,12 +17,12 @@ export function MainAppWithAuth() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <div className="text-4xl mb-4">🎯</div>
-          <p className="text-slate-400">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-panel">
+        <div className="flex flex-col items-center">
+          <Target className="mb-4 h-10 w-10 animate-pulse text-accent" />
+          <p className="text-sm text-text-muted">Loading MissionControl...</p>
         </div>
-      </div>
+      </div>  
     );
   }
 
