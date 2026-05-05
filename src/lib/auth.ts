@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
-import { isTauriApp } from './tauri';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -36,6 +35,17 @@ export function getSupabaseClient(): SupabaseClient {
     throw new Error('Supabase not initialized. Call initSupabaseAuth() first.');
   }
   return supabaseClient;
+}
+
+export async function getCurrentSupabaseSession(): Promise<Session | null> {
+  const client = supabaseClient ?? await initSupabaseAuth();
+  const { data, error } = await client.auth.getSession();
+
+  if (error) {
+    throw error;
+  }
+
+  return data.session;
 }
 
 export async function watchAuthChanges(

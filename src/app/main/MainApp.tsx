@@ -38,9 +38,10 @@ import {
 import { useSettingsStore } from '../../features/settings/settings-store';
 import { MissionComposer } from '../../features/missions/MissionComposer';
 import { useMissionStore } from '../../features/missions/mission-store';
+import { RoadmapView } from '../../features/roadmap/RoadmapView';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
 import { TaskDetailPanel } from '../../features/tasks/TaskDetailPanel';
-import { humanizePriority } from '../../features/tasks/task-helpers';
+import { getRootTasks, humanizePriority } from '../../features/tasks/task-helpers';
 import { useTaskStore } from '../../features/tasks/task-store';
 import { useThemeStore } from '../../features/themes/theme-store';
 import { THEMES } from '../../features/themes/themes';
@@ -50,7 +51,7 @@ import { cn } from '../../lib/cn';
 import { formatRelativeTime } from '../../lib/date';
 import { showHudWindow, showQuickAddWindow } from '../../lib/tauri';
 
-type MainView = 'focus' | 'missions' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'settings';
+type MainView = 'focus' | 'missions' | 'roadmap' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'settings';
 
 type CaptureState = {
   kind: SessionCaptureKind;
@@ -67,6 +68,7 @@ type TaskBoardColumn = {
 const views: Array<{ id: MainView; label: string; caption?: string }> = [
   { id: 'focus', label: 'What Now' },
   { id: 'missions', label: 'Missions' },
+  { id: 'roadmap', label: 'Roadmap' },
   { id: 'today', label: 'Today' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'history', label: 'History' },
@@ -309,6 +311,7 @@ function getViewCopy(view: MainView) {
   const labels: Record<MainView, string> = {
     focus: 'What Now',
     missions: 'Missions',
+    roadmap: 'Roadmap',
     today: 'Today',
     tasks: 'Tasks',
     history: 'History',
@@ -720,6 +723,104 @@ function TaskListItem({
   );
 }
 
+function SubtaskBoardItem({
+  task,
+  parentTask,
+  active,
+  dragging,
+  draggable,
+  onDragEnd,
+  onDragStart,
+  onFocus,
+  onDone,
+  onDetail,
+  onSelect,
+}: {
+  task: Task;
+  parentTask: Task | null;
+  active?: boolean;
+  dragging?: boolean;
+  draggable?: boolean;
+  onDragEnd?: (event: ReactDragEvent<HTMLDivElement>) => void;
+  onDragStart?: (event: ReactDragEvent<HTMLDivElement>) => void;
+  onFocus: () => void;
+  onDone: () => void;
+  onDetail: () => void;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        'main-list-item rounded-[20px] border border-borderSoft/24 bg-panel2/34 p-3 transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out',
+        draggable ? 'cursor-grab active:cursor-grabbing' : null,
+        dragging ? 'scale-[0.985] border-accent/26 bg-accent/8 opacity-45 shadow-none' : null,
+      )}
+      draggable={draggable}
+      onDragEnd={onDragEnd}
+      onDragStart={onDragStart}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <button className="min-w-0 flex-1 text-left" onClick={onSelect} type="button">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="px-2 py-1 tracking-[0.18em]" tone="neutral">
+              Step
+            </Badge>
+            {parentTask ? (
+              <span className="truncate text-[11px] text-text-muted">
+                In {parentTask.title}
+              </span>
+            ) : null}
+            {active ? <Badge tone="accent">Current</Badge> : null}
+          </div>
+          <p className="mt-2 text-sm font-medium text-text-primary">{task.title}</p>
+          {describeTask(task) ? <p className="mt-1 text-xs text-text-secondary">{describeTask(task)}</p> : null}
+        </button>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge tone={getTaskTone(task)}>{humanizePriority(task.priority)}</Badge>
+          <Badge tone="neutral">{task.estimated_minutes}m</Badge>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button onClick={onFocus} size="sm" type="button">
+          Focus
+        </Button>
+        <Button onClick={onDone} size="sm" type="button" variant="ghost">
+          Done
+        </Button>
+        <Button onClick={onDetail} size="sm" type="button" variant="ghost">
+          Detail
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function groupSubtasksByParent(
+  subtasks: Task[],
+  tasksById: Map<string, Task>,
+) {
+  const groups = new Map<string, { parentTask: Task | null; tasks: Task[] }>();
+
+  subtasks.forEach((task) => {
+    const parentId = task.parent_task_id ?? `orphan-${task.id}`;
+    const existing = groups.get(parentId);
+
+    if (existing) {
+      existing.tasks.push(task);
+      return;
+    }
+
+    groups.set(parentId, {
+      parentTask: task.parent_task_id ? tasksById.get(task.parent_task_id) ?? null : null,
+      tasks: [task],
+    });
+  });
+
+  return [...groups.values()];
+}
+
 function ActivityBars({
   points,
 }: {
@@ -1061,11 +1162,9 @@ export function MainApp() {
   const markDone = useTaskStore((state) => state.markDone);
 
   const missions = useMissionStore((state) => state.missions);
-  const missionsHydrated = useMissionStore((state) => state.hydrated);
   const createMission = useMissionStore((state) => state.createMission);
   const saveMission = useMissionStore((state) => state.saveMission);
   const setMissionStatus = useMissionStore((state) => state.setMissionStatus);
-  const deleteMission = useMissionStore((state) => state.deleteMission);
   const hydrateMissions = useMissionStore((state) => state.hydrate);
 
   const currentMissionId = useFocusStore((state) => state.currentMissionId);
@@ -1143,15 +1242,16 @@ export function MainApp() {
     const todayDate = new Date(analyticsNow);
     const blocked = getLatestBlockedEntries(sessions);
     const blockedTaskIds = new Set(blocked.map((entry) => entry.taskId));
+    const rootTasks = getRootTasks(tasks);
     const activeSessionTask = activeSession ? tasksById.get(activeSession.task_id) ?? null : null;
-    const active = tasks.filter((task) => task.lane === 'now' && task.status !== 'done');
-    const queue = tasks.filter((task) => task.lane === 'inbox' && task.status !== 'done');
-    const next = tasks.filter((task) => task.lane === 'next' && task.status !== 'done');
-    const backlog = tasks.filter((task) => task.lane === 'later' && task.status !== 'done');
-    const blockedTaskList = tasks.filter(
+    const active = rootTasks.filter((task) => task.lane === 'now' && task.status !== 'done');
+    const queue = rootTasks.filter((task) => task.lane === 'inbox' && task.status !== 'done');
+    const next = rootTasks.filter((task) => task.lane === 'next' && task.status !== 'done');
+    const backlog = rootTasks.filter((task) => task.lane === 'later' && task.status !== 'done');
+    const blockedTaskList = rootTasks.filter(
       (task) => task.lane !== 'done' && task.status !== 'done' && blockedTaskIds.has(task.id),
     );
-    const completed = tasks.filter((task) => task.lane === 'done' || task.status === 'done');
+    const completed = rootTasks.filter((task) => task.lane === 'done' || task.status === 'done');
     const selected =
       (selectedTaskId ? tasksById.get(selectedTaskId) ?? null : null) ??
       activeSessionTask ??
@@ -1161,7 +1261,7 @@ export function MainApp() {
       backlog[0] ??
       null;
     const current = activeSessionTask ?? selected;
-    const suggested = getSuggestedTask(tasks, blockedTaskIds, activeSession?.task_id ?? null);
+    const suggested = getSuggestedTask(rootTasks, blockedTaskIds, activeSession?.task_id ?? null);
     const today = sessions.filter((session) => isSameCalendarDay(session.started_at, todayDate));
     const todayCards = [...today]
       .sort(
@@ -1275,15 +1375,25 @@ export function MainApp() {
     () => new Map(blockedEntries.map((entry) => [entry.taskId, entry])),
     [blockedEntries],
   );
+  const subtaskBoard = useMemo(
+    () => ({
+      now: tasks.filter((task) => task.parent_task_id !== null && task.lane === 'now' && task.status !== 'done'),
+      inbox: tasks.filter((task) => task.parent_task_id !== null && task.lane === 'inbox' && task.status !== 'done'),
+      next: tasks.filter((task) => task.parent_task_id !== null && task.lane === 'next' && task.status !== 'done'),
+      later: tasks.filter((task) => task.parent_task_id !== null && task.lane === 'later' && task.status !== 'done'),
+      done: tasks.filter((task) => task.parent_task_id !== null && (task.lane === 'done' || task.status === 'done')),
+    }),
+    [tasks],
+  );
   const taskBoard = useMemo(
     () => [
-      { ...taskBoardColumns[0], tasks: activeTasks },
-      { ...taskBoardColumns[1], tasks: queueTasks },
-      { ...taskBoardColumns[2], tasks: nextTasks },
-      { ...taskBoardColumns[3], tasks: backlogTasks },
-      { ...taskBoardColumns[4], tasks: completedTasks },
+      { ...taskBoardColumns[0], tasks: activeTasks, subtasks: subtaskBoard.now },
+      { ...taskBoardColumns[1], tasks: queueTasks, subtasks: subtaskBoard.inbox },
+      { ...taskBoardColumns[2], tasks: nextTasks, subtasks: subtaskBoard.next },
+      { ...taskBoardColumns[3], tasks: backlogTasks, subtasks: subtaskBoard.later },
+      { ...taskBoardColumns[4], tasks: completedTasks, subtasks: subtaskBoard.done },
     ],
-    [activeTasks, backlogTasks, completedTasks, nextTasks, queueTasks],
+    [activeTasks, backlogTasks, completedTasks, nextTasks, queueTasks, subtaskBoard],
   );
 
   useEffect(() => {
@@ -1329,6 +1439,8 @@ export function MainApp() {
 
   const viewCopy = getViewCopy(activeView);
   const detailTask = detailTaskId ? tasks.find((t) => t.id === detailTaskId) ?? null : null;
+  const showTaskDetailPanel =
+    detailTask !== null && (activeView === 'focus' || activeView === 'tasks');
 
   function handleStartSession(task: Task, nextMinutes = minutes, nextPresetId = presetId) {
     selectTask(task.id);
@@ -1772,11 +1884,6 @@ export function MainApp() {
           </Card>
         ) : null}
 
-        {detailTask ? (
-          <div className="fixed inset-y-0 right-0 z-50 w-[420px] border-l border-borderSoft/30 bg-surface shadow-2xl">
-            <TaskDetailPanel task={detailTask} allTasks={tasks} onClose={() => setDetailTaskId(null)} />
-          </div>
-        ) : null}
       </div>
     );
   }
@@ -1930,100 +2037,167 @@ export function MainApp() {
         ) : null}
 
         <div className="grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
-          {taskBoard.map((column) => (
-            <Card
-              className={cn(
-                'kanban-column flex min-h-[320px] flex-col rounded-[34px] p-5',
-                dropLane === column.lane ? 'border-accent/30 bg-accent/8 shadow-[0_18px_44px_rgb(var(--accent)/0.12)]' : null,
-              )}
-              key={column.lane}
-              onDragOver={(event) => {
-                if (!draggedTaskId) {
-                  return;
-                }
+          {taskBoard.map((column) => {
+            const groupedSubtasks = groupSubtasksByParent(column.subtasks, tasksById);
 
-                event.preventDefault();
-                event.dataTransfer.dropEffect = 'move';
-
-                if (dropLane !== column.lane) {
-                  setDropLane(column.lane);
-                }
-              }}
-              onDrop={(event) => void handleTaskLaneDrop(event, column.lane)}
-            >
-              <SectionHeading
-                action={<Badge tone={column.tone}>{column.tasks.length}</Badge>}
-                title={column.title}
-              />
-
-              <div className="flex-1 space-y-3">
-                {column.tasks.length ? (
-                  column.tasks.map((task) => {
-                    const blocker = blockedEntryByTaskId.get(task.id);
-                    const isComplete = column.lane === 'done';
-
-                    return (
-                      <TaskListItem
-                        active={activeSession?.task_id === task.id}
-                        blocked={Boolean(blocker)}
-                        className="kanban-card"
-                        draggable
-                        dragging={draggedTaskId === task.id}
-                        footer={
-                          isComplete ? (
-                            <p className="text-xs text-text-muted">Completed {formatRelativeTime(task.updated_at)}</p>
-                          ) : (
-                            <div className="space-y-3">
-                              {blocker ? (
-                                <p className="text-sm text-warning">{blocker.blocker}</p>
-                              ) : null}
-                              <div className="flex flex-wrap gap-2">
-                                <Button onClick={() => handleStartSession(task)} size="sm" type="button">
-                                  Focus
-                                </Button>
-                                <Button
-                                  onClick={() => void markDone(task.id, 'main')}
-                                  size="sm"
-                                  type="button"
-                                  variant="ghost"
-                                >
-                                  Done
-                                </Button>
-                                <Button
-                                  onClick={() => setDetailTaskId(task.id)}
-                                  size="sm"
-                                  type="button"
-                                  variant="ghost"
-                                >
-                                  Detail
-                                </Button>
-                              </div>
-                            </div>
-                          )
-                        }
-                        key={task.id}
-                        onDragEnd={handleTaskDragEnd}
-                        onDragStart={(event) => handleTaskDragStart(event, task.id)}
-                        onSelect={() => selectTask(task.id)}
-                        task={task}
-                      />
-                    );
-                  })
-                ) : (
-                  <div
-                    className={cn(
-                      'flex min-h-[140px] items-center justify-center rounded-[24px] border border-dashed p-5 text-sm text-text-secondary transition-[border-color,background-color,color] duration-150',
-                      dropLane === column.lane
-                        ? 'border-accent/30 bg-accent/8 text-text-primary'
-                        : 'border-borderSoft/35 bg-panel/18',
-                    )}
-                  >
-                    {column.empty}
-                  </div>
+            return (
+              <Card
+                className={cn(
+                  'kanban-column flex min-h-[320px] flex-col rounded-[34px] p-5',
+                  dropLane === column.lane ? 'border-accent/30 bg-accent/8 shadow-[0_18px_44px_rgb(var(--accent)/0.12)]' : null,
                 )}
-              </div>
-            </Card>
-          ))}
+                key={column.lane}
+                onDragOver={(event) => {
+                  if (!draggedTaskId) {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+
+                  if (dropLane !== column.lane) {
+                    setDropLane(column.lane);
+                  }
+                }}
+                onDrop={(event) => void handleTaskLaneDrop(event, column.lane)}
+              >
+                <SectionHeading
+                  action={<Badge tone={column.tone}>{column.tasks.length + column.subtasks.length}</Badge>}
+                  title={column.title}
+                />
+
+                <div className="flex-1 space-y-3">
+                  {column.tasks.length ? (
+                    column.tasks.map((task) => {
+                      const blocker = blockedEntryByTaskId.get(task.id);
+                      const isComplete = column.lane === 'done';
+
+                      return (
+                        <TaskListItem
+                          active={activeSession?.task_id === task.id}
+                          blocked={Boolean(blocker)}
+                          className="kanban-card"
+                          draggable
+                          dragging={draggedTaskId === task.id}
+                          footer={
+                            isComplete ? (
+                              <p className="text-xs text-text-muted">Completed {formatRelativeTime(task.updated_at)}</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {blocker ? (
+                                  <p className="text-sm text-warning">{blocker.blocker}</p>
+                                ) : null}
+                                <div className="flex flex-wrap gap-2">
+                                  <Button onClick={() => handleStartSession(task)} size="sm" type="button">
+                                    Focus
+                                  </Button>
+                                  <Button
+                                    onClick={() => void markDone(task.id, 'main')}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost"
+                                  >
+                                    Done
+                                  </Button>
+                                  <Button
+                                    onClick={() => setDetailTaskId(task.id)}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost"
+                                  >
+                                    Detail
+                                  </Button>
+                                </div>
+                              </div>
+                            )
+                          }
+                          key={task.id}
+                          onDragEnd={handleTaskDragEnd}
+                          onDragStart={(event) => handleTaskDragStart(event, task.id)}
+                          onSelect={() => selectTask(task.id)}
+                          task={task}
+                        />
+                      );
+                    })
+                  ) : null}
+
+                  {column.subtasks.length ? (
+                    <div className="rounded-[24px] border border-dashed border-borderSoft/28 bg-panel/12 p-3">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Linked steps</p>
+                          <p className="mt-1 text-xs text-text-secondary">Checklist items grouped by parent task.</p>
+                        </div>
+                        <Badge tone="neutral">{column.subtasks.length}</Badge>
+                      </div>
+
+                      <div className="space-y-3">
+                        {groupedSubtasks.map((group) => (
+                          <div
+                            key={group.parentTask?.id ?? group.tasks[0]?.id}
+                            className="rounded-[20px] border border-borderSoft/24 bg-panel2/20 p-3"
+                          >
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted">Parent task</p>
+                                {group.parentTask ? (
+                                  <button
+                                    className="mt-1 truncate text-left text-sm font-medium text-text-primary transition-colors hover:text-accent"
+                                    onClick={() => {
+                                      selectTask(group.parentTask!.id);
+                                      setDetailTaskId(group.parentTask!.id);
+                                    }}
+                                    type="button"
+                                  >
+                                    {group.parentTask.title}
+                                  </button>
+                                ) : (
+                                  <p className="mt-1 text-sm font-medium text-text-primary">Detached checklist</p>
+                                )}
+                              </div>
+                              <Badge tone="neutral">{group.tasks.length} step{group.tasks.length === 1 ? '' : 's'}</Badge>
+                            </div>
+
+                            <div className="space-y-2">
+                              {group.tasks.map((task) => (
+                                <SubtaskBoardItem
+                                  active={activeSession?.task_id === task.id}
+                                  draggable
+                                  dragging={draggedTaskId === task.id}
+                                  key={task.id}
+                                  onDetail={() => setDetailTaskId(task.id)}
+                                  onDone={() => void markDone(task.id, 'main')}
+                                  onDragEnd={handleTaskDragEnd}
+                                  onDragStart={(event) => handleTaskDragStart(event, task.id)}
+                                  onFocus={() => handleStartSession(task)}
+                                  onSelect={() => selectTask(task.id)}
+                                  parentTask={null}
+                                  task={task}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {column.tasks.length === 0 && column.subtasks.length === 0 ? (
+                    <div
+                      className={cn(
+                        'flex min-h-[140px] items-center justify-center rounded-[24px] border border-dashed p-5 text-sm text-text-secondary transition-[border-color,background-color,color] duration-150',
+                        dropLane === column.lane
+                          ? 'border-accent/30 bg-accent/8 text-text-primary'
+                          : 'border-borderSoft/35 bg-panel/18',
+                      )}
+                    >
+                      {column.empty}
+                    </div>
+                  ) : null}
+                </div>
+              </Card>
+            );
+          })}
         </div>
 
         {blockedTasks.length ? (
@@ -2055,11 +2229,6 @@ export function MainApp() {
           </Card>
         ) : null}
 
-        {detailTask ? (
-          <div className="fixed inset-y-0 right-0 z-50 w-[420px] border-l border-borderSoft/30 bg-surface shadow-2xl">
-            <TaskDetailPanel task={detailTask} allTasks={tasks} onClose={() => setDetailTaskId(null)} />
-          </div>
-        ) : null}
       </div>
     );
   }
@@ -2632,26 +2801,48 @@ export function MainApp() {
             </div>
           </header>
 
-          <main className="main-scroll-region relative flex-1 overflow-x-hidden overflow-y-auto px-6 py-6">
-            {activeView === 'focus' ? renderFocus() : null}
-            {activeView === 'missions' ? renderMissions() : null}
-            {activeView === 'today' ? renderToday() : null}
-            {activeView === 'tasks' ? renderTasks() : null}
-            {activeView === 'history' ? renderHistory() : null}
-            {activeView === 'insights' ? renderInsights() : null}
-            {activeView === 'review' ? renderReview() : null}
-            {activeView === 'settings' ? renderSettings() : null}
+          <div className="relative flex min-h-0 flex-1">
+            <main className="main-scroll-region relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-6">
+              {activeView === 'focus' ? renderFocus() : null}
+              {activeView === 'missions' ? renderMissions() : null}
+              {activeView === 'roadmap' ? <RoadmapView missions={missions} allTasks={tasks} /> : null}
+              {activeView === 'today' ? renderToday() : null}
+              {activeView === 'tasks' ? renderTasks() : null}
+              {activeView === 'history' ? renderHistory() : null}
+              {activeView === 'insights' ? renderInsights() : null}
+              {activeView === 'review' ? renderReview() : null}
+              {activeView === 'settings' ? renderSettings() : null}
 
-            <CapturePopup
-              loading={captureSaving}
-              onChange={(value) =>
-                setCaptureState((current) => (current ? { ...current, value } : current))
-              }
-              onClose={() => setCaptureState(null)}
-              onSave={() => void handleSaveCapture()}
-              state={captureState}
-            />
-          </main>
+              <CapturePopup
+                loading={captureSaving}
+                onChange={(value) =>
+                  setCaptureState((current) => (current ? { ...current, value } : current))
+                }
+                onClose={() => setCaptureState(null)}
+                onSave={() => void handleSaveCapture()}
+                state={captureState}
+              />
+            </main>
+
+            {showTaskDetailPanel ? (
+              <>
+                <button
+                  aria-label="Close task details"
+                  className="absolute inset-0 z-30 bg-black/24 min-[1400px]:hidden"
+                  onClick={() => setDetailTaskId(null)}
+                  type="button"
+                />
+
+                <aside className="absolute inset-y-0 right-0 z-40 w-full max-w-[420px] border-l border-borderSoft/30 bg-panel shadow-2xl min-[1400px]:relative min-[1400px]:inset-auto min-[1400px]:w-[420px] min-[1400px]:max-w-none min-[1400px]:shrink-0 min-[1400px]:shadow-none">
+                  <TaskDetailPanel
+                    allTasks={tasks}
+                    onClose={() => setDetailTaskId(null)}
+                    task={detailTask}
+                  />
+                </aside>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

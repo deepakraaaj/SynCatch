@@ -128,6 +128,20 @@ export async function showQuickAddWindow() {
 }
 
 export async function showHudWindow() {
+  try {
+    const { getCurrentSupabaseSession } = await import('./auth');
+    const session = await getCurrentSupabaseSession();
+
+    if (!session) {
+      await showMainWindow();
+      return;
+    }
+  } catch (error) {
+    console.error('Unable to verify auth session before opening HUD', error);
+    await showMainWindow();
+    return;
+  }
+
   if (isTauriApp()) {
     const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
     const hudWindow = await WebviewWindow.getByLabel('hud');

@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Button } from '../../components/ui/button';
 import { Input, Textarea } from '../../components/ui/input';
 import { cn } from '../../lib/cn';
@@ -40,6 +40,7 @@ export function MissionComposer({ initial, submitLabel = 'Create mission', onCan
   const objectiveId = `${composerId}-objective`;
   const notesId = `${composerId}-notes`;
   const titleRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const [state, setState] = useState<ComposerState>({
     title: initial?.title ?? '',
@@ -56,6 +57,36 @@ export function MissionComposer({ initial, submitLabel = 'Create mission', onCan
   function update<K extends keyof ComposerState>(field: K, value: ComposerState[K]) {
     setState((s) => ({ ...s, [field]: value }));
   }
+
+  useEffect(() => {
+    if (!state.showEmojiPicker) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      if (emojiPickerRef.current?.contains(target)) {
+        return;
+      }
+
+      update('showEmojiPicker', false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        update('showEmojiPicker', false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [state.showEmojiPicker]);
 
   async function handleSubmit(event?: FormEvent) {
     event?.preventDefault();
@@ -78,17 +109,36 @@ export function MissionComposer({ initial, submitLabel = 'Create mission', onCan
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
       {/* Emoji + Title row */}
-      <div className="flex items-start gap-3">
-        <div className="relative shrink-0">
+      <div ref={emojiPickerRef} className="space-y-3">
+        <div className="flex items-start gap-3">
           <button
             type="button"
+            aria-expanded={state.showEmojiPicker}
             onClick={() => update('showEmojiPicker', !state.showEmojiPicker)}
-            className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-borderSoft/40 bg-panel/40 text-2xl transition-colors hover:bg-panel/60"
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-borderSoft/40 bg-panel/40 text-2xl transition-colors hover:bg-panel/60"
           >
             {state.emoji}
           </button>
-          {state.showEmojiPicker ? (
-            <div className="absolute left-0 top-16 z-20 grid grid-cols-6 gap-1 rounded-[18px] border border-borderSoft/40 bg-surface p-2 shadow-xl">
+
+          <div className="flex-1 space-y-1">
+            <label className="block text-[11px] uppercase tracking-[0.28em] text-text-muted" htmlFor={titleId}>
+              Mission name
+            </label>
+            <Input
+              ref={titleRef}
+              id={titleId}
+              value={state.title}
+              onChange={(e) => update('title', e.target.value)}
+              placeholder='e.g. "Launch v2 beta"'
+              className="h-12"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {state.showEmojiPicker ? (
+          <div className="rounded-[18px] border border-borderSoft/40 bg-panel/72 p-3 shadow-xl">
+            <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
               {EMOJI_PRESETS.map((emoji) => (
                 <button
                   key={emoji}
@@ -97,29 +147,17 @@ export function MissionComposer({ initial, submitLabel = 'Create mission', onCan
                     update('emoji', emoji);
                     update('showEmojiPicker', false);
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-[10px] text-xl transition-colors hover:bg-panel/50"
+                  className={cn(
+                    'flex h-10 w-10 items-center justify-center rounded-[12px] text-xl transition-colors hover:bg-panel2/60',
+                    state.emoji === emoji ? 'bg-panel2/80 ring-1 ring-accent/35' : 'bg-panel/20',
+                  )}
                 >
                   {emoji}
                 </button>
               ))}
             </div>
-          ) : null}
-        </div>
-
-        <div className="flex-1 space-y-1">
-          <label className="block text-[11px] uppercase tracking-[0.28em] text-text-muted" htmlFor={titleId}>
-            Mission name
-          </label>
-          <Input
-            ref={titleRef}
-            id={titleId}
-            value={state.title}
-            onChange={(e) => update('title', e.target.value)}
-            placeholder='e.g. "Launch v2 beta"'
-            className="h-12"
-            autoFocus
-          />
-        </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Color picker */}

@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect } from 'react';
+import { useMissionStore } from '../features/missions/mission-store';
 import type { FocusSyncState } from '../features/focus/focus-store';
 import { useFocusStore } from '../features/focus/focus-store';
 import {
@@ -29,6 +30,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
   const hydrateFocus = useFocusStore((state) => state.hydrate);
   const hydrateSessions = useSessionStore((state) => state.hydrate);
   const hydrateTasks = useTaskStore((state) => state.hydrate);
+  const hydrateMissions = useMissionStore((state) => state.hydrate);
 
   useEffect(() => {
     if (
@@ -43,7 +45,14 @@ export function AppBootstrap({ children }: PropsWithChildren) {
   }, [themeHydrated, themeHydrating, themeId]);
 
   useEffect(() => {
-    void Promise.all([hydrateTheme(), hydrateSettings(), hydrateFocus(), hydrateSessions(), hydrateTasks()]);
+    void Promise.all([
+      hydrateTheme(),
+      hydrateSettings(),
+      hydrateFocus(),
+      hydrateSessions(),
+      hydrateTasks(),
+      hydrateMissions(),
+    ]);
 
     const unsubscribe = subscribeAppEvent(TASKS_CHANGED_EVENT, () => {
       void useTaskStore.getState().refresh();
@@ -72,7 +81,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
       unsubscribeSettings();
       unsubscribeHudTransparency();
     };
-  }, [hydrateFocus, hydrateSessions, hydrateSettings, hydrateTasks, hydrateTheme]);
+  }, [hydrateFocus, hydrateMissions, hydrateSessions, hydrateSettings, hydrateTasks, hydrateTheme]);
 
   return <>{children}</>;
 }

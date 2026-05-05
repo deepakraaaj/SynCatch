@@ -8,7 +8,7 @@ import {
 import { getFocusStatusLabel } from '../../features/focus/focus-presenter';
 import { useFocusStore } from '../../features/focus/focus-store';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
-import { getSubtasks } from '../../features/tasks/task-helpers';
+import { getRootTasks, getSubtasks } from '../../features/tasks/task-helpers';
 import { useTaskStore } from '../../features/tasks/task-store';
 import type { Task, TaskLane } from '../../features/tasks/task-types';
 import { formatMinutes, getElapsedSeconds } from '../../lib/date';
@@ -35,6 +35,7 @@ const HUD_EXPANDED_SIZE = { width: 1180, height: 720 };
 const HUD_MARGIN_X = 26;
 const HUD_MARGIN_Y = 26;
 const HUD_POSITION_STORAGE_KEY = 'missioncontrol:hud-window-positions';
+const HUD_FALLBACK_IDLE_SECONDS = 11 * 60 + 11;
 type HudCaptureOption = {
   lane: Exclude<TaskLane, 'done'>;
   label: string;
@@ -436,6 +437,11 @@ export function HudApp() {
   const toggleHudMode = useFocusStore((state) => state.toggleHudMode);
   const toggleHudTransparency = useFocusStore((state) => state.toggleHudTransparency);
   const tasks = useTaskStore((state) => state.tasks);
+  const tasksHydrated = useTaskStore((state) => state.hydrated);
+  const tasksLoading = useTaskStore((state) => state.loading);
+  const taskLoadError = useTaskStore((state) => state.error);
+  const hydrateTasks = useTaskStore((state) => state.hydrate);
+  const refreshTasks = useTaskStore((state) => state.refresh);
   const moveTaskToLane = useTaskStore((state) => state.moveTaskToLane);
   const markDone = useTaskStore((state) => state.markDone);
   const [elapsedSeconds, setElapsedSeconds] = useState(
@@ -455,14 +461,24 @@ export function HudApp() {
   const hasNormalizedLaunchHudMode = useRef(false);
   const expandedTaskComposerRef = useRef<HTMLDivElement>(null);
   const compactTaskComposerRef = useRef<HTMLDivElement>(null);
+  const rootTasks = getRootTasks(tasks);
 
   const currentMission =
-    tasks.find((task) => task.id === currentMissionId && task.lane === 'now') ?? tasks.find((task) => task.lane === 'now') ?? null;
+    rootTasks.find((task) => task.id === currentMissionId && task.lane === 'now') ??
+    rootTasks.find((task) => task.lane === 'now') ??
+    null;
+  const isSessionRunning = Boolean(focusSessionStart);
+  const hasPausedProgress = !isSessionRunning && focusElapsedSeconds > 0;
   const totalSessionSeconds = Math.max(60, focusSessionDuration * 60);
-  const remainingSeconds = Math.max(0, totalSessionSeconds - elapsedSeconds);
+  const idleHudSeconds = currentMission
+    ? Math.max(60, currentMission.estimated_minutes * 60)
+    : HUD_FALLBACK_IDLE_SECONDS;
+  const remainingSeconds = isSessionRunning || hasPausedProgress
+    ? Math.max(0, totalSessionSeconds - elapsedSeconds)
+    : idleHudSeconds;
   const displayClock = formatDigitalClock(remainingSeconds);
   const progressRatio = Math.min(1, elapsedSeconds / Math.max(totalSessionSeconds, 1));
-  const activeQueue = getActiveQueue(tasks, currentMission?.id ?? null);
+  const activeQueue = getActiveQueue(rootTasks, currentMission?.id ?? null);
   const checklist = currentMission ? getSubtasks(tasks, currentMission.id) : [];
   const focusStatusLabel = getFocusStatusLabel(focusStatus);
   const useStableHudRendering = isTauriApp() && isLinuxPlatform();
@@ -471,16 +487,22 @@ export function HudApp() {
   const compactDrawerOpen =
     hudMode === 'compact' && (showCompactTaskPicker || showCompactTaskComposer || showCompactDistractionComposer);
   const compactHudExpanded = hudMode === 'compact' && (isCompactHudExpanded || compactDrawerOpen);
-  const isSessionRunning = Boolean(focusSessionStart);
-  const hasPausedProgress = !isSessionRunning && focusElapsedSeconds > 0;
   const sessionToggleLabel = isSessionRunning
     ? 'Pause session'
     : hasPausedProgress
       ? 'Resume session'
       : 'Start session';
   const sessionToggleIcon = isSessionRunning ? <PauseIcon /> : <PlayIcon />;
-  const selectableHudTasks = tasks.filter((task) => task.lane !== 'done' && task.status !== 'done');
+  const selectableHudTasks = rootTasks.filter((task) => task.lane !== 'done' && task.status !== 'done');
   const selectedHudCaptureOption = getHudCaptureOption(hudTaskLane);
+
+  useEffect(() => {
+    if (tasksHydrated || tasksLoading) {
+      return;
+    }
+
+    void hydrateTasks();
+  }, [hydrateTasks, tasksHydrated, tasksLoading]);
 
   useEffect(() => {
     setElapsedSeconds(getElapsedSeconds(focusSessionStart, focusElapsedSeconds));
@@ -692,7 +714,7 @@ export function HudApp() {
       return;
     }
 
-    startSession(undefined, 'hud');
+    startSession(currentMission.estimated_minutes, 'hud');
   }
 
   async function openTaskCompletionReview() {
@@ -754,7 +776,19 @@ export function HudApp() {
     setIsCompactHudExpanded(true);
     setShowCompactTaskComposer(false);
     setShowCompactDistractionComposer(false);
-    setShowCompactTaskPicker((current) => !current);
+    setShowCompactTaskPicker((current) => {
+      const next = !current;
+
+      if (next && !tasksLoading) {
+        if (!tasksHydrated) {
+          void hydrateTasks();
+        } else {
+          void refreshTasks();
+        }
+      }
+
+      return next;
+    });
   }
 
   function toggleCompactTaskComposer() {
@@ -1541,47 +1575,68 @@ export function HudApp() {
 
                   <div className="scrollbar-hidden mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
                     <div className="space-y-2">
-                      {selectableHudTasks.map((task) => {
-                        const isCurrent = task.id === currentMission?.id;
-                        const movesToActive = task.lane !== 'now';
+                      {tasksLoading && !tasksHydrated ? (
+                        <div className="rounded-[16px] border border-dashed border-borderSoft/40 px-3 py-6 text-center text-sm text-text-muted">
+                          Loading tasks…
+                        </div>
+                      ) : taskLoadError ? (
+                        <div className="rounded-[16px] border border-warning/25 bg-warning/8 px-3 py-4 text-sm text-text-secondary">
+                          <p className="font-medium text-text-primary">Couldn&apos;t load tasks.</p>
+                          <p className="mt-1">{taskLoadError}</p>
+                          <div className="mt-3">
+                            <Button
+                              onClick={() => void refreshTasks()}
+                              size="sm"
+                              type="button"
+                              variant="secondary"
+                            >
+                              Retry
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        selectableHudTasks.map((task) => {
+                          const isCurrent = task.id === currentMission?.id;
+                          const movesToActive = task.lane !== 'now';
 
-                        return (
-                          <button
-                            key={task.id}
-                            className={cn(
-                              'w-full rounded-[16px] border px-3 py-3 text-left transition',
-                              isCurrent
-                                ? 'border-accent/45 bg-accent/10 text-text-primary'
-                                : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
-                            )}
-                            onClick={() => {
-                              void selectCompactHudTask(task);
-                            }}
-                            type="button"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-text-primary">{task.title}</p>
-                                <p className="mt-1 text-xs text-current/80">
-                                  {task.lane === 'now'
-                                    ? 'Active'
-                                    : task.lane === 'next'
-                                      ? 'Next'
-                                      : task.lane === 'later'
-                                        ? 'Backlog'
-                                        : 'Queue'}
-                                  {' / '}
-                                  {formatMinutes(task.estimated_minutes)}
-                                </p>
+                          return (
+                            <button
+                              key={task.id}
+                              className={cn(
+                                'w-full rounded-[16px] border px-3 py-3 text-left transition',
+                                isCurrent
+                                  ? 'border-accent/45 bg-accent/10 text-text-primary'
+                                  : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
+                              )}
+                              onClick={() => {
+                                void selectCompactHudTask(task);
+                              }}
+                              type="button"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-text-primary">{task.title}</p>
+                                  <p className="mt-1 text-xs text-current/80">
+                                    {task.lane === 'now'
+                                      ? 'Active'
+                                      : task.lane === 'next'
+                                        ? 'Next'
+                                        : task.lane === 'later'
+                                          ? 'Backlog'
+                                          : 'Queue'}
+                                    {' / '}
+                                    {formatMinutes(task.estimated_minutes)}
+                                  </p>
+                                </div>
+                                <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-text-muted">
+                                  {isCurrent ? 'Current' : movesToActive ? 'Move to active' : 'Ready'}
+                                </span>
                               </div>
-                              <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-text-muted">
-                                {isCurrent ? 'Current' : movesToActive ? 'Move to active' : 'Ready'}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                      {selectableHudTasks.length === 0 ? (
+                            </button>
+                          );
+                        })
+                      )}
+                      {!tasksLoading && !taskLoadError && selectableHudTasks.length === 0 ? (
                         <div className="rounded-[16px] border border-dashed border-borderSoft/40 px-3 py-6 text-center text-sm text-text-muted">
                           No open tasks yet
                         </div>

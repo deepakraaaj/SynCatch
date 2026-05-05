@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { DatePicker } from '../../components/ui/date-picker';
 import { Input, Textarea } from '../../components/ui/input';
 import { cn } from '../../lib/cn';
 import { useMissionStore } from '../missions/mission-store';
@@ -297,12 +298,12 @@ export function TaskDetailPanel({ task, allTasks, onClose }: TaskDetailPanelProp
             </div>
             <div className="space-y-1.5">
               <FieldLabel>Due date</FieldLabel>
-              <input
-                type="date"
-                value={draft.due_date ?? ''}
-                onChange={(e) => update('due_date', e.target.value || null)}
-                onBlur={() => void handleSave()}
-                className="rounded-[10px] border border-borderSoft/40 bg-panel/40 px-2 py-1 text-sm text-text-primary outline-none focus:border-accent/40"
+              <DatePicker
+                value={draft.due_date}
+                onChange={(date) => {
+                  update('due_date', date);
+                  void handleSave();
+                }}
               />
             </div>
           </div>

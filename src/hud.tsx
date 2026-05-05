@@ -1,7 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import { initSupabaseAuth, watchAuthChanges } from './lib/auth';
-import { AppBootstrap } from './app/bootstrap';
-import { HudApp } from './app/hud/HudApp';
+import { HudAppWithAuth } from './app/hud/HudAppWithAuth';
 import { applyCachedThemeToDocument } from './features/themes/theme-store';
 import './styles/globals.css';
 
@@ -18,9 +17,7 @@ async function bootstrap() {
   }
 
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-    <AppBootstrap>
-      <HudApp />
-    </AppBootstrap>,
+    <HudAppWithAuth />,
   );
 }
 
