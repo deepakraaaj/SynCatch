@@ -12,6 +12,16 @@
   "app": {
     "windows": [
       {
+        "label": "main",
+        "title": "MissionControl",
+        "url": "index.html",
+        "width": 1180,
+        "height": 760,
+        "resizable": true,
+        "decorations": true,
+        "visible": false
+      },
+      {
         "label": "hud",
         "title": "MissionControl HUD",
         "url": "hud.html",
