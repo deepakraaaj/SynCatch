@@ -187,77 +187,74 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex flex-col gap-2">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-accent/75">Mission planning</p>
-          <h2 className="text-[clamp(1.25rem,1.8vw,1.95rem)] font-semibold tracking-[-0.04em] text-text-primary">
-            Roadmap
-          </h2>
-          <p className="max-w-2xl text-sm leading-6 text-text-secondary">
-            Track mission progress, remaining load, and what is actually moving next.
-          </p>
-        </div>
+    <div className="flex h-full min-h-0 flex-col gap-3 sm:gap-4">
+      <div className="flex flex-col gap-3 sm:gap-4">
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-borderSoft/30 bg-panel/50 px-3 py-1.5 min-w-0 w-full sm:min-w-[240px] sm:w-auto transition-colors focus-within:border-accent/40 focus-within:bg-panel/70">
-            <Search className="h-4 w-4 text-text-muted" />
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 rounded-full border border-borderSoft/30 bg-panel/50 px-3 py-2 sm:py-1.5 min-w-0 flex-1 sm:flex-initial transition-colors focus-within:border-accent/40 focus-within:bg-panel/70">
+            <Search className="h-4 w-4 shrink-0 text-text-muted" />
             <input
               className="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search missions, tasks..."
+              placeholder="Search..."
               value={searchQuery}
             />
           </div>
-          <div className="flex items-center gap-1 rounded-full border border-borderSoft/30 bg-panel/50 p-1">
-            <span className="pl-2 pr-1 text-text-muted">
-              <ArrowUpDown className="h-3.5 w-3.5" />
-            </span>
-            {(['progress', 'load', 'due'] as const).map((mode) => (
-              <button
-                className={cn(
-                  'rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors',
-                  sortMode === mode ? 'bg-text-primary text-panel' : 'text-text-secondary hover:text-text-primary',
-                )}
-                key={mode}
-                onClick={() => setSortMode(mode)}
-                type="button"
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-          <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderSoft/30 bg-panel/50 p-1">
-            {VIEW_MODES.map((mode) => {
-              const active = viewMode === mode;
-              const Icon = mode === 'grid' ? LayoutGrid : mode === 'vertical' ? List : mode === 'kanban' ? KanbanSquare : GanttChartSquare;
-              return (
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-full border border-borderSoft/30 bg-panel/50 p-1 overflow-x-auto">
+              <span className="pl-2 pr-1 text-text-muted shrink-0">
+                <ArrowUpDown className="h-3.5 w-3.5" />
+              </span>
+              {(['progress', 'load', 'due'] as const).map((mode) => (
                 <button
                   className={cn(
-                    'flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium capitalize transition-colors',
-                    active
-                      ? 'bg-accent/12 text-accent'
-                      : 'text-text-secondary hover:bg-panel/52 hover:text-text-primary',
+                    'rounded-full px-2.5 py-1 text-[11px] font-medium capitalize transition-colors whitespace-nowrap sm:px-3',
+                    sortMode === mode ? 'bg-text-primary text-panel' : 'text-text-secondary hover:text-text-primary',
                   )}
                   key={mode}
-                  onClick={() => setViewMode(mode)}
+                  onClick={() => setSortMode(mode)}
                   type="button"
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline-block">{mode}</span>
+                  {mode}
                 </button>
-              );
-            })}
+              ))}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderSoft/30 bg-panel/50 p-1">
+              {VIEW_MODES.map((mode) => {
+                const active = viewMode === mode;
+                const Icon = mode === 'grid' ? LayoutGrid : mode === 'vertical' ? List : mode === 'kanban' ? KanbanSquare : GanttChartSquare;
+                return (
+                  <button
+                    className={cn(
+                      'flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium capitalize transition-colors sm:px-3.5',
+                      active
+                        ? 'bg-accent/12 text-accent'
+                        : 'text-text-secondary hover:bg-panel/52 hover:text-text-primary',
+                    )}
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    type="button"
+                    title={mode}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="hidden sm:inline-block">{mode}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
 
       <Card className="overflow-hidden rounded-[20px] border-borderSoft/24 bg-panel/86 sm:rounded-[28px]">
-        <div className="scrollbar-hidden overflow-x-auto">
-          <div className="flex min-w-max items-stretch divide-x divide-borderSoft/20">
+        <div className="scrollbar-hidden overflow-x-auto sm:overflow-visible">
+          <div className="flex min-w-max items-stretch divide-x divide-borderSoft/20 sm:min-w-0 sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:divide-x-0 sm:divide-y">
           <MetricCard
             caption="Missions in play"
-            className="w-[150px] shrink-0 sm:w-[180px]"
+            className="w-[140px] shrink-0 sm:w-auto sm:border-b sm:border-borderSoft/20"
             eyebrow="Active"
             icon={Target}
             tone="accent"
@@ -265,7 +262,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
           />
           <MetricCard
             caption={`${totalDoneTasks} of ${activeMissionTasks.length} tasks complete`}
-            className="w-[180px] shrink-0 sm:w-[220px]"
+            className="w-[160px] shrink-0 sm:w-auto sm:border-b sm:border-borderSoft/20"
             eyebrow="Completion"
             icon={CheckCircle2}
             tone="success"
@@ -273,7 +270,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
           />
           <MetricCard
             caption={`${activeMissionTasks.length} task${activeMissionTasks.length === 1 ? '' : 's'} planned`}
-            className="w-[180px] shrink-0 sm:w-[220px]"
+            className="w-[160px] shrink-0 sm:w-auto sm:border-b sm:border-borderSoft/20 md:border-b-0"
             eyebrow="Planned load"
             icon={Clock}
             tone="warning"
@@ -285,7 +282,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
                 ? `${scheduledMissionCount} mission${scheduledMissionCount === 1 ? '' : 's'} with a target date`
                 : 'No mission dates set'
             }
-            className="w-[170px] shrink-0 sm:w-[210px]"
+            className="w-[150px] shrink-0 sm:w-auto sm:border-b sm:border-borderSoft/20"
             eyebrow="Scheduled"
             icon={Calendar}
             tone="neutral"
@@ -293,7 +290,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
           />
           <MetricCard
             caption={totalOverdueTasks ? 'needs attention' : 'all on track'}
-            className="w-[150px] shrink-0 sm:w-[180px]"
+            className="w-[140px] shrink-0 sm:w-auto"
             eyebrow="Overdue"
             icon={AlertCircle}
             tone={totalOverdueTasks ? 'warning' : 'neutral'}
@@ -454,26 +451,26 @@ function MissionGridCard({
         onClick={onToggle}
         type="button"
       >
-        <div className="grid gap-2 pl-2 pr-1 sm:gap-3 xl:grid-cols-[minmax(260px,1.55fr)_minmax(120px,.7fr)_minmax(140px,.8fr)_minmax(190px,.95fr)_92px] xl:items-center">
+        <div className="flex flex-col gap-3 p-2 sm:p-3 lg:grid lg:gap-2 lg:pl-2 lg:pr-1 lg:grid-cols-[minmax(200px,1.2fr)_minmax(110px,.6fr)_minmax(130px,.75fr)_minmax(170px,.85fr)_80px] lg:items-center">
           <div className="min-w-0">
             <div className="flex items-start gap-3">
               <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border text-xl sm:h-12 sm:w-12 sm:rounded-[18px] sm:text-[1.7rem]', tone.border, tone.soft)}>
                 <MissionIcon icon={mission.emoji} className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
 
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="truncate text-base font-semibold tracking-[-0.05em] text-text-primary sm:text-[1.35rem]">
+                  <h3 className="truncate text-sm font-semibold tracking-[-0.05em] text-text-primary sm:text-base lg:text-[1.35rem]">
                     {mission.title}
                   </h3>
                   {mission.is_pinned ? <Badge tone="accent">Pinned</Badge> : null}
                 </div>
-                <p className="mt-1 truncate text-sm leading-5 text-text-secondary">
+                <p className="mt-1 line-clamp-2 text-xs leading-4 text-text-secondary sm:text-sm sm:line-clamp-1">
                   {mission.objective || mission.description || 'No objective captured yet.'}
                 </p>
 
-                <div className="mt-2.5 flex flex-wrap gap-2">
-                  <MissionMetaPill label={`${stats.total} task${stats.total === 1 ? '' : 's'}`} tone={tone} />
+                <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2 sm:mt-2.5">
+                  <MissionMetaPill label={`${stats.total}T`} tone={tone} />
                   <MissionMetaPill
                     label={mission.target_date ? formatDateLabel(mission.target_date) : 'No target'}
                     tone={tone}
@@ -483,41 +480,45 @@ function MissionGridCard({
             </div>
           </div>
 
-          <RoadmapSummaryStat
-            detail={`${stats.done}/${stats.total || 0} done`}
-            label="Progress"
-            tone={tone}
-            value={`${progress}%`}
-          />
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:contents">
+            <RoadmapSummaryStat
+              detail={`${stats.done}/${stats.total || 0} done`}
+              label="Progress"
+              tone={tone}
+              value={`${progress}%`}
+            />
 
-          <RoadmapSummaryStat
-            detail={`${stats.now} active • ${stats.next} next`}
-            label="Load"
-            tone={tone}
-            value={stats.estimatedMinutes ? formatMinutes(stats.estimatedMinutes) : '0m'}
-          />
+            <RoadmapSummaryStat
+              detail={`${stats.now} active • ${stats.next} next`}
+              label="Load"
+              tone={tone}
+              value={stats.estimatedMinutes ? formatMinutes(stats.estimatedMinutes) : '0m'}
+            />
 
-          <RoadmapSummaryFlow stats={stats} />
+            <div className="col-span-2 lg:col-span-1">
+              <RoadmapSummaryFlow stats={stats} />
+            </div>
 
-          <div className="flex items-center justify-end gap-2 xl:justify-center">
-            <span className="text-xs font-medium text-text-secondary">
-              {expanded ? 'Hide' : 'Open'}
-            </span>
-            <span
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-full border border-borderSoft/28 bg-panel2/36 text-lg text-text-primary transition-transform',
-                expanded ? 'rotate-45' : null,
-              )}
-            >
-              +
-            </span>
+            <div className="flex items-center justify-center gap-2 col-span-2 lg:col-span-1 lg:justify-center">
+              <span className="text-xs font-medium text-text-secondary hidden sm:inline">
+                {expanded ? 'Hide' : 'Open'}
+              </span>
+              <span
+                className={cn(
+                  'flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border border-borderSoft/28 bg-panel2/36 text-lg text-text-primary transition-transform',
+                  expanded ? 'rotate-45' : null,
+                )}
+              >
+                +
+              </span>
+            </div>
           </div>
         </div>
       </button>
 
       {expanded ? (
-        <div className="mt-4 border-t border-borderSoft/24 pt-4">
-          <div className="grid gap-2 sm:gap-3 xl:grid-cols-[minmax(170px,.85fr)_minmax(220px,1fr)_minmax(250px,1.1fr)]">
+        <div className="mt-3 sm:mt-4 border-t border-borderSoft/24 pt-3 sm:pt-4">
+          <div className="grid gap-2 sm:gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <RoadmapMetricPanel
               caption={`${stats.now} active • ${stats.next} next • ${stats.inbox + stats.later} waiting`}
               label="Load profile"
@@ -604,12 +605,12 @@ function VerticalView({
                 </div>
               </div>
 
-              <div className="mt-4">
+              <div className="mt-3 sm:mt-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Task flow</p>
                   <span className={cn('text-xs font-medium', tone.text)}>{progress}% done</span>
                 </div>
-                <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-panel2/70">
+                <div className="mt-2 sm:mt-2.5 h-2 overflow-hidden rounded-full bg-panel2/70">
                   <div
                     className={cn('h-full rounded-full bg-gradient-to-r transition-all', tone.fill)}
                     style={{ width: `${Math.max(progress, progress === 0 ? 0 : 8)}%` }}
@@ -617,11 +618,11 @@ function VerticalView({
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr),240px]">
+              <div className="mt-3 sm:mt-4 grid gap-2 sm:gap-3 grid-cols-1 lg:grid-cols-[minmax(0,1fr),240px]">
                 <MissionTaskPreview tasks={tasks} tone={tone} />
                 <Card className="rounded-[24px] border-borderSoft/20 bg-panel/68 p-3.5 shadow-none">
                   <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Snapshot</p>
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
                     <SnapshotRow label="Active" value={stats.now} />
                     <SnapshotRow label="Queue" value={stats.inbox} />
                     <SnapshotRow label="Later" value={stats.later} />
@@ -766,17 +767,17 @@ function KanbanView({
   });
 
   return (
-    <div className="flex h-full min-h-0 items-start gap-3 overflow-x-auto pb-4 sm:gap-4">
+    <div className="flex h-full min-h-0 items-start gap-2 overflow-x-auto pb-4 sm:gap-3 sm:pb-4">
       {laneTasks.map((col) => (
         <div
-          className="flex min-w-[240px] max-w-[300px] shrink-0 flex-col gap-3 rounded-[20px] border border-borderSoft/24 bg-panel/22 p-3 sm:min-w-[280px] sm:max-w-[320px] sm:rounded-[24px] sm:p-4"
+          className="flex min-w-[200px] sm:min-w-[240px] lg:min-w-[280px] shrink-0 flex-col gap-2 sm:gap-3 rounded-[16px] sm:rounded-[20px] border border-borderSoft/24 bg-panel/22 p-2.5 sm:p-3 lg:rounded-[24px] lg:p-4"
           key={col.lane}
         >
-          <div className="flex items-center justify-between pb-1">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between pb-1 sm:pb-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <span
                 className={cn(
-                  'h-2 w-2 rounded-full',
+                  'h-2 w-2 rounded-full shrink-0',
                   col.lane === 'done'
                     ? 'bg-success'
                     : col.lane === 'now'
@@ -786,35 +787,35 @@ function KanbanView({
                         : 'bg-warning/75',
                 )}
               />
-              <span className="text-[11px] uppercase tracking-[0.2em] font-semibold text-text-primary">
+              <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.2em] font-semibold text-text-primary truncate">
                 {col.label}
               </span>
             </div>
-            <span className="text-[11px] text-text-muted">{col.tasks.length}</span>
+            <span className="text-[10px] sm:text-[11px] text-text-muted shrink-0">{col.tasks.length}</span>
           </div>
 
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-1.5 sm:gap-2.5">
             {col.tasks.map((task) => {
               const isOverdue = task.due_date && new Date(`${task.due_date}T00:00:00`) < new Date(new Date().setHours(0,0,0,0));
               return (
                 <div
-                  className={cn("flex flex-col gap-2.5 rounded-[16px] border border-borderSoft/24 bg-panel2/42 p-3.5", `border-l-2 ${task.tone.border.replace('border-', 'border-l-')}`)}
+                  className={cn("flex flex-col gap-1.5 sm:gap-2.5 rounded-[12px] sm:rounded-[16px] border border-borderSoft/24 bg-panel2/42 p-2.5 sm:p-3.5 active:bg-panel2/60 transition-colors", `border-l-2 ${task.tone.border.replace('border-', 'border-l-')}`)}
                   key={task.id}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={cn('text-[10px] uppercase tracking-[0.15em]', task.tone.text)}>
-                      {task.mission.title}
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <span className={cn('text-[9px] sm:text-[10px] uppercase tracking-[0.15em] truncate', task.tone.text)}>
+                      {task.mission.title.slice(0, 8)}
                     </span>
-                    <span className="text-[10px] text-text-muted">{formatMinutes(task.estimated_minutes)}</span>
+                    <span className="text-[9px] sm:text-[10px] text-text-muted shrink-0">{formatMinutes(task.estimated_minutes)}</span>
                   </div>
-                  <p className={cn("text-sm leading-5", col.lane === 'done' ? 'text-text-muted line-through' : 'text-text-primary')}>{task.title}</p>
-                  <div className="flex items-center justify-between mt-0.5">
-                    <div className={cn('flex h-5 w-5 items-center justify-center rounded-full text-[9px] uppercase font-semibold text-text-primary', task.tone.border, task.tone.soft)}>
+                  <p className={cn("text-xs sm:text-sm leading-4 sm:leading-5 line-clamp-2", col.lane === 'done' ? 'text-text-muted line-through' : 'text-text-primary')}>{task.title}</p>
+                  <div className="flex items-center justify-between gap-2 mt-0.5 sm:mt-1">
+                    <div className={cn('flex h-5 w-5 items-center justify-center rounded-full text-[8px] sm:text-[9px] uppercase font-semibold text-text-primary flex-shrink-0', task.tone.border, task.tone.soft)}>
                       {task.title.substring(0, 1)}
                     </div>
                     {task.due_date ? (
-                      <span className={cn('rounded-full px-2 py-0.5 text-[10px]', isOverdue && col.lane !== 'done' ? 'bg-red-500/10 text-red-400' : 'text-text-muted')}>
-                        {isOverdue && col.lane !== 'done' ? '⚠ ' : ''}{formatDateLabel(task.due_date)}
+                      <span className={cn('rounded-full px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[10px] whitespace-nowrap', isOverdue && col.lane !== 'done' ? 'bg-red-500/10 text-red-400' : 'text-text-muted')}>
+                        {isOverdue && col.lane !== 'done' ? '⚠' : ''}{formatDateLabel(task.due_date)}
                       </span>
                     ) : null}
                   </div>
