@@ -727,9 +727,9 @@ function TaskListItem({
   return (
     <div
       className={cn(
-        'main-list-item rounded-[20px] border p-3 transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out',
+        'group main-list-item rounded-[20px] border p-3 transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out',
         selected
-          ? 'border-accent/30 bg-accent/10'
+          ? 'is-selected border-accent/30 bg-accent/10'
           : 'border-borderSoft/35 bg-panel/42 hover:border-borderStrong/35 hover:bg-panel/56',
         draggable ? 'cursor-grab active:cursor-grabbing' : null,
         dragging ? 'scale-[0.985] border-accent/26 bg-accent/8 opacity-45 shadow-none' : null,
@@ -758,7 +758,13 @@ function TaskListItem({
         ) : null}
       </button>
 
-      {footer ? <div className="mt-3 border-t border-borderSoft/20 pt-3">{footer}</div> : null}
+      {footer ? (
+        <div className="mt-0 h-0 opacity-0 group-hover:mt-3 group-hover:h-auto group-hover:opacity-100 group-[.is-selected]:mt-3 group-[.is-selected]:h-auto group-[.is-selected]:opacity-100 transition-all duration-200 overflow-hidden">
+          <div className="border-t border-borderSoft/20 pt-3">
+            {footer}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -791,7 +797,7 @@ function SubtaskBoardItem({
   return (
     <div
       className={cn(
-        'main-list-item rounded-[16px] border border-borderSoft/24 bg-panel2/34 p-2.5 transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out',
+        'group main-list-item rounded-[16px] border border-borderSoft/24 bg-panel2/34 p-2.5 transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out',
         draggable ? 'cursor-grab active:cursor-grabbing' : null,
         dragging ? 'scale-[0.985] border-accent/26 bg-accent/8 opacity-45 shadow-none' : null,
       )}
@@ -807,30 +813,31 @@ function SubtaskBoardItem({
           </div>
           <div className="flex items-center gap-1.5">
             <Badge className="px-1.5 py-0.5 text-[9px]" tone={getTaskTone(task)}>{humanizePriority(task.priority)}</Badge>
-            <Badge className="px-1.5 py-0.5 text-[9px]" tone="neutral">{task.estimated_minutes}m</Badge>
           </div>
         </div>
       </button>
 
-      <div className="mt-2.5 flex flex-nowrap gap-2 overflow-x-auto pb-0.5 scrollbar-none">
-        <button 
-          onClick={onFocus} 
-          className="rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent hover:bg-accent/20 transition-colors"
-        >
-          Focus
-        </button>
-        <button 
-          onClick={onDone} 
-          className="rounded-full bg-borderSoft/20 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-borderSoft/30 transition-colors"
-        >
-          Done
-        </button>
-        <button 
-          onClick={onDetail} 
-          className="rounded-full bg-borderSoft/20 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-borderSoft/30 transition-colors"
-        >
-          Detail
-        </button>
+      <div className="h-0 opacity-0 group-hover:h-auto group-hover:opacity-100 group-hover:mt-2.5 transition-all duration-200 overflow-hidden">
+        <div className="flex flex-nowrap gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+          <button 
+            onClick={onFocus} 
+            className="rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent hover:bg-accent/20 transition-colors"
+          >
+            Focus
+          </button>
+          <button 
+            onClick={onDone} 
+            className="rounded-full bg-borderSoft/20 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-borderSoft/30 transition-colors"
+          >
+            Done
+          </button>
+          <button 
+            onClick={onDetail} 
+            className="rounded-full bg-borderSoft/20 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-borderSoft/30 transition-colors"
+          >
+            Detail
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2185,49 +2192,37 @@ export function MainApp() {
                           onSelect={() => selectTask(task.id)}
                           task={task}
                         />
-                      );
+                       );
                     })
                   ) : null}
 
                   {column.subtasks.length ? (
-                    <div className="rounded-[24px] border border-dashed border-borderSoft/28 bg-panel/12 p-3">
-                      <div className="mb-3 flex items-center justify-between gap-3 px-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-text-muted">Linked steps</p>
-                          <span className="h-1 w-1 rounded-full bg-borderStrong/20" />
-                          <Badge tone="neutral">{column.subtasks.length}</Badge>
-                        </div>
-                        <p className="hidden text-[11px] text-text-secondary xl:block">Grouped by parent</p>
+                    <div className="mt-2 space-y-4">
+                      <div className="flex items-center gap-2 px-2">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-text-muted">Linked steps</p>
+                        <Badge tone="neutral">{column.subtasks.length}</Badge>
                       </div>
-
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         {groupedSubtasks.map((group) => (
-                          <div
-                            key={group.parentTask?.id ?? group.tasks[0]?.id}
-                            className="rounded-[20px] border border-borderSoft/24 bg-panel2/20 p-3"
-                          >
-                            <div className="mb-3 flex items-center justify-between gap-3 px-1">
-                              <div className="flex min-w-0 items-center gap-2">
-                                <p className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Parent:</p>
-                                {group.parentTask ? (
-                                  <button
-                                    className="truncate text-xs font-semibold text-text-primary transition-colors hover:text-accent"
-                                    onClick={() => {
-                                      selectTask(group.parentTask!.id);
-                                      setDetailTaskId(group.parentTask!.id);
-                                    }}
-                                    type="button"
-                                  >
-                                    {group.parentTask.title}
-                                  </button>
-                                ) : (
-                                  <p className="truncate text-xs font-semibold text-text-primary">Detached checklist</p>
-                                )}
-                              </div>
-                              <Badge className="shrink-0" tone="neutral">{group.tasks.length} step{group.tasks.length === 1 ? '' : 's'}</Badge>
+                          <div key={group.parentTask?.id ?? group.tasks[0]?.id} className="space-y-2">
+                            <div className="flex items-center gap-2 px-2">
+                              <p className="shrink-0 text-[9px] font-bold uppercase tracking-[0.18em] text-text-muted/60">Parent:</p>
+                              {group.parentTask ? (
+                                <button
+                                  className="truncate text-[11px] font-medium text-text-secondary transition-colors hover:text-accent"
+                                  onClick={() => {
+                                    selectTask(group.parentTask!.id);
+                                    setDetailTaskId(group.parentTask!.id);
+                                  }}
+                                  type="button"
+                                >
+                                  {group.parentTask.title}
+                                </button>
+                              ) : (
+                                <p className="truncate text-[11px] font-medium text-text-secondary">Detached</p>
+                              )}
                             </div>
-
-                            <div className="space-y-2">
+                            <div className="space-y-2 border-l-2 border-borderSoft/15 ml-3 pl-3">
                               {group.tasks.map((task) => (
                                 <SubtaskBoardItem
                                   active={activeSession?.task_id === task.id}
