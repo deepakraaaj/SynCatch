@@ -38,7 +38,7 @@ jobs:
             artifact_path: src-tauri/target/release/bundle/nsis/*.exe
           - name: android-apk
             platform: ubuntu-22.04
-            build_command: bash scripts/build-android-release.sh --target universal
+            build_command: bash scripts/build-android-release.sh
             artifact_name: release-android-apk
             artifact_path: src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
 
@@ -93,6 +93,17 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Setup Android signing
+        if: matrix.name == 'android-apk'
+        run: |
+          mkdir -p src-tauri/gen/android
+          echo "${{ secrets.ANDROID_KEY_BASE64 }}" | base64 -d > src-tauri/gen/android/android-upload-keystore.jks
+          cat > src-tauri/gen/android/keystore.properties <<EOF
+          password=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=src-tauri/gen/android/android-upload-keystore.jks
+          EOF
 
       - name: Build desktop bundle
         shell: bash
