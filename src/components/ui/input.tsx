@@ -12,6 +12,9 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
           'h-12 w-full rounded-[18px] border border-borderSoft/40 bg-panel2/78 px-4 text-sm text-text-primary outline-none transition placeholder:text-text-muted focus:border-accent/35 focus:bg-panel2/92',
           props.className,
         )}
+        spellCheck="false"
+        autoCapitalize="off"
+        autoCorrect="off"
       />
     );
   },
