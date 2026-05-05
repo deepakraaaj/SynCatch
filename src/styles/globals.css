@@ -165,11 +165,67 @@
     font: inherit;
   }
 
-  /* Ensure minimum touch targets on mobile */
+  /* Ensure minimum touch targets on mobile (Android standard 48dp) */
   @media (max-width: 1024px) {
     button,
-    [role="button"] {
-      min-height: 36px;
+    [role="button"],
+    input[type="checkbox"],
+    input[type="radio"] {
+      min-height: 48px;
+      min-width: 48px;
+    }
+
+    input,
+    textarea,
+    select {
+      min-height: 48px;
+      font-size: 16px;
+      padding: 12px;
+    }
+  }
+
+  /* Smooth scrolling for better mobile feel */
+  @supports (scroll-behavior: smooth) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  /* Better system font support on Android */
+  @supports (font-family: system-ui) {
+    body {
+      font-family: system-ui, 'Space Grotesk', 'Segoe UI Variable', sans-serif;
+    }
+  }
+
+  /* Prevent text selection on buttons for better UX */
+  button,
+  [role="button"],
+  [role="link"],
+  a {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Better tap feedback on Android */
+  @media (any-hover: none) {
+    button:active,
+    [role="button"]:active,
+    a:active {
+      opacity: 0.85;
+    }
+  }
+
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
   }
 
@@ -312,6 +368,10 @@
     scrollbar-gutter: stable;
     overscroll-behavior-y: auto;
     -webkit-overflow-scrolling: touch;
+    will-change: scroll-position;
+    contain: content;
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   .main-list-item {
@@ -415,7 +475,9 @@
     background: linear-gradient(180deg, rgb(var(--surface-1) / 0.97), rgb(var(--surface-2) / 0.98));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    will-change: transform;
+    contain: layout style paint;
   }
 
   .mobile-bottom-nav-item {
@@ -435,6 +497,20 @@
     background: transparent;
     cursor: pointer;
     min-height: 56px;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    position: relative;
+  }
+
+  /* Better keyboard focus on Android */
+  .mobile-bottom-nav-item:focus {
+    outline: none;
+  }
+
+  .mobile-bottom-nav-item:focus-visible {
+    outline: 2px solid rgb(var(--accent) / 0.5);
+    outline-offset: -2px;
   }
 
   .mobile-bottom-nav-item:active {
