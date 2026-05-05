@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2 } from 'lucide-react';
+import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight } from 'lucide-react';
 import { MissionIcon } from '../../components/ui/mission-icon';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -67,37 +67,37 @@ type TaskBoardColumn = {
   empty: string;
 };
 
-const views: Array<{ id: MainView; label: string; caption?: string }> = [
-  { id: 'focus', label: 'What Now' },
-  { id: 'missions', label: 'Missions' },
-  { id: 'roadmap', label: 'Roadmap' },
-  { id: 'today', label: 'Today' },
-  { id: 'tasks', label: 'Tasks' },
-  { id: 'history', label: 'History' },
-  { id: 'insights', label: 'Insights' },
-  { id: 'review', label: 'Review' },
-  { id: 'settings', label: 'Settings' },
+const views: Array<{ id: MainView; label: string; icon: any; caption?: string }> = [
+  { id: 'focus', label: 'What Now', icon: Zap },
+  { id: 'missions', label: 'Missions', icon: Rocket },
+  { id: 'roadmap', label: 'Roadmap', icon: Target },
+  { id: 'today', label: 'Today', icon: Sun },
+  { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+  { id: 'history', label: 'History', icon: Clock },
+  { id: 'insights', label: 'Insights', icon: BarChart3 },
+  { id: 'review', label: 'Review', icon: ClipboardList },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 const captureOptions: Array<{
   kind: SessionCaptureKind;
-  icon: string;
+  icon: any;
   label: string;
   placeholder: string;
 }> = [
-  { kind: 'idea', icon: '💡', label: 'Idea', placeholder: 'What hit you?' },
-  { kind: 'resource', icon: '🔗', label: 'Resource', placeholder: 'Paste a link' },
+  { kind: 'idea', icon: Lightbulb, label: 'Idea', placeholder: 'What hit you?' },
+  { kind: 'resource', icon: Link2, label: 'Resource', placeholder: 'Paste a link' },
   {
     kind: 'distraction',
-    icon: '📌',
+    icon: Pin,
     label: 'Distraction',
     placeholder: 'What pulled you away?',
   },
-  { kind: 'note', icon: '📝', label: 'Note', placeholder: 'Tiny note' },
-  { kind: 'blocker', icon: '⚠️', label: 'Blocker', placeholder: 'What is blocking you?' },
+  { kind: 'note', icon: FileText, label: 'Note', placeholder: 'Tiny note' },
+  { kind: 'blocker', icon: AlertCircle, label: 'Blocker', placeholder: 'What is blocking you?' },
   {
     kind: 'follow-up',
-    icon: '↗',
+    icon: ArrowUpRight,
     label: 'Follow-up',
     placeholder: 'Create a follow-up task',
   },
@@ -327,27 +327,32 @@ function getViewCopy(view: MainView) {
 function NavButton({
   active,
   label,
+  icon: Icon,
   caption,
   onClick,
 }: {
   active: boolean;
   label: string;
+  icon: any;
   caption?: string;
   onClick: () => void;
 }) {
   return (
     <button
       className={cn(
-        'w-full rounded-[24px] border px-4 py-3 text-left transition-colors duration-150',
+        'w-full flex items-center gap-3 rounded-[20px] border px-4 py-2.5 text-left transition-all duration-150',
         active
-          ? 'border-accent/30 bg-accent/12'
+          ? 'border-accent/35 bg-accent/12 shadow-[0_4px_16px_rgba(var(--accent),0.08)]'
           : 'border-transparent bg-panel/38 hover:border-borderSoft/40 hover:bg-panel/56',
       )}
       onClick={onClick}
       type="button"
     >
-      <p className="text-xs font-medium text-text-primary">{label}</p>
-      {caption ? <p className="mt-1 hidden text-[11px] text-text-muted sm:block">{caption}</p> : null}
+      <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent' : 'text-text-muted')} />
+      <div className="min-w-0">
+        <p className={cn('text-[13px] font-semibold tracking-tight', active ? 'text-text-primary' : 'text-text-secondary')}>{label}</p>
+        {caption ? <p className="mt-0.5 hidden text-[10px] text-text-muted sm:block">{caption}</p> : null}
+      </div>
     </button>
   );
 }
@@ -373,6 +378,7 @@ function SidebarContent({
           <NavButton
             active={activeView === view.id}
             caption={view.caption}
+            icon={view.icon}
             key={view.id}
             label={view.label}
             onClick={() => onViewSelect(view.id)}
@@ -1709,7 +1715,7 @@ export function MainApp() {
                     type="button"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-lg">{option.icon}</span>
+                      <option.icon className={cn('h-5 w-5', activeSession ? 'text-accent' : 'text-text-muted')} />
                       <span className="text-[11px] uppercase tracking-[0.24em] text-text-muted">{option.label}</span>
                     </div>
                   </button>
