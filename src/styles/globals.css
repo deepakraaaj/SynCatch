@@ -115,12 +115,20 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    /* Prevent pull-to-refresh on mobile but allow scrolling */
+    overscroll-behavior-y: none;
   }
 
   @media (max-width: 1024px) {
     body {
-      overflow: auto;
-      overscroll-behavior-y: contain;
+      overflow: hidden;
+      overscroll-behavior-y: none;
+      touch-action: manipulation;
+    }
+
+    #root {
+      overflow: hidden;
+      touch-action: pan-y;
     }
   }
 
@@ -184,11 +192,12 @@
     border-radius: 999px;
   }
 
-  /* Hide scrollbars on mobile for cleaner look */
+  /* Hide scrollbars on mobile for cleaner look but keep scrolling functional */
   @media (max-width: 1024px) {
     ::-webkit-scrollbar {
-      width: 4px;
-      height: 4px;
+      display: none;
+      width: 0;
+      height: 0;
     }
   }
 }
@@ -302,6 +311,7 @@
     min-height: 0;
     scrollbar-gutter: stable;
     overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .main-list-item {
@@ -456,6 +466,27 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
   }
+
+  /* Mobile-only: fix Android WebView vertical scrolling */
+  @media (max-width: 1024px) {
+    .app-frame {
+      contain: none;
+      overflow: visible;
+    }
+
+    .main-scroll-region {
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      scrollbar-gutter: auto;
+    }
+
+    .surface-panel {
+      contain: none;
+      content-visibility: visible;
+      contain-intrinsic-size: auto;
+    }
+  }
 }
 
 @keyframes heroGradientShift {
@@ -506,11 +537,5 @@
   }
 }
 
-* {
-  scrollbar-width: none !important;
-}
-
-::-webkit-scrollbar {
-  display: none !important;
-}
+/* End of file */
 

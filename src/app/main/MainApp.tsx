@@ -2180,7 +2180,7 @@ export function MainApp() {
           </div>
         ) : null}
 
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
+        <div className="flex gap-4 overflow-x-auto pb-4">
           {taskBoard.map((column) => {
             const groupedSubtasks = groupSubtasksByParent(column.subtasks, tasksById);
 
@@ -2962,7 +2962,7 @@ export function MainApp() {
         </div>
       ) : null}
 
-      <div className="app-frame relative flex h-full flex-col overflow-hidden rounded-[24px] border border-borderSoft/20 sm:rounded-[32px] lg:flex-row lg:rounded-[42px]">
+      <div className="app-frame relative flex h-full flex-col overflow-visible lg:overflow-hidden rounded-[24px] border border-borderSoft/20 sm:rounded-[32px] lg:flex-row lg:rounded-[42px]">
         <aside className="sidebar-shell relative z-10 hidden w-full flex-col border-r border-borderSoft/24 p-6 lg:flex lg:w-[248px]">
           <SidebarContent
             activeView={activeView}
@@ -3015,8 +3015,8 @@ export function MainApp() {
             </div>
           </header>
 
-          <div className="relative flex min-h-0 flex-1">
-            <main className="main-scroll-region relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 pb-20 sm:px-6 sm:py-6 lg:pb-6">
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <main className="main-scroll-region absolute inset-0 overflow-y-scroll px-3 py-4 pb-32 sm:px-6 sm:py-6 lg:pb-6" style={{ WebkitOverflowScrolling: 'touch' }}>
               {activeView === 'focus' ? renderFocus() : null}
               {activeView === 'missions' ? renderMissions() : null}
               {activeView === 'roadmap' ? <RoadmapView missions={missions} allTasks={tasks} /> : null}
