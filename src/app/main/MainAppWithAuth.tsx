@@ -13,6 +13,10 @@ export function MainAppWithAuth() {
 
   useEffect(() => {
     void useAuthStore.getState().hydrate();
+    // Remove the initial HTML loading screen now that React has mounted
+    if (typeof window !== 'undefined' && (window as any).removeInitialLoading) {
+      (window as any).removeInitialLoading();
+    }
   }, []);
 
   if (loading) {
