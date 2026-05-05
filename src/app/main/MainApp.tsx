@@ -2913,7 +2913,8 @@ export function MainApp() {
         <div className="fixed inset-0 z-50 flex lg:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity"
+            className="absolute inset-0 backdrop-blur-md transition-opacity"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
             onClick={() => setMobileNavOpen(false)}
             aria-label="Close navigation"
           />
