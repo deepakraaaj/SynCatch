@@ -729,8 +729,8 @@ function TaskListItem({
       className={cn(
         'group main-list-item rounded-[20px] border p-3 transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out',
         selected
-          ? 'is-selected border-accent/30 bg-accent/10'
-          : 'border-borderSoft/35 bg-panel/42 hover:border-borderStrong/35 hover:bg-panel/56',
+          ? 'is-selected border-accent/40 bg-accent/10 shadow-[0_4px_20px_rgba(var(--accent),0.08)]'
+          : 'border-borderSoft/50 bg-panel/42 hover:border-accent/30 hover:bg-panel/56',
         draggable ? 'cursor-grab active:cursor-grabbing' : null,
         dragging ? 'scale-[0.985] border-accent/26 bg-accent/8 opacity-45 shadow-none' : null,
         className,
@@ -797,7 +797,7 @@ function SubtaskBoardItem({
   return (
     <div
       className={cn(
-        'group main-list-item rounded-[16px] border border-borderSoft/24 bg-panel2/34 p-2.5 transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out',
+        'group main-list-item rounded-[16px] border border-borderSoft/40 bg-panel2/34 p-2.5 transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out',
         draggable ? 'cursor-grab active:cursor-grabbing' : null,
         dragging ? 'scale-[0.985] border-accent/26 bg-accent/8 opacity-45 shadow-none' : null,
       )}
@@ -2222,7 +2222,8 @@ export function MainApp() {
                                 <p className="truncate text-[11px] font-medium text-text-secondary">Detached</p>
                               )}
                             </div>
-                            <div className="space-y-2 border-l-2 border-borderSoft/15 ml-3 pl-3">
+                            <div className="relative space-y-2.5 ml-2.5 pl-5">
+                              <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-gradient-to-b from-accent/40 via-accent/20 to-transparent transition-all group-hover:from-accent group-hover:via-accent/50" />
                               {group.tasks.map((task) => (
                                 <SubtaskBoardItem
                                   active={activeSession?.task_id === task.id}
