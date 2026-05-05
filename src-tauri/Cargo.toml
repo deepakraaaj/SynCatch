@@ -1,6 +1,6 @@
 [package]
 name = "missioncontrol"
-version = "0.1.9"
+version = "0.1.10"
 description = "MissionControl desktop productivity app"
 authors = ["Deepak Raj"]
 edition = "2021"

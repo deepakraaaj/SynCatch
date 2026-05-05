@@ -49,6 +49,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     try {
       const client = getSupabaseClient();
+      if (!client) {
+        set({ error: 'Supabase client unavailable', loading: false });
+        return;
+      }
+
       const { data, error } = await client.auth.getSession();
 
       if (error) {

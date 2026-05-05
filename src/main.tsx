@@ -20,4 +20,6 @@ async function bootstrap() {
   );
 }
 
-void bootstrap();
+bootstrap().catch((error) => {
+  console.error('Bootstrap failed:', error);
+});
