@@ -8,7 +8,7 @@ import {
 import { getFocusStatusLabel } from '../../features/focus/focus-presenter';
 import { useFocusStore } from '../../features/focus/focus-store';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
-import { getVisibleSubtasks } from '../../features/tasks/task-helpers';
+import { getSubtasks } from '../../features/tasks/task-helpers';
 import { useTaskStore } from '../../features/tasks/task-store';
 import type { Task, TaskLane } from '../../features/tasks/task-types';
 import { formatMinutes, getElapsedSeconds } from '../../lib/date';
@@ -437,7 +437,7 @@ export function HudApp() {
   const toggleHudTransparency = useFocusStore((state) => state.toggleHudTransparency);
   const tasks = useTaskStore((state) => state.tasks);
   const moveTaskToLane = useTaskStore((state) => state.moveTaskToLane);
-  const toggleSubtask = useTaskStore((state) => state.toggleSubtask);
+  const markDone = useTaskStore((state) => state.markDone);
   const [elapsedSeconds, setElapsedSeconds] = useState(
     getElapsedSeconds(focusSessionStart, focusElapsedSeconds),
   );
@@ -463,7 +463,7 @@ export function HudApp() {
   const displayClock = formatDigitalClock(remainingSeconds);
   const progressRatio = Math.min(1, elapsedSeconds / Math.max(totalSessionSeconds, 1));
   const activeQueue = getActiveQueue(tasks, currentMission?.id ?? null);
-  const checklist = currentMission ? getVisibleSubtasks(currentMission.subtasks) : [];
+  const checklist = currentMission ? getSubtasks(tasks, currentMission.id) : [];
   const focusStatusLabel = getFocusStatusLabel(focusStatus);
   const useStableHudRendering = isTauriApp() && isLinuxPlatform();
   const effectiveHudTransparency = hudMode === 'compact' ? 'standard' : hudTransparency;
@@ -936,13 +936,13 @@ export function HudApp() {
                           <button
                             key={subtask.id}
                             onClick={() => {
-                              if (currentMission) {
-                                void toggleSubtask(currentMission.id, subtask.id, 'hud');
+                              if (subtask.lane !== 'done') {
+                                void markDone(subtask.id, 'hud');
                               }
                             }}
                             className={cn(
                               'flex w-full items-center gap-3 rounded-[18px] border px-4 py-3 text-left transition',
-                              subtask.completed
+                              subtask.lane === 'done'
                                 ? 'border-success/35 bg-success/10 text-success opacity-75'
                                 : 'border-borderSoft/35 bg-panel/58 text-text-secondary hover:border-borderStrong/40',
                             )}
@@ -951,14 +951,14 @@ export function HudApp() {
                             <span
                               className={cn(
                                 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold transition',
-                                subtask.completed
+                                subtask.lane === 'done'
                                   ? 'border-success/45 bg-success/20 text-success'
                                   : 'border-borderStrong/30 text-text-muted',
                               )}
                             >
-                              {subtask.completed ? '✓' : index + 1}
+                              {subtask.lane === 'done' ? '✓' : index + 1}
                             </span>
-                            <span className={cn('text-sm', subtask.completed ? 'line-through' : '')}>{subtask.title}</span>
+                            <span className={cn('text-sm', subtask.lane === 'done' ? 'line-through' : '')}>{subtask.title}</span>
                           </button>
                         ))
                       ) : (
@@ -1080,7 +1080,7 @@ export function HudApp() {
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Steps</p>
                     <span className="text-[10px] uppercase tracking-[0.28em] text-accent/80">
-                      {checklist.filter((item) => item.completed).length}/{checklist.length} done
+                      {checklist.filter((item) => item.lane === 'done').length}/{checklist.length} done
                     </span>
                   </div>
                   <div className="mt-4 space-y-2">
@@ -1089,13 +1089,13 @@ export function HudApp() {
                         <button
                           key={subtask.id}
                           onClick={() => {
-                            if (currentMission) {
-                              void toggleSubtask(currentMission.id, subtask.id, 'hud');
+                            if (subtask.lane !== 'done') {
+                              void markDone(subtask.id, 'hud');
                             }
                           }}
                           className={cn(
                             'w-full rounded-[16px] border px-3 py-3 text-left text-sm transition',
-                            subtask.completed
+                            subtask.lane === 'done'
                               ? 'border-success/35 bg-success/10 text-success line-through opacity-70'
                               : 'border-borderSoft/35 bg-panel/54 text-text-secondary hover:border-borderStrong/40 hover:bg-panel/68',
                           )}

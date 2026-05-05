@@ -2,9 +2,11 @@ import {
   startTransition,
   useDeferredValue,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
+  type FormEvent,
   type KeyboardEvent,
 } from 'react';
 import { Badge } from '../../components/ui/badge';
@@ -14,8 +16,9 @@ import { cn } from '../../lib/cn';
 import type { ActivitySource } from '../activity/activity-repository';
 import type { TaskClarification } from '../ai/ai-types';
 import { getTaskAiAssistant } from '../ai/mock-ai-provider';
+import { useMissionStore } from '../missions/mission-store';
 import { useTaskStore } from './task-store';
-import type { Task, TaskClarifyingQuestion, TaskDraft, TaskLane, TaskPriority } from './task-types';
+import type { Task, TaskDraft, TaskEnergy, TaskLane, TaskPriority } from './task-types';
 
 interface TaskCreationComposerProps {
   source: ActivitySource;
@@ -24,21 +27,23 @@ interface TaskCreationComposerProps {
   onSubmitted?: () => void | Promise<void>;
   onCreated?: (task: Task) => void | Promise<void>;
   autoFocus?: boolean;
-  initialMode?: 'interaction' | 'one-shot';
   compact?: boolean;
   fillHeight?: boolean;
   lane?: TaskDraft['lane'];
   priority?: TaskDraft['priority'];
   status?: TaskDraft['status'];
+  parentTaskId?: string | null;
 }
 
 interface ComposerDraft {
   title: string;
-  doneLooksLike: string;
+  outcome: string;
   firstStep: string;
   notes: string;
+  missionId: string | null;
   lane: TaskLane;
   priority: TaskPriority;
+  energy: TaskEnergy;
   estimatedMinutes: number;
   estimateAuto: boolean;
 }
@@ -57,18 +62,16 @@ const PRIORITY_OPTIONS: Array<{ id: TaskPriority; label: string }> = [
   { id: 'critical', label: 'Critical' },
 ];
 
+const ENERGY_OPTIONS: Array<{ id: TaskEnergy; label: string }> = [
+  { id: 'admin', label: 'Admin' },
+  { id: 'shallow', label: 'Shallow' },
+  { id: 'deep', label: 'Deep' },
+];
+
 const ESTIMATE_OPTIONS = [15, 25, 50, 90];
 
 const VAGUE_ANSWERS = new Set([
-  'done',
-  'finished',
-  'complete',
-  'completed',
-  'ready',
-  'shipped',
-  'fixed',
-  'good',
-  'ok',
+  'done', 'finished', 'complete', 'completed', 'ready', 'shipped', 'fixed', 'good', 'ok',
 ]);
 
 const ESTIMATE_KEYWORDS: Array<{ minutes: number; words: RegExp }> = [
@@ -81,7 +84,6 @@ const ESTIMATE_KEYWORDS: Array<{ minutes: number; words: RegExp }> = [
 function detectEstimate(title: string): number | null {
   const trimmed = title.trim();
   if (trimmed.length < 4) return null;
-
   for (const { minutes, words } of ESTIMATE_KEYWORDS) {
     if (words.test(trimmed)) return minutes;
   }
@@ -89,56 +91,39 @@ function detectEstimate(title: string): number | null {
 }
 
 function isVague(value: string) {
-  const trimmed = value.trim().toLowerCase().replace(/[.!?]+$/, '');
-  return VAGUE_ANSWERS.has(trimmed);
+  return VAGUE_ANSWERS.has(value.trim().toLowerCase().replace(/[.!?]+$/, ''));
 }
 
 const INITIAL_DRAFT: ComposerDraft = {
   title: '',
-  doneLooksLike: '',
+  outcome: '',
   firstStep: '',
   notes: '',
+  missionId: null,
   lane: 'inbox',
   priority: 'normal',
+  energy: 'shallow',
   estimatedMinutes: 25,
   estimateAuto: false,
 };
 
-function buildClarifyingQuestions(draft: ComposerDraft): TaskClarifyingQuestion[] {
-  const entries = [
-    { id: 'done', question: 'What does done look like?', answer: draft.doneLooksLike.trim() },
-    { id: 'first-step', question: 'What is the first step?', answer: draft.firstStep.trim() },
-    { id: 'notes', question: 'Any extra notes?', answer: draft.notes.trim() },
-  ];
-  return entries
-    .filter((entry) => entry.answer.length > 0)
-    .map((entry, index) => ({
-      id: `q-${entry.id}-${index + 1}`,
-      question: entry.question,
-      answer: entry.answer,
-    }));
-}
-
-function normalizeTaskDraft(
+function buildTaskDraft(
   draft: ComposerDraft,
   clarification: TaskClarification | null,
   defaults: Pick<TaskDraft, 'status'>,
+  parentTaskId?: string | null,
 ): TaskDraft {
-  const title = draft.title.trim() || clarification?.suggestedTitle || '';
-
   return {
-    rawInput: title,
-    title,
-    description: draft.notes.trim(),
-    goal: draft.doneLooksLike.trim() || clarification?.goal,
-    definitionOfDone: draft.doneLooksLike.trim() || clarification?.definitionOfDone,
-    nextAction: draft.firstStep.trim() || clarification?.nextAction,
-    whyItMatters: '',
-    workspaceNotes: '',
-    estimatedMinutes: draft.estimatedMinutes,
-    clarifyingQuestions: buildClarifyingQuestions(draft),
+    title: draft.title.trim() || clarification?.suggestedTitle || '',
+    mission_id: draft.missionId,
+    parent_task_id: parentTaskId ?? null,
+    outcome: draft.outcome.trim() || clarification?.outcome || '',
+    next_action: draft.firstStep.trim() || clarification?.nextAction || '',
+    notes: draft.notes.trim(),
     lane: draft.lane,
     priority: draft.priority,
+    energy: draft.energy,
+    estimated_minutes: draft.estimatedMinutes,
     status: defaults.status,
   };
 }
@@ -155,14 +140,21 @@ export function TaskCreationComposer({
   lane = 'inbox',
   priority = 'normal',
   status = 'captured',
+  parentTaskId = null,
 }: TaskCreationComposerProps) {
   const createTask = useTaskStore((state) => state.createTask);
+  const missions = useMissionStore((state) => state.missions);
+  const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
-  const [draft, setDraft] = useState<ComposerDraft>({
-    ...INITIAL_DRAFT,
-    lane,
-    priority,
-  });
+  const composerId = useId();
+  const titleInputId = `${composerId}-title`;
+  const titleHelpId = `${composerId}-title-help`;
+  const outcomeId = `${composerId}-outcome`;
+  const firstStepId = `${composerId}-first-step`;
+  const notesId = `${composerId}-notes`;
+  const detailsId = `${composerId}-details`;
+
+  const [draft, setDraft] = useState<ComposerDraft>({ ...INITIAL_DRAFT, lane, priority });
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [clarification, setClarification] = useState<TaskClarification | null>(null);
   const [isThinking, setIsThinking] = useState(false);
@@ -170,16 +162,12 @@ export function TaskCreationComposer({
   const deferredTitle = useDeferredValue(draft.title);
 
   useEffect(() => {
-    if (autoFocus) {
-      titleRef.current?.focus();
-    }
+    if (autoFocus) titleRef.current?.focus();
   }, [autoFocus]);
 
+  // Auto-detect estimate from title keywords
   useEffect(() => {
-    if (!draft.estimateAuto && draft.estimatedMinutes !== INITIAL_DRAFT.estimatedMinutes) {
-      return;
-    }
-
+    if (!draft.estimateAuto && draft.estimatedMinutes !== INITIAL_DRAFT.estimatedMinutes) return;
     const detected = detectEstimate(deferredTitle);
     if (detected !== null) {
       setDraft((current) =>
@@ -190,6 +178,7 @@ export function TaskCreationComposer({
     }
   }, [deferredTitle, draft.estimateAuto, draft.estimatedMinutes]);
 
+  // AI clarification on debounce
   useEffect(() => {
     const trimmed = deferredTitle.trim();
     if (trimmed.length < 6) {
@@ -220,7 +209,7 @@ export function TaskCreationComposer({
   }, [deferredTitle]);
 
   const canSave = draft.title.trim().length > 0;
-  const doneIsVague = draft.doneLooksLike.length > 0 && isVague(draft.doneLooksLike);
+  const outcomeIsVague = draft.outcome.length > 0 && isVague(draft.outcome);
 
   function update<K extends keyof ComposerDraft>(field: K, value: ComposerDraft[K]) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -230,13 +219,8 @@ export function TaskCreationComposer({
     if (!clarification) return;
     setDraft((current) => ({
       ...current,
-      doneLooksLike:
-        current.doneLooksLike ||
-        clarification.definitionOfDone ||
-        clarification.goal ||
-        '',
+      outcome: current.outcome || clarification.outcome || '',
       firstStep: current.firstStep || clarification.nextAction || '',
-      notes: current.notes || clarification.description || '',
     }));
     setDetailsOpen(true);
   }
@@ -247,11 +231,12 @@ export function TaskCreationComposer({
     setDetailsOpen(false);
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     if (!canSave || isSaving) return;
     setIsSaving(true);
     try {
-      const task = await createTask(normalizeTaskDraft(draft, clarification, { status }), source);
+      const task = await createTask(buildTaskDraft(draft, clarification, { status }, parentTaskId), source);
       await onCreated?.(task);
       reset();
       await onSubmitted?.();
@@ -260,17 +245,10 @@ export function TaskCreationComposer({
     }
   }
 
-  function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      void handleSubmit();
-    }
-  }
-
   function handleTextareaKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault();
-      void handleSubmit();
+      formRef.current?.requestSubmit();
     }
   }
 
@@ -288,14 +266,24 @@ export function TaskCreationComposer({
 
   const showClarificationCta = Boolean(
     clarification &&
-      (clarification.definitionOfDone || clarification.nextAction || clarification.description) &&
-      !draft.doneLooksLike &&
-      !draft.firstStep &&
-      !draft.notes,
+      (clarification.outcome || clarification.nextAction) &&
+      !draft.outcome &&
+      !draft.firstStep,
   );
 
+  const activeMissions = missions.filter((m) => m.status === 'active');
+
+  const filledDetailCount = [draft.outcome, draft.firstStep, draft.notes].filter(
+    (s) => s.trim().length > 0,
+  ).length;
+
   return (
-    <div className={cn(fillHeight ? 'flex h-full min-h-0 flex-col' : '')} onKeyDown={handleEscape}>
+    <form
+      ref={formRef}
+      className={cn(fillHeight ? 'flex h-full min-h-0 flex-col' : '')}
+      onKeyDown={handleEscape}
+      onSubmit={(event) => void handleSubmit(event)}
+    >
       <div
         className={cn(
           fillHeight ? 'min-h-0 flex-1 overflow-y-auto pr-1' : '',
@@ -304,17 +292,24 @@ export function TaskCreationComposer({
       >
         {/* Title — the only required field */}
         <div className="space-y-2">
-          <label className="block text-[11px] uppercase tracking-[0.28em] text-text-muted">
+          <label
+            className="block text-[11px] uppercase tracking-[0.28em] text-text-muted"
+            htmlFor={titleInputId}
+          >
             What are you working on?
           </label>
           <Input
             ref={titleRef}
+            aria-describedby={titleHelpId}
+            id={titleInputId}
             value={draft.title}
             onChange={(event) => update('title', event.target.value)}
-            onKeyDown={handleTitleKeyDown}
             placeholder='e.g. "Fix kanban drag handle on touch devices"'
             className="h-14 text-base"
           />
+          <p id={titleHelpId} className="text-xs text-text-muted">
+            Press Enter to save. Use Ctrl/Cmd+Enter from the optional fields below.
+          </p>
           {isThinking ? (
             <p className="text-xs text-text-muted">Thinking…</p>
           ) : showClarificationCta ? (
@@ -329,84 +324,120 @@ export function TaskCreationComposer({
         </div>
 
         {/* Inline metadata chips */}
-        <div className="space-y-3">
-          <ChipRow label="Lane">
-            {LANE_OPTIONS.map((option) => (
-              <Chip
-                key={option.id}
-                active={draft.lane === option.id}
-                onClick={() => update('lane', option.id)}
-              >
-                {option.label}
-              </Chip>
-            ))}
-          </ChipRow>
+        <div className="rounded-[24px] border border-borderSoft/24 bg-panel/16 p-3 sm:p-4">
+          <div className="space-y-3">
+            {/* Mission picker — shown only when missions exist and no parent task */}
+            {activeMissions.length > 0 && !parentTaskId ? (
+              <ChipRow label="Mission">
+                <Chip
+                  active={draft.missionId === null}
+                  onClick={() => update('missionId', null)}
+                >
+                  None
+                </Chip>
+                {activeMissions.map((mission) => (
+                  <Chip
+                    key={mission.id}
+                    active={draft.missionId === mission.id}
+                    onClick={() => update('missionId', mission.id)}
+                  >
+                    {mission.emoji} {mission.title}
+                  </Chip>
+                ))}
+              </ChipRow>
+            ) : null}
 
-          <ChipRow
-            label="Estimate"
-            trailing={
-              draft.estimateAuto ? (
-                <Badge tone="accent" className="text-[10px]">
-                  auto
-                </Badge>
-              ) : null
-            }
-          >
-            {ESTIMATE_OPTIONS.map((minutes) => (
-              <Chip
-                key={minutes}
-                active={draft.estimatedMinutes === minutes}
-                onClick={() => setDraft((c) => ({ ...c, estimatedMinutes: minutes, estimateAuto: false }))}
-              >
-                {minutes}m
-              </Chip>
-            ))}
-          </ChipRow>
+            <ChipRow label="Lane">
+              {LANE_OPTIONS.map((option) => (
+                <Chip key={option.id} active={draft.lane === option.id} onClick={() => update('lane', option.id)}>
+                  {option.label}
+                </Chip>
+              ))}
+            </ChipRow>
 
-          <ChipRow label="Priority">
-            {PRIORITY_OPTIONS.map((option) => (
-              <Chip
-                key={option.id}
-                active={draft.priority === option.id}
-                tone={option.id === 'critical' ? 'warning' : option.id === 'high' ? 'attention' : 'default'}
-                onClick={() => update('priority', option.id)}
-              >
-                {option.label}
-              </Chip>
-            ))}
-          </ChipRow>
+            <ChipRow label="Energy">
+              {ENERGY_OPTIONS.map((option) => (
+                <Chip
+                  key={option.id}
+                  active={draft.energy === option.id}
+                  tone={option.id === 'deep' ? 'attention' : 'default'}
+                  onClick={() => update('energy', option.id)}
+                >
+                  {option.label}
+                </Chip>
+              ))}
+            </ChipRow>
+
+            <ChipRow
+              label="Estimate"
+              trailing={
+                draft.estimateAuto ? (
+                  <Badge tone="accent" className="text-[10px]">
+                    auto
+                  </Badge>
+                ) : null
+              }
+            >
+              {ESTIMATE_OPTIONS.map((minutes) => (
+                <Chip
+                  key={minutes}
+                  active={draft.estimatedMinutes === minutes}
+                  onClick={() => setDraft((c) => ({ ...c, estimatedMinutes: minutes, estimateAuto: false }))}
+                >
+                  {minutes}m
+                </Chip>
+              ))}
+            </ChipRow>
+
+            <ChipRow label="Priority">
+              {PRIORITY_OPTIONS.map((option) => (
+                <Chip
+                  key={option.id}
+                  active={draft.priority === option.id}
+                  tone={option.id === 'critical' ? 'warning' : option.id === 'high' ? 'attention' : 'default'}
+                  onClick={() => update('priority', option.id)}
+                >
+                  {option.label}
+                </Chip>
+              ))}
+            </ChipRow>
+          </div>
         </div>
 
         {/* Add details — collapsible */}
         <div className="rounded-[24px] border border-borderSoft/30 bg-panel/24">
           <button
             type="button"
+            aria-controls={detailsId}
+            aria-expanded={detailsOpen}
             onClick={() => setDetailsOpen((open) => !open)}
             className="flex w-full items-center justify-between gap-3 rounded-[24px] px-4 py-3 text-left transition-colors hover:bg-panel/36"
           >
             <span className="text-sm font-medium text-text-primary">
               {detailsOpen ? '▾ Details' : '▸ Add details (optional)'}
             </span>
-            <span className="text-xs text-text-muted">
-              {[draft.doneLooksLike, draft.firstStep, draft.notes].filter((s) => s.trim().length > 0).length} filled
-            </span>
+            <span className="text-xs text-text-muted">{filledDetailCount} filled</span>
           </button>
 
           {detailsOpen ? (
-            <div className="space-y-4 border-t border-borderSoft/24 px-4 py-4">
+            <div className="space-y-4 border-t border-borderSoft/24 px-4 py-4" id={detailsId}>
               <div className="space-y-2">
-                <label className="block text-[11px] uppercase tracking-[0.28em] text-text-muted">
-                  Done looks like
+                <label
+                  className="block text-[11px] uppercase tracking-[0.28em] text-text-muted"
+                  htmlFor={outcomeId}
+                >
+                  Outcome
                 </label>
                 <Textarea
-                  value={draft.doneLooksLike}
-                  onChange={(event) => update('doneLooksLike', event.target.value)}
+                  id={outcomeId}
+                  value={draft.outcome}
+                  onChange={(event) => update('outcome', event.target.value)}
                   onKeyDown={handleTextareaKeyDown}
-                  placeholder="A concrete signal you can point to. Not just 'done'."
+                  placeholder="What concretely exists when this is done?"
                   rows={2}
                   className="resize-none"
                 />
-                {doneIsVague ? (
+                {outcomeIsVague ? (
                   <p className="text-xs text-warning">
                     Try something more concrete — what would prove it&rsquo;s actually done?
                   </p>
@@ -414,16 +445,20 @@ export function TaskCreationComposer({
               </div>
 
               <div className="space-y-2">
-                <label className="block text-[11px] uppercase tracking-[0.28em] text-text-muted">
+                <label
+                  className="block text-[11px] uppercase tracking-[0.28em] text-text-muted"
+                  htmlFor={firstStepId}
+                >
                   First step
                 </label>
                 <Input
+                  id={firstStepId}
                   value={draft.firstStep}
                   onChange={(event) => update('firstStep', event.target.value)}
                   onKeyDown={(event) => {
                     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
                       event.preventDefault();
-                      void handleSubmit();
+                      formRef.current?.requestSubmit();
                     }
                   }}
                   placeholder="The smallest action that breaks inertia."
@@ -431,10 +466,14 @@ export function TaskCreationComposer({
               </div>
 
               <div className="space-y-2">
-                <label className="block text-[11px] uppercase tracking-[0.28em] text-text-muted">
+                <label
+                  className="block text-[11px] uppercase tracking-[0.28em] text-text-muted"
+                  htmlFor={notesId}
+                >
                   Notes
                 </label>
                 <Textarea
+                  id={notesId}
                   value={draft.notes}
                   onChange={(event) => update('notes', event.target.value)}
                   onKeyDown={handleTextareaKeyDown}
@@ -448,7 +487,7 @@ export function TaskCreationComposer({
         </div>
       </div>
 
-      {/* Footer — Save sits LEFT to eliminate cursor travel */}
+      {/* Footer */}
       <div
         className={cn(
           'flex items-center justify-between gap-3 border-t border-borderSoft/24',
@@ -456,7 +495,7 @@ export function TaskCreationComposer({
         )}
       >
         <div className="flex items-center gap-2">
-          <Button disabled={!canSave || isSaving} onClick={() => void handleSubmit()} size="md">
+          <Button disabled={!canSave || isSaving} size="md" type="submit">
             {isSaving ? 'Saving…' : submitLabel}
           </Button>
           <span className="hidden text-[11px] text-text-muted sm:inline">
@@ -476,7 +515,7 @@ export function TaskCreationComposer({
           ) : null}
         </div>
       </div>
-    </div>
+    </form>
   );
 }
 
@@ -494,8 +533,8 @@ function ChipRow({
   trailing?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-[68px] shrink-0 text-[10px] uppercase tracking-[0.28em] text-text-muted">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+      <span className="text-[10px] uppercase tracking-[0.28em] text-text-muted sm:w-[72px] sm:shrink-0 sm:pt-1">
         {label}
       </span>
       <div className="flex flex-wrap items-center gap-2">
@@ -532,6 +571,7 @@ function Chip({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         'inline-flex h-8 items-center rounded-full border bg-panel/40 px-3 text-xs font-medium transition-colors',

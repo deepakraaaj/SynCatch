@@ -1,63 +1,14 @@
-import { areGeneratedPlaceholderSubtasks, generateTaskBrief } from './task-intelligence';
-import type {
-  Task,
-  TaskClarifyingQuestion,
-  TaskDraft,
-  TaskLane,
-  TaskPriority,
-  TaskStatus,
-  TaskSubtask,
-} from './task-types';
+import { generateTaskBrief } from './task-intelligence';
+import type { Task, TaskDraft, TaskEnergy, TaskLane, TaskPriority, TaskStatus } from './task-types';
 
 export function createTaskId() {
   return `task-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function normalizeSubtasks(subtasks: TaskSubtask[] | null | undefined) {
-  const normalized = Array.isArray(subtasks)
-    ? subtasks
-        .filter((subtask) => Boolean(subtask?.id && subtask?.title))
-        .map((subtask) => ({
-          id: subtask.id,
-          title: subtask.title.trim(),
-          completed: Boolean(subtask.completed),
-        }))
-        .filter((subtask) => subtask.title.length > 0)
-    : [];
-
-  return areGeneratedPlaceholderSubtasks(normalized) ? [] : normalized;
-}
-
-function normalizeQuestions(questions: TaskClarifyingQuestion[] | null | undefined) {
-  return Array.isArray(questions)
-    ? questions
-        .filter((question) => Boolean(question?.id && question?.question))
-        .map((question) => ({
-          id: question.id,
-          question: question.question.trim(),
-          answer: question.answer?.trim() ?? '',
-        }))
-        .filter((question) => question.question.length > 0)
-    : [];
-}
-
-export function getVisibleSubtasks(subtasks: TaskSubtask[]) {
-  return areGeneratedPlaceholderSubtasks(subtasks) ? [] : subtasks;
-}
-
 export function deriveStatusFromLane(lane: TaskLane, currentStatus: TaskStatus = 'captured'): TaskStatus {
-  if (lane === 'done') {
-    return 'done';
-  }
-
-  if (lane === 'now') {
-    return 'in_progress';
-  }
-
-  if (currentStatus === 'done') {
-    return 'ready';
-  }
-
+  if (lane === 'done') return 'done';
+  if (lane === 'now') return 'in_progress';
+  if (currentStatus === 'done') return 'ready';
   return currentStatus === 'captured' ? 'ready' : currentStatus;
 }
 
@@ -65,35 +16,31 @@ export function normalizeTaskDraft(draft: TaskDraft): Task {
   const timestamp = new Date().toISOString();
   const lane = draft.lane ?? 'inbox';
   const status = deriveStatusFromLane(lane, draft.status ?? 'captured');
-  const generated = generateTaskBrief(draft.rawInput, {
-    title: draft.title,
-    description: draft.description,
-    goal: draft.goal,
-    definitionOfDone: draft.definitionOfDone,
-    nextAction: draft.nextAction,
-    whyItMatters: draft.whyItMatters,
-    subtasks: normalizeSubtasks(draft.subtasks),
-    clarifyingQuestions: normalizeQuestions(draft.clarifyingQuestions),
+  const generated = generateTaskBrief(draft.title, {
+    outcome: draft.outcome,
+    next_action: draft.next_action,
     priority: draft.priority,
-    estimatedMinutes: draft.estimatedMinutes,
+    energy: draft.energy,
+    estimatedMinutes: draft.estimated_minutes,
   });
 
   return {
     id: createTaskId(),
+    mission_id: draft.mission_id ?? null,
+    parent_task_id: draft.parent_task_id ?? null,
     title: generated.suggestedTitle,
-    raw_input: draft.rawInput.trim(),
-    description: generated.description,
-    goal: generated.goal,
-    definition_of_done: generated.definitionOfDone,
-    next_action: generated.nextAction,
-    why_it_matters: generated.whyItMatters,
-    workspace_notes: draft.workspaceNotes?.trim() ?? '',
-    subtasks: generated.subtasks,
-    clarifying_questions: generated.clarifyingQuestions,
+    outcome: generated.outcome,
+    next_action: generated.next_action,
+    notes: draft.notes?.trim() ?? '',
     status,
     priority: generated.priority,
     lane,
+    energy: generated.energy,
     estimated_minutes: generated.estimatedMinutes,
+    due_date: draft.due_date ?? null,
+    scheduled_for: draft.scheduled_for ?? null,
+    tags: draft.tags ?? [],
+    completed_at: status === 'done' ? timestamp : null,
     created_at: timestamp,
     updated_at: timestamp,
   };
@@ -101,35 +48,31 @@ export function normalizeTaskDraft(draft: TaskDraft): Task {
 
 interface TaskRecordInput {
   id: string;
+  mission_id?: string | null;
+  parent_task_id?: string | null;
   title?: string | null;
-  raw_input?: string | null;
-  description?: string | null;
-  goal?: string | null;
-  definition_of_done?: string | null;
+  outcome?: string | null;
   next_action?: string | null;
-  why_it_matters?: string | null;
-  workspace_notes?: string | null;
-  subtasks?: TaskSubtask[] | null;
-  clarifying_questions?: TaskClarifyingQuestion[] | null;
+  notes?: string | null;
   status?: TaskStatus;
   priority?: TaskPriority;
   lane?: TaskLane;
+  energy?: TaskEnergy;
   estimated_minutes?: number;
+  due_date?: string | null;
+  scheduled_for?: string | null;
+  tags?: string[];
+  completed_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
 
 export function hydrateTaskRecord(record: TaskRecordInput): Task {
-  const generated = generateTaskBrief(record.raw_input ?? record.title ?? '', {
-    title: record.title ?? undefined,
-    description: record.description ?? undefined,
-    goal: record.goal ?? undefined,
-    definitionOfDone: record.definition_of_done ?? undefined,
-    nextAction: record.next_action ?? undefined,
-    whyItMatters: record.why_it_matters ?? undefined,
-    subtasks: normalizeSubtasks(record.subtasks),
-    clarifyingQuestions: normalizeQuestions(record.clarifying_questions),
+  const generated = generateTaskBrief(record.title ?? '', {
+    outcome: record.outcome ?? undefined,
+    next_action: record.next_action ?? undefined,
     priority: record.priority,
+    energy: record.energy ?? undefined,
     estimatedMinutes: record.estimated_minutes,
   });
   const lane = record.lane ?? 'inbox';
@@ -138,23 +81,34 @@ export function hydrateTaskRecord(record: TaskRecordInput): Task {
 
   return {
     id: record.id,
+    mission_id: record.mission_id ?? null,
+    parent_task_id: record.parent_task_id ?? null,
     title: generated.suggestedTitle,
-    raw_input: record.raw_input?.trim() ?? record.title?.trim() ?? '',
-    description: generated.description,
-    goal: generated.goal,
-    definition_of_done: generated.definitionOfDone,
-    next_action: generated.nextAction,
-    why_it_matters: generated.whyItMatters,
-    workspace_notes: record.workspace_notes?.trim() ?? '',
-    subtasks: generated.subtasks,
-    clarifying_questions: generated.clarifyingQuestions,
+    outcome: generated.outcome,
+    next_action: generated.next_action,
+    notes: record.notes?.trim() ?? '',
     status,
     priority: generated.priority,
     lane,
+    energy: record.energy ?? generated.energy,
     estimated_minutes: generated.estimatedMinutes,
+    due_date: record.due_date ?? null,
+    scheduled_for: record.scheduled_for ?? null,
+    tags: Array.isArray(record.tags) ? record.tags : [],
+    completed_at: record.completed_at ?? (status === 'done' ? (record.updated_at ?? timestamp) : null),
     created_at: record.created_at ?? timestamp,
-    updated_at: record.updated_at ?? record.created_at ?? timestamp,
+    updated_at: record.updated_at ?? timestamp,
   };
+}
+
+// Returns all immediate children of a task (one level deep)
+export function getSubtasks(tasks: Task[], parentId: string): Task[] {
+  return tasks.filter((t) => t.parent_task_id === parentId);
+}
+
+// Returns only root-level tasks (no parent)
+export function getRootTasks(tasks: Task[]): Task[] {
+  return tasks.filter((t) => t.parent_task_id === null);
 }
 
 export function sortTasks(tasks: Task[]) {
@@ -175,10 +129,10 @@ export function humanizeStatus(status: TaskStatus) {
   return status.replace('_', ' ');
 }
 
-export function getCompletedSubtasks(task: Task) {
-  return getVisibleSubtasks(task.subtasks).filter((subtask) => subtask.completed).length;
+export function humanizeEnergy(energy: TaskEnergy) {
+  return energy.charAt(0).toUpperCase() + energy.slice(1);
 }
 
-export function getOpenQuestionCount(task: Task) {
-  return task.clarifying_questions.filter((question) => !question.answer.trim()).length;
+export function getCompletedSubtasks(subtasks: Task[]): number {
+  return subtasks.filter((t) => t.status === 'done' || t.lane === 'done').length;
 }

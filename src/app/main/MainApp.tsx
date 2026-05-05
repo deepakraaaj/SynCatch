@@ -208,7 +208,7 @@ function getClosestMinuteIndex(value: number) {
 }
 
 function describeTask(task: Task) {
-  const text = (task.next_action || task.description || task.raw_input || '').trim();
+  const text = (task.next_action || task.notes || '').trim();
 
   if (text.length <= 72) {
     return text;
@@ -1416,10 +1416,9 @@ export function MainApp() {
       if (captureState.kind === 'follow-up') {
         await createTask(
           {
-            rawInput: captureState.value,
             title: captureState.value,
             lane: 'inbox',
-            estimatedMinutes: 15,
+            estimated_minutes: 15,
           },
           'main',
         );
@@ -1673,7 +1672,6 @@ export function MainApp() {
             <TaskCreationComposer
               autoFocus
               fillHeight={false}
-              initialMode="interaction"
               onCancel={() => setTaskComposerOpen(false)}
               onSubmitted={() => {
                 setTaskComposerOpen(false);

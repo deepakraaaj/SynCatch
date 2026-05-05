@@ -43,7 +43,6 @@ export function QuickAddApp() {
               autoFocus
               compact
               fillHeight
-              initialMode="interaction"
               onCancel={() => void hideCurrentWindow()}
               onSubmitted={() => hideCurrentWindow()}
               source="quick-add"

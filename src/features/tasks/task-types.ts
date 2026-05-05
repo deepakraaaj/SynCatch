@@ -1,52 +1,46 @@
 export type TaskStatus = 'captured' | 'clarifying' | 'ready' | 'in_progress' | 'done';
 export type TaskPriority = 'critical' | 'high' | 'normal' | 'low';
 export type TaskLane = 'inbox' | 'now' | 'next' | 'later' | 'done';
-
-export interface TaskSubtask {
-  id: string;
-  title: string;
-  completed: boolean;
-}
-
-export interface TaskClarifyingQuestion {
-  id: string;
-  question: string;
-  answer: string;
-}
+export type TaskEnergy = 'deep' | 'shallow' | 'admin';
 
 export interface Task {
   id: string;
+  mission_id: string | null;
+  parent_task_id: string | null;
   title: string;
-  raw_input: string;
-  description: string;
-  goal: string;
-  definition_of_done: string;
+  // What "done" concretely looks like — replaces goal + definition_of_done
+  outcome: string;
+  // Smallest concrete first step
   next_action: string;
-  why_it_matters: string;
-  workspace_notes: string;
-  subtasks: TaskSubtask[];
-  clarifying_questions: TaskClarifyingQuestion[];
+  // Freeform context, links, scratch — replaces description + workspace_notes
+  notes: string;
   status: TaskStatus;
   priority: TaskPriority;
   lane: TaskLane;
+  // Helps match task to the right mental state when scheduling
+  energy: TaskEnergy;
   estimated_minutes: number;
+  due_date: string | null;       // ISO date YYYY-MM-DD
+  scheduled_for: string | null;  // ISO date YYYY-MM-DD
+  tags: string[];
+  completed_at: string | null;   // ISO timestamp; set when moved to done
   created_at: string;
   updated_at: string;
 }
 
 export interface TaskDraft {
-  rawInput: string;
-  title?: string;
-  description?: string;
-  goal?: string;
-  definitionOfDone?: string;
-  nextAction?: string;
-  whyItMatters?: string;
-  workspaceNotes?: string;
-  subtasks?: TaskSubtask[];
-  clarifyingQuestions?: TaskClarifyingQuestion[];
+  mission_id?: string | null;
+  parent_task_id?: string | null;
+  title: string;
+  outcome?: string;
+  next_action?: string;
+  notes?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
   lane?: TaskLane;
-  estimatedMinutes?: number;
+  energy?: TaskEnergy;
+  estimated_minutes?: number;
+  due_date?: string | null;
+  scheduled_for?: string | null;
+  tags?: string[];
 }

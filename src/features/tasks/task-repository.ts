@@ -2,9 +2,9 @@ import { isTauriApp } from '../../lib/tauri';
 import { getSqlDatabase } from '../../lib/database';
 import { createSeedTasks } from './task-seed';
 import { hydrateTaskRecord, normalizeTaskDraft, sortTasks } from './task-helpers';
-import type { Task, TaskDraft } from './task-types';
+import type { Task, TaskDraft, TaskEnergy } from './task-types';
 
-const LOCAL_STORAGE_KEY = 'missioncontrol-tasks-v1';
+const LOCAL_STORAGE_KEY = 'missioncontrol-tasks-v2';
 
 interface TaskRepository {
   initialize(): Promise<void>;
@@ -15,59 +15,45 @@ interface TaskRepository {
 
 interface SqlTaskRow {
   id: string;
+  mission_id: string | null;
+  parent_task_id: string | null;
   title: string;
-  raw_input: string;
-  description: string;
-  goal: string | null;
-  definition_of_done: string | null;
-  next_action: string | null;
-  why_it_matters: string | null;
-  workspace_notes: string | null;
-  subtasks_json: string | null;
-  clarifying_questions_json: string | null;
+  outcome: string;
+  next_action: string;
+  notes: string;
   status: Task['status'];
   priority: Task['priority'];
   lane: Task['lane'];
+  energy: TaskEnergy;
   estimated_minutes: number;
+  due_date: string | null;
+  scheduled_for: string | null;
+  tags_json: string | null;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
-function serializeTasks(tasks: Task[]) {
-  return JSON.stringify(sortTasks(tasks));
-}
-
-function parseJsonArray<T>(value: string | null | undefined) {
-  if (!value) {
-    return [] as T[];
-  }
-
+function parseTagsJson(value: string | null | undefined): string[] {
+  if (!value) return [];
   try {
     const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
   } catch {
     return [];
   }
 }
 
-function toStoredTask(task: Task) {
-  return {
-    ...task,
-  };
-}
-
-function fromSqlRow(row: SqlTaskRow) {
+function fromSqlRow(row: SqlTaskRow): Task {
   return hydrateTaskRecord({
     ...row,
-    subtasks: parseJsonArray(row.subtasks_json),
-    clarifying_questions: parseJsonArray(row.clarifying_questions_json),
+    tags: parseTagsJson(row.tags_json),
   });
 }
 
 class BrowserTaskRepository implements TaskRepository {
   async initialize() {
     const existing = localStorage.getItem(LOCAL_STORAGE_KEY);
-
     if (!existing) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(createSeedTasks()));
     }
@@ -76,22 +62,79 @@ class BrowserTaskRepository implements TaskRepository {
   async listTasks() {
     const parsed = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) ?? '[]') as Task[];
     const tasks = sortTasks(parsed.map((task) => hydrateTaskRecord(task)));
-    localStorage.setItem(LOCAL_STORAGE_KEY, serializeTasks(tasks));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sortTasks(tasks)));
     return tasks;
   }
 
   async createTask(draft: TaskDraft) {
     const task = normalizeTaskDraft(draft);
     const tasks = await this.listTasks();
-    localStorage.setItem(LOCAL_STORAGE_KEY, serializeTasks([task, ...tasks].map(toStoredTask)));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sortTasks([task, ...tasks])));
     return task;
   }
 
   async updateTask(task: Task) {
     const tasks = await this.listTasks();
     const nextTasks = tasks.map((existing) => (existing.id === task.id ? task : existing));
-    localStorage.setItem(LOCAL_STORAGE_KEY, serializeTasks(nextTasks.map(toStoredTask)));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sortTasks(nextTasks)));
   }
+}
+
+const TASK_INSERT_SQL = `INSERT INTO tasks (
+  id, mission_id, parent_task_id, title, outcome, next_action, notes,
+  status, priority, lane, energy, estimated_minutes,
+  due_date, scheduled_for, tags_json, completed_at, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+function taskInsertParams(task: Task) {
+  return [
+    task.id,
+    task.mission_id,
+    task.parent_task_id,
+    task.title,
+    task.outcome,
+    task.next_action,
+    task.notes,
+    task.status,
+    task.priority,
+    task.lane,
+    task.energy,
+    task.estimated_minutes,
+    task.due_date,
+    task.scheduled_for,
+    JSON.stringify(task.tags),
+    task.completed_at,
+    task.created_at,
+    task.updated_at,
+  ];
+}
+
+const TASK_UPDATE_SQL = `UPDATE tasks SET
+  mission_id = ?, parent_task_id = ?, title = ?, outcome = ?, next_action = ?, notes = ?,
+  status = ?, priority = ?, lane = ?, energy = ?, estimated_minutes = ?,
+  due_date = ?, scheduled_for = ?, tags_json = ?, completed_at = ?, updated_at = ?
+WHERE id = ?`;
+
+function taskUpdateParams(task: Task) {
+  return [
+    task.mission_id,
+    task.parent_task_id,
+    task.title,
+    task.outcome,
+    task.next_action,
+    task.notes,
+    task.status,
+    task.priority,
+    task.lane,
+    task.energy,
+    task.estimated_minutes,
+    task.due_date,
+    task.scheduled_for,
+    JSON.stringify(task.tags),
+    task.completed_at,
+    task.updated_at,
+    task.id,
+  ];
 }
 
 class SqlTaskRepository implements TaskRepository {
@@ -103,53 +146,11 @@ class SqlTaskRepository implements TaskRepository {
     const db = await this.getDatabase();
     const countRows = await db.select<{ count: number }>('SELECT COUNT(*) as count FROM tasks');
     const taskCount = countRows[0]?.count ?? 0;
-
-    if (taskCount > 0) {
-      return;
-    }
+    if (taskCount > 0) return;
 
     const seedTasks = createSeedTasks();
     for (const task of seedTasks) {
-      await db.execute(
-        `INSERT INTO tasks (
-          id,
-          title,
-          raw_input,
-          description,
-          goal,
-          definition_of_done,
-          next_action,
-          why_it_matters,
-          workspace_notes,
-          subtasks_json,
-          clarifying_questions_json,
-          status,
-          priority,
-          lane,
-          estimated_minutes,
-          created_at,
-          updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          task.id,
-          task.title,
-          task.raw_input,
-          task.description,
-          task.goal,
-          task.definition_of_done,
-          task.next_action,
-          task.why_it_matters,
-          task.workspace_notes,
-          JSON.stringify(task.subtasks),
-          JSON.stringify(task.clarifying_questions),
-          task.status,
-          task.priority,
-          task.lane,
-          task.estimated_minutes,
-          task.created_at,
-          task.updated_at,
-        ],
-      );
+      await db.execute(TASK_INSERT_SQL, taskInsertParams(task));
     }
   }
 
@@ -162,98 +163,18 @@ class SqlTaskRepository implements TaskRepository {
   async createTask(draft: TaskDraft) {
     const task = normalizeTaskDraft(draft);
     const db = await this.getDatabase();
-
-    await db.execute(
-      `INSERT INTO tasks (
-        id,
-        title,
-        raw_input,
-        description,
-        goal,
-        definition_of_done,
-        next_action,
-        why_it_matters,
-        workspace_notes,
-        subtasks_json,
-        clarifying_questions_json,
-        status,
-        priority,
-        lane,
-        estimated_minutes,
-        created_at,
-        updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        task.id,
-        task.title,
-        task.raw_input,
-        task.description,
-        task.goal,
-        task.definition_of_done,
-        task.next_action,
-        task.why_it_matters,
-        task.workspace_notes,
-        JSON.stringify(task.subtasks),
-        JSON.stringify(task.clarifying_questions),
-        task.status,
-        task.priority,
-        task.lane,
-        task.estimated_minutes,
-        task.created_at,
-        task.updated_at,
-      ],
-    );
-
+    await db.execute(TASK_INSERT_SQL, taskInsertParams(task));
     return task;
   }
 
   async updateTask(task: Task) {
     const db = await this.getDatabase();
-
-    await db.execute(
-      `UPDATE tasks SET
-        title = ?,
-        raw_input = ?,
-        description = ?,
-        goal = ?,
-        definition_of_done = ?,
-        next_action = ?,
-        why_it_matters = ?,
-        workspace_notes = ?,
-        subtasks_json = ?,
-        clarifying_questions_json = ?,
-        status = ?,
-        priority = ?,
-        lane = ?,
-        estimated_minutes = ?,
-        updated_at = ?
-      WHERE id = ?`,
-      [
-        task.title,
-        task.raw_input,
-        task.description,
-        task.goal,
-        task.definition_of_done,
-        task.next_action,
-        task.why_it_matters,
-        task.workspace_notes,
-        JSON.stringify(task.subtasks),
-        JSON.stringify(task.clarifying_questions),
-        task.status,
-        task.priority,
-        task.lane,
-        task.estimated_minutes,
-        task.updated_at,
-        task.id,
-      ],
-    );
+    await db.execute(TASK_UPDATE_SQL, taskUpdateParams(task));
   }
 }
 
 class SupabaseTaskRepository implements TaskRepository {
-  async initialize() {
-    // Supabase handles seed data through migrations
-  }
+  async initialize() {}
 
   async listTasks() {
     const { selectTasksByUser } = await import('../../lib/supabase');
@@ -274,7 +195,6 @@ class SupabaseTaskRepository implements TaskRepository {
 }
 
 let repositoryPromise: Promise<TaskRepository> | null = null;
-
 const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
 
 export function getTaskRepository() {

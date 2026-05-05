@@ -1,22 +1,13 @@
-import type {
-  TaskClarifyingQuestion,
-  TaskDraft,
-  TaskPriority,
-  TaskSubtask,
-} from './task-types';
+import type { TaskPriority, TaskEnergy } from './task-types';
 
 type TaskShape = 'generic' | 'implementation' | 'discussion' | 'document' | 'research' | 'review';
 
 export interface GeneratedTaskBrief {
   suggestedTitle: string;
-  description: string;
-  goal: string;
-  definitionOfDone: string;
-  nextAction: string;
-  whyItMatters: string;
-  subtasks: TaskSubtask[];
-  clarifyingQuestions: TaskClarifyingQuestion[];
+  outcome: string;
+  next_action: string;
   priority: TaskPriority;
+  energy: TaskEnergy;
   estimatedMinutes: number;
 }
 
@@ -40,7 +31,6 @@ function titleCase(input: string) {
       if (index > 0 && ['and', 'or', 'the', 'for', 'to', 'of', 'with', 'a', 'an'].includes(word.toLowerCase())) {
         return word.toLowerCase();
       }
-
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(' ');
@@ -48,145 +38,97 @@ function titleCase(input: string) {
 
 function toSentence(input: string) {
   const cleaned = compactWhitespace(input).replace(/[.!?]+$/, '');
-
-  if (!cleaned) {
-    return '';
-  }
-
+  if (!cleaned) return '';
   return `${cleaned.charAt(0).toUpperCase()}${cleaned.slice(1)}.`;
-}
-
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 42);
-}
-
-function buildId(prefix: string, seed: string, index: number) {
-  return `${prefix}-${slugify(seed || prefix)}-${index + 1}`;
-}
-
-function isMeaningfulAnswer(value: string | null | undefined) {
-  return Boolean(value && value.trim().length > 0);
 }
 
 function inferShape(input: string): TaskShape {
   const lowered = input.toLowerCase();
 
-  if (/\b(call|meet|meeting|sync|discuss|talk|reply|send)\b/.test(lowered)) {
-    return 'discussion';
-  }
-
-  if (/\b(write|document|doc|notes|spec|summary|plan)\b/.test(lowered)) {
-    return 'document';
-  }
-
-  if (/\b(research|investigate|analyze|explore|compare)\b/.test(lowered)) {
-    return 'research';
-  }
-
-  if (/\b(review|check|verify|test|audit|validate)\b/.test(lowered)) {
-    return 'review';
-  }
-
-  if (/\b(build|create|fix|update|implement|change|refactor|prepare)\b/.test(lowered)) {
-    return 'implementation';
-  }
+  if (/\b(call|meet|meeting|sync|discuss|talk|reply|send)\b/.test(lowered)) return 'discussion';
+  if (/\b(write|document|doc|notes|spec|summary|plan)\b/.test(lowered)) return 'document';
+  if (/\b(research|investigate|analyze|explore|compare)\b/.test(lowered)) return 'research';
+  if (/\b(review|check|verify|test|audit|validate)\b/.test(lowered)) return 'review';
+  if (/\b(build|create|fix|update|implement|change|refactor|prepare)\b/.test(lowered)) return 'implementation';
 
   return 'generic';
 }
 
-function inferPriority(input: string, fallback: TaskPriority = 'normal') {
+function inferPriority(input: string, fallback: TaskPriority = 'normal'): TaskPriority {
   const lowered = input.toLowerCase();
 
-  if (/\b(urgent|asap|critical|blocker|today|eod|immediately|right away)\b/.test(lowered)) {
-    return 'critical';
-  }
-
-  if (/\b(tomorrow|soon|important|high priority|follow up|fix)\b/.test(lowered)) {
-    return 'high';
-  }
+  if (/\b(urgent|asap|critical|blocker|today|eod|immediately|right away)\b/.test(lowered)) return 'critical';
+  if (/\b(tomorrow|soon|important|high priority|follow up|fix)\b/.test(lowered)) return 'high';
 
   return fallback;
+}
+
+function inferEnergy(shape: TaskShape): TaskEnergy {
+  switch (shape) {
+    case 'research':
+    case 'implementation':
+      return 'deep';
+    case 'document':
+      return 'shallow';
+    case 'discussion':
+    case 'review':
+    default:
+      return 'admin';
+  }
 }
 
 function inferEstimatedMinutes(shape: TaskShape, input: string, fallback = 25) {
   const lowered = input.toLowerCase();
 
-  if (/\b(quick|small|minor|tiny)\b/.test(lowered)) {
-    return 10;
-  }
-
-  if (/\b(urgent|asap|deep|detailed)\b/.test(lowered)) {
-    return 45;
-  }
+  if (/\b(quick|small|minor|tiny)\b/.test(lowered)) return 10;
+  if (/\b(urgent|asap|deep|detailed)\b/.test(lowered)) return 45;
 
   switch (shape) {
-    case 'discussion':
-      return 20;
-    case 'document':
-      return 30;
-    case 'research':
-      return 40;
-    case 'review':
-      return 25;
-    case 'implementation':
-      return 35;
-    default:
-      return fallback;
+    case 'discussion': return 20;
+    case 'document': return 30;
+    case 'research': return 40;
+    case 'review': return 25;
+    case 'implementation': return 35;
+    default: return fallback;
   }
 }
 
 function suggestTitle(input: string) {
   const firstPhrase = cleanInput(input).split(/[.!?]/)[0] ?? '';
   const trimmed = firstPhrase.slice(0, 72).trim();
-
-  if (!trimmed) {
-    return 'New Task';
-  }
-
+  if (!trimmed) return 'New Task';
   return titleCase(trimmed);
 }
 
-function buildDescription(input: string) {
-  return toSentence(`Turn "${cleanInput(input) || 'this task'}" into a clear, usable output`);
-}
-
-function buildGoal(input: string) {
-  return toSentence(`Finish ${cleanInput(input) || 'this task'} with a result someone can act on`);
-}
-
-function buildDefinitionOfDone(shape: TaskShape) {
+function buildOutcome(shape: TaskShape): string {
   switch (shape) {
     case 'discussion':
-      return 'The message, meeting, or conversation has a clear outcome and the next step is obvious.';
+      return 'A clear outcome from the conversation with an obvious next step.';
     case 'document':
-      return 'The document is complete enough to read, share, and use without a live explanation.';
+      return 'A complete document ready to share without a live explanation.';
     case 'research':
-      return 'The key question is answered and the result points to a clear next move.';
+      return 'The key question answered and pointing to a clear next move.';
     case 'review':
-      return 'The item has been checked, the outcome is recorded, and any issue is clearly called out.';
+      return 'All critical parts checked with the outcome clearly recorded.';
     case 'implementation':
-      return 'The work is applied, checked once, and left in a usable state.';
+      return 'The change applied, verified, and left in a usable state.';
     default:
-      return 'The task has a concrete output and the next step is clear.';
+      return 'A concrete output with the next step obvious.';
   }
 }
 
-function buildNextAction(shape: TaskShape, input: string) {
+function buildNextAction(shape: TaskShape, input: string): string {
   const cleaned = cleanInput(input) || 'this task';
 
   switch (shape) {
     case 'discussion':
       return toSentence(`Write the outcome you need from ${cleaned}, then prepare the key points`);
     case 'document':
-      return 'Write a short outline first, then fill the most important section before polishing anything else.';
+      return 'Write a short outline, then fill the most important section first.';
     case 'research':
-      return 'Write down the one question you are trying to answer, then gather only the strongest evidence first.';
+      return 'Write down the one question you are answering, then gather the strongest evidence.';
     case 'review':
-      return 'Open the item, check the most important part first, and note the result immediately.';
+      return 'Open the item, check the most important part first, and note the result.';
     case 'implementation':
       return 'Start with the smallest concrete change that moves the task forward.';
     default:
@@ -194,141 +136,25 @@ function buildNextAction(shape: TaskShape, input: string) {
   }
 }
 
-function buildWhyItMatters() {
-  return 'Clear tasks reduce context switching and make it easier to finish work without rethinking the same thing twice.';
-}
-
-const GENERATED_SUBTASK_TITLE_GROUPS = [
-  [
-    'Define the outcome you need',
-    'Gather the key points or context',
-    'Send, discuss, or follow up with the next step',
-  ],
-  [
-    'Draft a simple outline',
-    'Fill the most important section',
-    'Review and clean up before sharing',
-  ],
-  [
-    'Frame the question',
-    'Collect the strongest evidence',
-    'Summarize the answer and next move',
-  ],
-  [
-    'Open the item to review',
-    'Check the critical parts',
-    'Record the outcome clearly',
-  ],
-  [
-    'Define the exact change',
-    'Make the smallest useful update',
-    'Check the result once before closing',
-  ],
-  [
-    'Define the expected output',
-    'Do the next concrete step',
-    'Check that the result is usable',
-  ],
-] as const;
-
-function normalizeSubtaskTitle(title: string) {
-  return compactWhitespace(title).toLowerCase();
-}
-
-const GENERATED_SUBTASK_SIGNATURES = new Set(
-  GENERATED_SUBTASK_TITLE_GROUPS.map((titles) => titles.map(normalizeSubtaskTitle).join('|')),
-);
-
-export function areGeneratedPlaceholderSubtasks(subtasks: TaskSubtask[]) {
-  if (!subtasks.length) {
-    return false;
-  }
-
-  const signature = subtasks.map((subtask) => normalizeSubtaskTitle(subtask.title)).join('|');
-  return GENERATED_SUBTASK_SIGNATURES.has(signature);
-}
-
-function buildQuestions(seed: string, input: string) {
-  const cleaned = cleanInput(input);
-  const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
-  const lowered = cleaned.toLowerCase();
-
-  let question = '';
-
-  if (wordCount <= 3 || cleaned.length < 18) {
-    question = 'What should exist when this task is done?';
-  } else if (/\b(this|that|it|thing|stuff)\b/.test(lowered)) {
-    question = 'What result do you want from this task?';
-  }
-
-  return question
-    ? [
-        {
-          id: buildId('question', cleaned || seed, 0),
-          question,
-          answer: '',
-        },
-      ]
-    : [];
-}
-
-function answeredQuestions(questions: TaskClarifyingQuestion[] | undefined) {
-  return (questions ?? []).filter((question) => question.answer.trim().length > 0);
-}
-
-function firstAnswer(questions: TaskClarifyingQuestion[] | undefined) {
-  return answeredQuestions(questions)[0]?.answer.trim();
-}
-
 export function generateTaskBrief(
   rawInput: string,
-  draft: Partial<
-    TaskDraft & {
-      subtasks: TaskSubtask[];
-      clarifyingQuestions: TaskClarifyingQuestion[];
-      priority: TaskPriority;
-      estimatedMinutes: number;
-    }
-  > = {},
+  draft: Partial<{
+    outcome: string;
+    next_action: string;
+    priority: TaskPriority;
+    energy: TaskEnergy;
+    estimatedMinutes: number;
+  }> = {},
 ): GeneratedTaskBrief {
-  const questions = draft.clarifyingQuestions ?? [];
-  const answer = firstAnswer(questions);
-  const cleaned = cleanInput([rawInput || draft.title || '', answer ?? ''].filter(Boolean).join(' '));
-  const seed = draft.title || cleaned || 'task';
+  const cleaned = cleanInput(rawInput);
   const shape = inferShape(cleaned);
-  const suggestedTitle = draft.title?.trim() || suggestTitle(cleaned);
-  const description = isMeaningfulAnswer(draft.description)
-    ? toSentence(draft.description ?? '')
-    : buildDescription(cleaned);
-  const goal = isMeaningfulAnswer(draft.goal)
-    ? toSentence(draft.goal ?? '')
-    : answer
-      ? toSentence(answer)
-      : buildGoal(cleaned);
-  const definitionOfDone = isMeaningfulAnswer(draft.definitionOfDone)
-    ? toSentence(draft.definitionOfDone ?? '')
-    : buildDefinitionOfDone(shape);
-  const nextAction = isMeaningfulAnswer(draft.nextAction)
-    ? toSentence(draft.nextAction ?? '')
-    : buildNextAction(shape, cleaned);
-  const whyItMatters = isMeaningfulAnswer(draft.whyItMatters)
-    ? toSentence(draft.whyItMatters ?? '')
-    : buildWhyItMatters();
 
   return {
-    suggestedTitle,
-    description,
-    goal,
-    definitionOfDone,
-    nextAction,
-    whyItMatters,
-    subtasks:
-      draft.subtasks ?? [],
-    clarifyingQuestions:
-      draft.clarifyingQuestions && draft.clarifyingQuestions.length > 0
-        ? draft.clarifyingQuestions
-        : buildQuestions(seed, cleaned),
+    suggestedTitle: suggestTitle(cleaned),
+    outcome: draft.outcome?.trim() ? toSentence(draft.outcome) : buildOutcome(shape),
+    next_action: draft.next_action?.trim() ? toSentence(draft.next_action) : buildNextAction(shape, cleaned),
     priority: draft.priority ?? inferPriority(cleaned),
+    energy: draft.energy ?? inferEnergy(shape),
     estimatedMinutes: draft.estimatedMinutes ?? inferEstimatedMinutes(shape, cleaned),
   };
 }

@@ -7,13 +7,8 @@ class MockMissionAiAssistant implements TaskAiAssistant {
 
     return {
       suggestedTitle: generated.suggestedTitle,
-      description: generated.description,
-      goal: generated.goal,
-      definitionOfDone: generated.definitionOfDone,
-      nextAction: generated.nextAction,
-      whyItMatters: generated.whyItMatters,
-      subtasks: generated.subtasks,
-      questions: generated.clarifyingQuestions,
+      outcome: generated.outcome,
+      nextAction: generated.next_action,
       confidence: rawInput.trim().split(/\s+/).length > 4 ? 'high' : 'medium',
     };
   }

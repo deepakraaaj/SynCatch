@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
@@ -19,9 +20,9 @@ export default defineConfig({
     minify: process.env.TAURI_ENV_DEBUG ? false : 'esbuild',
     rollupOptions: {
       input: {
-        main: new URL('./index.html', import.meta.url).pathname,
-        hud: new URL('./hud.html', import.meta.url).pathname,
-        quickAdd: new URL('./quick-add.html', import.meta.url).pathname,
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        hud: fileURLToPath(new URL('./hud.html', import.meta.url)),
+        quickAdd: fileURLToPath(new URL('./quick-add.html', import.meta.url)),
       },
     },
   },

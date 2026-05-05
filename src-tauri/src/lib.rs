@@ -102,6 +102,71 @@ fn database_migrations() -> Vec<Migration> {
             "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "create_missions_table",
+            sql: r#"
+              CREATE TABLE IF NOT EXISTS missions (
+                id TEXT PRIMARY KEY NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                emoji TEXT NOT NULL DEFAULT '🎯',
+                color TEXT NOT NULL DEFAULT 'blue',
+                objective TEXT NOT NULL DEFAULT '',
+                why_it_matters TEXT NOT NULL DEFAULT '',
+                definition_of_success TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'active',
+                started_at TEXT,
+                completed_at TEXT,
+                target_date TEXT,
+                estimated_hours REAL NOT NULL DEFAULT 0,
+                is_pinned INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                tags_json TEXT NOT NULL DEFAULT '[]',
+                notes TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+              );
+            "#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 8,
+            description: "add_mission_id_to_tasks",
+            sql: r#"
+              ALTER TABLE tasks ADD COLUMN mission_id TEXT;
+            "#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 9,
+            description: "task_model_redesign",
+            sql: r#"
+              ALTER TABLE tasks ADD COLUMN parent_task_id TEXT;
+              ALTER TABLE tasks ADD COLUMN outcome TEXT NOT NULL DEFAULT '';
+              ALTER TABLE tasks ADD COLUMN notes TEXT NOT NULL DEFAULT '';
+              ALTER TABLE tasks ADD COLUMN energy TEXT NOT NULL DEFAULT 'shallow';
+              ALTER TABLE tasks ADD COLUMN due_date TEXT;
+              ALTER TABLE tasks ADD COLUMN scheduled_for TEXT;
+              ALTER TABLE tasks ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]';
+              ALTER TABLE tasks ADD COLUMN completed_at TEXT;
+              UPDATE tasks SET
+                outcome = CASE
+                  WHEN definition_of_done != '' THEN definition_of_done
+                  WHEN goal != '' THEN goal
+                  ELSE ''
+                END,
+                notes = CASE
+                  WHEN description != '' AND workspace_notes != ''
+                    THEN description || char(10) || char(10) || workspace_notes
+                  WHEN description != '' THEN description
+                  WHEN workspace_notes != '' THEN workspace_notes
+                  ELSE ''
+                END,
+                completed_at = CASE WHEN status = 'done' THEN updated_at ELSE NULL END;
+            "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

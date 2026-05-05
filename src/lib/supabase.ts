@@ -1,5 +1,6 @@
 import { getSupabaseClient } from './auth';
 import type { Task } from '../features/tasks/task-types';
+import type { Mission } from '../features/missions/mission-types';
 import type { FocusSyncState } from '../features/focus/focus-store';
 import type { ActivityLogEntry } from '../features/activity/activity-repository';
 import type { WorkSession } from '../features/sessions/session-types';
@@ -22,6 +23,7 @@ export async function getUserId(): Promise<string> {
 export async function selectTasksByUser(): Promise<Task[]> {
   const userId = await getUserId();
   const client = getSupabaseClient();
+  const { hydrateTaskRecord } = await import('../features/tasks/task-helpers');
 
   const { data, error } = await (client
     .from('tasks')
@@ -31,25 +33,28 @@ export async function selectTasksByUser(): Promise<Task[]> {
 
   if (error) throw error;
 
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    title: row.title,
-    raw_input: row.raw_input,
-    description: row.description,
-    goal: row.goal,
-    definition_of_done: row.definition_of_done,
-    next_action: row.next_action,
-    why_it_matters: row.why_it_matters,
-    workspace_notes: row.workspace_notes,
-    subtasks: row.subtasks_json ?? [],
-    clarifying_questions: row.clarifying_questions_json ?? [],
-    status: row.status,
-    priority: row.priority,
-    lane: row.lane,
-    estimated_minutes: row.estimated_minutes,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-  }));
+  return (data ?? []).map((row: any) =>
+    hydrateTaskRecord({
+      id: row.id,
+      mission_id: row.mission_id ?? null,
+      parent_task_id: row.parent_task_id ?? null,
+      title: row.title,
+      outcome: row.outcome ?? '',
+      next_action: row.next_action ?? '',
+      notes: row.notes ?? '',
+      status: row.status,
+      priority: row.priority,
+      lane: row.lane,
+      energy: row.energy ?? 'shallow',
+      estimated_minutes: row.estimated_minutes,
+      due_date: row.due_date ?? null,
+      scheduled_for: row.scheduled_for ?? null,
+      tags: row.tags ?? [],
+      completed_at: row.completed_at ?? null,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }),
+  );
 }
 
 export async function insertTask(task: Task): Promise<void> {
@@ -59,20 +64,21 @@ export async function insertTask(task: Task): Promise<void> {
   const { error } = await (client.from('tasks').insert({
     id: task.id,
     user_id: userId,
+    mission_id: task.mission_id,
+    parent_task_id: task.parent_task_id,
     title: task.title,
-    raw_input: task.raw_input,
-    description: task.description,
-    goal: task.goal,
-    definition_of_done: task.definition_of_done,
+    outcome: task.outcome,
     next_action: task.next_action,
-    why_it_matters: task.why_it_matters,
-    workspace_notes: task.workspace_notes,
-    subtasks_json: task.subtasks,
-    clarifying_questions_json: task.clarifying_questions,
+    notes: task.notes,
     status: task.status,
     priority: task.priority,
     lane: task.lane,
+    energy: task.energy,
     estimated_minutes: task.estimated_minutes,
+    due_date: task.due_date,
+    scheduled_for: task.scheduled_for,
+    tags: task.tags,
+    completed_at: task.completed_at,
     created_at: task.created_at,
     updated_at: task.updated_at,
   }) as any);
@@ -87,20 +93,21 @@ export async function updateTask(task: Task): Promise<void> {
   const { error } = await (client
     .from('tasks')
     .update({
+      mission_id: task.mission_id,
+      parent_task_id: task.parent_task_id,
       title: task.title,
-      raw_input: task.raw_input,
-      description: task.description,
-      goal: task.goal,
-      definition_of_done: task.definition_of_done,
+      outcome: task.outcome,
       next_action: task.next_action,
-      why_it_matters: task.why_it_matters,
-      workspace_notes: task.workspace_notes,
-      subtasks_json: task.subtasks,
-      clarifying_questions_json: task.clarifying_questions,
+      notes: task.notes,
       status: task.status,
       priority: task.priority,
       lane: task.lane,
+      energy: task.energy,
       estimated_minutes: task.estimated_minutes,
+      due_date: task.due_date,
+      scheduled_for: task.scheduled_for,
+      tags: task.tags,
+      completed_at: task.completed_at,
       updated_at: task.updated_at,
     })
     .eq('id', task.id)
@@ -284,4 +291,102 @@ export async function selectWorkSessions(): Promise<WorkSession[]> {
     ended_at: row.ended_at,
     updated_at: row.updated_at,
   }));
+}
+
+// Mission queries
+export async function selectMissionsByUser(): Promise<Mission[]> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+  const { hydrateMissionRecord } = await import('../features/missions/mission-helpers');
+
+  const { data, error } = await (client
+    .from('missions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('is_pinned', { ascending: false })
+    .order('sort_order', { ascending: true })
+    .order('updated_at', { ascending: false }) as any);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) =>
+    hydrateMissionRecord({
+      ...row,
+      tags: row.tags ?? [],
+    }),
+  );
+}
+
+export async function insertMission(mission: Mission): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('missions').insert({
+    id: mission.id,
+    user_id: userId,
+    title: mission.title,
+    description: mission.description,
+    emoji: mission.emoji,
+    color: mission.color,
+    objective: mission.objective,
+    why_it_matters: mission.why_it_matters,
+    definition_of_success: mission.definition_of_success,
+    status: mission.status,
+    started_at: mission.started_at,
+    completed_at: mission.completed_at,
+    target_date: mission.target_date,
+    estimated_hours: mission.estimated_hours,
+    is_pinned: mission.is_pinned,
+    sort_order: mission.sort_order,
+    tags: mission.tags,
+    notes: mission.notes,
+    created_at: mission.created_at,
+    updated_at: mission.updated_at,
+  }) as any);
+
+  if (error) throw error;
+}
+
+export async function updateMission(mission: Mission): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client
+    .from('missions')
+    .update({
+      title: mission.title,
+      description: mission.description,
+      emoji: mission.emoji,
+      color: mission.color,
+      objective: mission.objective,
+      why_it_matters: mission.why_it_matters,
+      definition_of_success: mission.definition_of_success,
+      status: mission.status,
+      started_at: mission.started_at,
+      completed_at: mission.completed_at,
+      target_date: mission.target_date,
+      estimated_hours: mission.estimated_hours,
+      is_pinned: mission.is_pinned,
+      sort_order: mission.sort_order,
+      tags: mission.tags,
+      notes: mission.notes,
+      updated_at: mission.updated_at,
+    })
+    .eq('id', mission.id)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
+export async function deleteMission(missionId: string): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client
+    .from('missions')
+    .delete()
+    .eq('id', missionId)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
 }
