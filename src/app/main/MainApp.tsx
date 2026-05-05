@@ -2117,7 +2117,7 @@ export function MainApp() {
           </Card>
         ) : null}
 
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-borderSoft/20 hover:scrollbar-thumb-borderSoft/40">
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
           {taskBoard.map((column) => {
             const groupedSubtasks = groupSubtasksByParent(column.subtasks, tasksById);
 
