@@ -3081,7 +3081,13 @@ export function MainApp() {
                 'mobile-bottom-nav-item',
                 isActive ? 'mobile-bottom-nav-item--active' : null,
               )}
-              onClick={() => setActiveView(tab.id)}
+              onClick={() => {
+                if (isMore) {
+                  setMobileNavOpen(true);
+                } else {
+                  setActiveView(tab.id);
+                }
+              }}
             >
               <tab.Icon size={20} strokeWidth={1.5} />
               <span>{tab.label}</span>
