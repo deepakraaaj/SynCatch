@@ -350,8 +350,8 @@ function NavButton({
     >
       <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent' : 'text-text-muted')} />
       <div className="min-w-0">
-        <p className={cn('text-[13px] font-semibold tracking-tight', active ? 'text-text-primary' : 'text-text-secondary')}>{label}</p>
-        {caption ? <p className="mt-0.5 hidden text-[10px] text-text-muted sm:block">{caption}</p> : null}
+        <p className={cn('text-[15px] font-semibold tracking-tight', active ? 'text-text-primary' : 'text-text-secondary')}>{label}</p>
+        {caption ? <p className="mt-0.5 hidden text-[11px] text-text-muted sm:block">{caption}</p> : null}
       </div>
     </button>
   );
@@ -748,7 +748,7 @@ function TaskListItem({
       <button className="w-full text-left" onClick={onSelect} type="button">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-text-primary">{task.title}</p>
+            <p className="text-[15px] font-semibold tracking-tight text-text-primary">{task.title}</p>
             {active ? <Badge tone="accent">Live</Badge> : null}
             {blocked ? <Badge tone="warning">Blocked</Badge> : null}
           </div>
@@ -758,7 +758,7 @@ function TaskListItem({
           </div>
         </div>
         {describeTask(task) ? (
-          <p className="mt-1.5 text-[13px] leading-snug text-text-secondary">
+          <p className="mt-1.5 text-[14px] leading-snug text-text-secondary">
             {describeTask(task)}
           </p>
         ) : null}
@@ -814,7 +814,7 @@ function SubtaskBoardItem({
       <button className="w-full text-left" onClick={onSelect} type="button">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold text-text-primary">{task.title}</p>
+            <p className="text-[13px] font-semibold tracking-tight text-text-primary">{task.title}</p>
             {active ? <Badge tone="accent">Live</Badge> : null}
           </div>
           <div className="flex items-center gap-1.5">
