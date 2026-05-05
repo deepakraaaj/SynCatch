@@ -7,13 +7,14 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, Pencil, Trash2, Play, Pause, CheckCircle } from 'lucide-react';
+import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle } from 'lucide-react';
 import { MissionIcon } from '../../components/ui/mission-icon';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input, Textarea } from '../../components/ui/input';
 import { ProfileSettingsCard } from '../../features/auth/ProfileSettingsCard';
+import { useAuthStore } from '../../features/auth/auth-store';
 import { useFocusStore } from '../../features/focus/focus-store';
 import {
   buildDailySeries,
@@ -2057,6 +2058,10 @@ export function MainApp() {
               <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'completed')} className="gap-2 text-success">
                 <CheckCircle className="h-3.5 w-3.5" /> Complete
               </Button>
+            ) : mission.status === 'completed' ? (
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'active')} className="gap-2 text-accent">
+                <RotateCcw className="h-3.5 w-3.5" /> Re-activate
+              </Button>
             ) : null}
             <Button 
               size="sm" 
@@ -2811,6 +2816,51 @@ export function MainApp() {
                       Cloud
                     </SettingChoice>
                   </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading action={<Badge tone="accent">Identity</Badge>} title="Connection" />
+
+            <div className="space-y-4">
+              <div className="rounded-[24px] border border-borderSoft/30 bg-panel/32 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">
+                      {useAuthStore.getState().localMode ? 'Local Mode' : 'Cloud Sync'}
+                    </p>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      {useAuthStore.getState().localMode 
+                        ? 'Your data is only on this PC. Sign in to sync across devices.' 
+                        : 'Your data is safely synced to the cloud.'}
+                    </p>
+                  </div>
+
+                  {useAuthStore.getState().localMode ? (
+                    <Button
+                      onClick={() => {
+                        if (confirm('Switch to Cloud mode? You will be taken to the login screen.')) {
+                          useAuthStore.getState().setLocalMode(false);
+                          window.location.reload();
+                        }
+                      }}
+                      size="sm"
+                      type="button"
+                    >
+                      <Cloud className="mr-2 h-4 w-4" /> Switch to Cloud
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => void useAuthStore.getState().signOut()}
+                      size="sm"
+                      type="button"
+                      variant="secondary"
+                    >
+                      Sign out
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
