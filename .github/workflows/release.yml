@@ -139,6 +139,7 @@ jobs:
         if: steps.android_signing.outputs.enabled == 'true'
         shell: bash
         run: |
+          set +o pipefail
           yes | sdkmanager \
             "platform-tools" \
             "platforms;android-36" \
