@@ -56,7 +56,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
     ]);
 
     const unsubscribe = subscribeAppEvent(TASKS_CHANGED_EVENT, () => {
-      void useTaskStore.getState().refresh();
+      void useTaskStore.getState().refresh(true);
     });
 
     const unsubscribeFocus = subscribeAppEvent(FOCUS_CHANGED_EVENT, (state) => {

@@ -14,7 +14,7 @@ interface TaskStore {
   loading: boolean;
   error: string | null;
   hydrate: () => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: (silent?: boolean) => Promise<void>;
   createTask: (draft: TaskDraft, source?: ActivitySource) => Promise<Task>;
   createSubtask: (parentTaskId: string, draft: Omit<TaskDraft, 'parent_task_id'>, source?: ActivitySource) => Promise<Task>;
   selectTask: (taskId: string | null) => void;
@@ -49,8 +49,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  refresh: async () => {
-    set({ loading: true, error: null });
+  refresh: async (silent = false) => {
+    if (!silent) set({ loading: true, error: null });
     try {
       const repository = await getTaskRepository();
       const tasks = sortTasks(await repository.listTasks());
@@ -160,24 +160,33 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       updated_at: now,
     };
 
-    await repository.updateTask(nextTask);
-    set({ tasks: sortTasks(get().tasks.map((item) => (item.id === taskId ? nextTask : item))) });
-    await logActivity({
-      action: 'task_completed',
-      source,
-      taskId,
-      details: { fromLane: task.lane, title: task.title },
-    });
-    await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'done', taskId });
-    showSuccessToast('Task completed', task.title);
+    // Optimistic update
+    const previousTasks = get().tasks;
+    set({ tasks: sortTasks(previousTasks.map((item) => (item.id === taskId ? nextTask : item))) });
+
+    try {
+      const repository = await getTaskRepository();
+      await repository.updateTask(nextTask);
+      await logActivity({
+        action: 'task_completed',
+        source,
+        taskId,
+        details: { fromLane: task.lane, title: task.title },
+      });
+      await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'done', taskId });
+      showSuccessToast('Task completed', task.title);
+    } catch (error) {
+      set({ tasks: previousTasks, error: error instanceof Error ? error.message : 'Unable to complete task' });
+    }
   },
 
   deleteTask: async (taskId, source = 'system') => {
     const task = get().tasks.find((item) => item.id === taskId);
     if (!task) return;
 
-    const repository = await getTaskRepository();
-    await repository.deleteTask(taskId);
+    // Optimistic update
+    const previousTasks = get().tasks;
+    const previousSelectedId = get().selectedTaskId;
     
     set((state) => {
       const nextTasks = state.tasks.filter((t) => t.id !== taskId);
@@ -189,13 +198,24 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       };
     });
 
-    await logActivity({
-      action: 'task_deleted',
-      source,
-      taskId,
-      details: { title: task.title },
-    });
-    await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'deleted', taskId });
-    showSuccessToast('Task deleted', task.title);
+    try {
+      const repository = await getTaskRepository();
+      await repository.deleteTask(taskId);
+      
+      await logActivity({
+        action: 'task_deleted',
+        source,
+        taskId,
+        details: { title: task.title },
+      });
+      await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'deleted', taskId });
+      showSuccessToast('Task deleted', task.title);
+    } catch (error) {
+      set({ 
+        tasks: previousTasks, 
+        selectedTaskId: previousSelectedId,
+        error: error instanceof Error ? error.message : 'Unable to delete task' 
+      });
+    }
   },
 }));
