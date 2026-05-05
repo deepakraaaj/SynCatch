@@ -1706,7 +1706,7 @@ export function MainApp() {
           </Card>
         ) : null}
 
-        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.95fr)]">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.95fr)]">
           <TodayFocusCard
             activeSession={activeSession}
             currentTask={currentTask}
@@ -1794,7 +1794,7 @@ export function MainApp() {
           <MetricCard label="Switches" tone="success" value={String(todaySwitchCount).padStart(2, '0')} />
         </div>
 
-        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <Card className="rounded-[34px] p-4 sm:p-6">
             <SectionHeading action={<Badge tone="neutral">Today</Badge>} title="Sessions" />
 
@@ -2491,7 +2491,7 @@ export function MainApp() {
           />
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <Card className="rounded-[34px] p-6">
             <SectionHeading action={<Badge tone="accent">7d</Badge>} title="Focus vs distraction" />
 
@@ -2595,7 +2595,7 @@ export function MainApp() {
   function renderReview() {
     return (
       <div className="space-y-6">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
           <Card className="rounded-[34px] p-6">
             <SectionHeading action={<Badge tone="accent">Today</Badge>} title="Daily review" />
 
@@ -2746,7 +2746,7 @@ export function MainApp() {
           </div>
         </Card>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
           <Card className="rounded-[34px] p-6">
             <SectionHeading action={<Badge tone="neutral">Live</Badge>} title="Behavior" />
 
