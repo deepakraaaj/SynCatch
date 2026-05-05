@@ -39,6 +39,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   hydrate: async () => {
+    const isLocalMode = localStorage.getItem('mission-control-local-mode') === 'true';
+
+    // In local mode, skip Supabase initialization
+    if (isLocalMode) {
+      set({ session: null, loading: false, error: null, localMode: true });
+      return;
+    }
+
     try {
       const client = getSupabaseClient();
       const { data, error } = await client.auth.getSession();

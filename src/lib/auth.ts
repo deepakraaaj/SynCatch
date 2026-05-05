@@ -51,7 +51,7 @@ export async function getCurrentSupabaseSession(): Promise<Session | null> {
 export async function watchAuthChanges(
   callback?: (session: Session | null) => void,
 ): Promise<() => void> {
-  const client = getSupabaseClient();
+  const client = supabaseClient ?? await initSupabaseAuth();
 
   const { data } = client.auth.onAuthStateChange(async (event, session) => {
     // Use localStorage for both desktop and browser (works universally)
