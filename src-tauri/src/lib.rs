@@ -260,10 +260,37 @@ pub fn run() {
 
             #[cfg(desktop)]
             {
+                use tauri::WebviewWindowBuilder;
+                use tauri::WebviewUrl;
                 use tauri_plugin_autostart::MacosLauncher;
                 use tauri_plugin_global_shortcut::{
                     Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
                 };
+
+                // Create desktop-only windows dynamically (kept out of tauri.conf.json so Android never sees them)
+                WebviewWindowBuilder::new(app, "hud", WebviewUrl::App("hud.html".into()))
+                    .title("MissionControl HUD")
+                    .inner_size(360.0, 78.0)
+                    .resizable(false)
+                    .decorations(false)
+                    .transparent(true)
+                    .always_on_top(true)
+                    .skip_taskbar(false)
+                    .focused(false)
+                    .visible(false)
+                    .build()?;
+
+                WebviewWindowBuilder::new(app, "quick-add", WebviewUrl::App("quick-add.html".into()))
+                    .title("MissionControl Quick Add")
+                    .inner_size(540.0, 560.0)
+                    .center()
+                    .resizable(false)
+                    .decorations(false)
+                    .transparent(true)
+                    .always_on_top(true)
+                    .skip_taskbar(true)
+                    .visible(false)
+                    .build()?;
 
                 let launched_from_autostart = is_autostart_launch();
                 let quick_add_shortcut =

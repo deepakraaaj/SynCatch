@@ -2,7 +2,7 @@
 
 # 🎯 MissionControl
 
-### The desktop workspace that keeps you locked in.
+### The Desktop Workspace for Deep Focus.
 
 **One mission. One clock. Total clarity.**
 
@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)](https://rust-lang.org)
 [![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-82E7DC?style=for-the-badge)](LICENSE)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
 
 <br/>
 
@@ -26,271 +26,143 @@
 
 ---
 
-## 💿 Install MissionControl
+## 🚀 The Philosophy
 
-If you just want to use MissionControl and not build it from source, start with the packaged release:
+MissionControl isn't another task app. It's a **Focus Operating System** for your desktop.
 
-- **Releases:** [github.com/deepakraaaj/MissionControl/releases/latest](https://github.com/deepakraaaj/MissionControl/releases/latest)
-- If the releases page is empty, the packaged installers have not been published yet.
-
-### Windows
-
-1. Open the latest release.
-2. Under **Assets**, download the Windows installer (`.msi` or `.exe`).
-3. Double-click the installer and keep the default options.
-4. Open **MissionControl** from the Start menu.
-5. In **Settings**, enable **Launch at login** if you want the HUD ready when Windows starts.
-
-### Ubuntu
-
-1. Open the latest release.
-2. Under **Assets**, download the Ubuntu package (`.deb`).
-3. Double-click the `.deb` file and click **Install** in App Center or your package installer.
-4. If you prefer terminal install, run:
-   ```bash
-   sudo apt install ./MissionControl_0.1.0_amd64.deb
-   ```
-5. Open **MissionControl** from the app launcher.
-6. In **Settings**, enable **Launch at login** if you want the HUD ready when Ubuntu starts.
-
-**No Node.js, Rust, or terminal setup is required for normal use.**
+Most productivity tools optimize for *capturing everything*. MissionControl optimizes for **finishing one thing at a time**. It respects your attention by providing a beautiful, distraction-free interface that lives where you work, helping you move from "busy" to "impactful."
 
 ---
 
-## ✨ What Makes MissionControl Different
+## ✨ Core Features
 
-MissionControl isn't another task app. It's a **focus operating system** for your desktop.
-
-Most productivity tools optimize for *capturing everything*. MissionControl optimizes for **finishing one thing at a time** — with a beautiful interface that respects your attention.
-
-<table>
-<tr>
-<td width="50%">
-
-### 🧠 Focus-First Design
-Every pixel is designed to reduce cognitive load. The dashboard shows exactly what matters: your active mission, session clock, and momentum metrics — nothing else.
+### 🧠 Focus-First Dashboard
+Every pixel is designed to reduce cognitive load. The dashboard shows exactly what matters: your active mission, session clock, and momentum metrics. No clutter, just flow.
 
 ### 🪟 Multi-Window Architecture
 Three purpose-built surfaces for three states of mind:
-- **Main App** — Plan and prioritize
-- **HUD Overlay** — Stay focused (always-on-top)
-- **Quick Add** — Capture without breaking flow
+- **Main App**: Plan, prioritize, and review your high-level roadmap.
+- **HUD (Always-on-Top)**: A minimalist floating overlay that keeps your active task visible across all workspaces.
+- **Quick Add**: A global popup (`Ctrl+Shift+Space`) to capture ideas without breaking your current focus.
 
-</td>
-<td width="50%">
+### 🤖 Local Intelligence Engine
+MissionControl doesn't just store tasks; it understands them. Using a local heuristic engine, it:
+- **Refines Titles**: Cleans messy input into professional, scannable mission titles.
+- **Infers Energy**: Automatically categorizes tasks into *Shallow*, *Deep*, or *Admin* work.
+- **Suggests Outcomes**: Generates concrete "Definitions of Done" based on task types (Research, Implementation, etc.).
+- **Estimates Time**: Predicts session duration based on task complexity and historical patterns.
 
-### 🎨 4 Premium Themes
-Switch between visual modes that match your energy:
-- **Dark Focus** — Deep navy + cyan for deep work
-- **Light Studio** — Warm paper tones for planning
-- **Midnight Purple** — Velvet indigo for late nights
-- **Zen Mode** — Sage + sand for calm flow
+### 📊 Distraction & Session Analytics
+Stop guessing where your time goes. MissionControl tracks:
+- **Deep Work Sessions**: Log focus periods and associate them with specific missions.
+- **Distraction Logging**: Categorize interruptions (Messages, People, Internal) and get actionable **Avoidance Tips** to protect your future focus.
+- **Momentum Metrics**: Visualize your daily and weekly rhythm to optimize for your peak energy hours.
 
-### ⌨️ Keyboard-First
-Every interaction has a keyboard shortcut. Quick Add launches with `Ctrl+Shift+Space` from anywhere on your desktop.
+### ☁️ Hybrid Persistence
+Choose how you work:
+- **Local Mode**: High-performance SQLite storage. Your data stays on your machine, always offline-first.
+- **Cloud Sync**: Securely sync across devices using Supabase integration for a seamless multi-device experience.
 
-</td>
-</tr>
-</table>
-
----
-
-## 📸 Screenshots
-
-<div align="center">
-
-### Dashboard — Focus Flow
-*Your command center. Active mission, session metrics, weekly rhythm, and lane signals at a glance.*
-
-<img src="docs/screenshots/dashboard.png" alt="Dashboard View" width="780" />
+### 🎨 Premium Design System
+Switch between four curated themes that match your work energy:
+- **Dark Focus**: Deep navy + crisp cyan for intense deep work.
+- **Light Studio**: Warm paper tones for planning and brainstorming.
+- **Midnight Purple**: Velvet indigo for late-night productivity.
+- **Zen Mode**: Sage + sand for calm, steady flow.
 
 ---
 
-### Tasks — Mission Board
-*Kanban-style lanes: Queue → Active → Next → Backlog. Move tasks deliberately.*
+## 🛠️ Technical Specifications
 
-<img src="docs/screenshots/tasks.png" alt="Tasks View" width="780" />
+### Frontend Stack
+- **React 19**: Leveraging the latest concurrent features for a fluid UI.
+- **TypeScript 5.x**: Strict type safety across the entire application.
+- **Vite**: Ultra-fast HMR and optimized build pipelines.
+- **Zustand 5**: Lightweight, reactive state management with middleware for persistence.
+- **Framer Motion 12**: Smooth, high-performance layout transitions and micro-animations.
+- **TailwindCSS 3**: Utility-first styling bound to a tokenized CSS custom property system.
 
----
+### Backend & OS Integration (Tauri 2)
+- **Rust Backend**: High-performance, memory-safe desktop shell.
+- **Tauri Plugin SQL**: Reliable local persistence via SQLite.
+- **Global Shortcut Plugin**: System-wide event listeners for instant task capture.
+- **Autostart Plugin**: Seamlessly integrates into your OS login flow.
+- **Window Management**: Custom handling for transparent, always-on-top, and taskbar-skipping windows.
+- **Inter-Process Communication (IPC)**: Reactive state synchronization across independent Tauri windows using the Tauri event system.
 
-### Workspace — Deep Focus
-*One mission. One timer. Session notes and sub-tasks. Everything else fades away.*
-
-<img src="docs/screenshots/workspace.png" alt="Workspace View" width="780" />
-
----
-
-### Settings — Theme Studio
-*Four curated palettes. Motion controls. Prompt style tuning.*
-
-<img src="docs/screenshots/settings.png" alt="Settings View" width="780" />
-
-</div>
-
----
-
-## 🏗️ Architecture
-
-```
-MissionControl
-├── src/                        # React + TypeScript frontend
-│   ├── app/                    # 3 window entry points
-│   │   ├── main/               # Main application shell
-│   │   ├── hud/                # Always-on-top HUD overlay
-│   │   └── quick-add/          # Global quick capture popup
-│   ├── components/ui/          # Design system primitives
-│   │   ├── badge.tsx           # Status badges
-│   │   ├── button.tsx          # Buttons (primary/secondary/ghost)
-│   │   ├── card.tsx            # Glassmorphic cards
-│   │   ├── input.tsx           # Text fields + textareas
-│   │   └── window-drag-handle  # Custom window chrome
-│   ├── features/
-│   │   ├── tasks/              # Task CRUD, lanes, sorting, seed data
-│   │   ├── focus/              # Focus sessions, timer, HUD state
-│   │   ├── themes/             # 4 tokenized themes
-│   │   ├── ai/                 # AI provider (mock → ready for real LLM)
-│   │   ├── settings/           # App preferences
-│   │   ├── preferences/        # Persisted user prefs
-│   │   └── activity/           # Activity logging
-│   ├── lib/                    # Utilities (Tauri bridge, DB, dates)
-│   └── styles/globals.css      # Design tokens + CSS layers
-├── src-tauri/                  # Rust backend
-│   ├── src/main.rs             # App entry + Linux sanitization
-│   ├── tauri.conf.json         # Multi-window + capability config
-│   └── capabilities/           # Tauri 2 permission system
-├── docs/                       # Landing page + screenshots
-└── dist/                       # Production build output
-```
-
-### Tech Stack
-
-| Technology | Purpose |
-|-----------|---------|
-| **Tauri 2** | Native desktop shell, multi-window, system tray, global shortcuts |
-| **React 19** | Component UI with concurrent features |
-| **TypeScript** | End-to-end type safety |
-| **Rust** | Backend process, Snap/GTK sanitization, plugin system |
-| **Zustand** | Lightweight reactive state (4 stores) |
-| **Framer Motion** | Page transitions, entrance animations |
-| **SQLite** | Persistent storage via `@tauri-apps/plugin-sql` |
-| **TailwindCSS 3** | Utility styling bound to CSS custom property tokens |
-| **Space Grotesk** | Primary UI font |
-| **JetBrains Mono** | Monospace for timers and data |
+### Typography & Assets
+- **Space Grotesk**: Primary UI font for a modern, architectural feel.
+- **JetBrains Mono**: Monospace font for precision-focused timers and data metrics.
+- **Lucide Icons**: Consistent, lightweight vector iconography.
 
 ---
 
-## 🛠️ Developer Setup
+## 📱 Mobile Support (Android)
 
-If you want to run or build MissionControl from source, use the steps below.
+MissionControl is a truly cross-platform tool. The current architecture supports:
+- **Mobile-Responsive UI**: Layouts that adapt from 27" monitors to 6" phone screens.
+- **Native Android Pipeline**: Dedicated scripts for environment validation, emulator testing, and generating signed release APKs.
+
+---
+
+## 💿 Installation & Deployment
+
+### Windows
+1. Download the latest `.msi` or `.exe` from [Releases](https://github.com/deepakraaaj/MissionControl/releases).
+2. Run the installer and launch **MissionControl**.
+
+### Linux (Ubuntu/Debian)
+1. Download the latest `.deb` package.
+2. Install via terminal:
+   ```bash
+   sudo apt install ./MissionControl_0.1.12_amd64.deb
+   ```
+
+### Android
+- Download the `.apk` from the latest release assets (when available) or build from source using the provided scripts.
+
+---
+
+## ⌨️ Keyboard Mastery
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Shift+Space` | Open Quick Add (Global) |
+| `Ctrl+Enter` | Save Task / Confirm |
+| `Escape` | Close Popup / Dismiss |
+| `Tab` | Focus Navigation |
+
+---
+
+## 🏗️ Developer Setup
 
 ### Prerequisites
 - **Node.js** ≥ 18
-- **Rust** toolchain (for native builds)
-- **System dependencies** (Ubuntu/Debian):
+- **Rust** Toolchain
+- **System Dependencies** (Ubuntu):
   ```bash
   sudo apt install build-essential libssl-dev libglib2.0-dev libgtk-3-dev \
       libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev \
       libwebkit2gtk-4.1-dev libxdo-dev
   ```
 
-### Install & Run
-
-```bash
-# Clone the repo
-git clone https://github.com/deepakraaaj/MissionControl.git
-cd MissionControl
-
-# Install dependencies
-npm install
-
-# Run in browser (development)
-npm run dev
-
-# Run as native desktop app
-npm run tauri:dev
-```
-
-### Build for Production
-
-```bash
-# Build the native desktop app
-npm run tauri:build
-```
-
----
-
-## ⌨️ Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Shift+Space` | Open Quick Add (global) |
-| `Ctrl+Enter` | Save task (in Quick Add) |
-| `Escape` | Close Quick Add / dismiss |
-| `Enter` / `Space` | Select focused task |
-
----
-
-## 🎨 Theming
-
-MissionControl uses a **tokenized CSS custom property system**. Every color, shadow, and surface is a design token — swap the entire palette by changing one `data-theme` attribute.
-
-```css
-/* Dark Focus (default) */
---accent: 130 231 220;    /* Crisp cyan */
---bg-base: 6 10 12;       /* Deep navy */
-
-/* Midnight Purple */
---accent: 161 189 255;    /* Soft lavender */
---bg-base: 13 10 23;      /* Velvet indigo */
-```
-
-Adding a new theme is a single CSS block + one entry in `src/features/themes/themes.ts`.
-
----
-
-## 🧩 The AI Layer
-
-The architecture includes a **pluggable AI provider** abstraction:
-- **Title refinement** — Cleans raw input into scannable task titles
-- **Subtask suggestions** — Generates contextual next steps
-- **Clarifying questions** — Prompts for missing details
-
-Currently uses a mock provider that works offline. The interface is ready for integration with any LLM backend (OpenAI, local models, etc).
-
----
-
-## 📋 Roadmap
-
-- [x] **Phase 1** — Foundation: multi-window shell, design system, task model, theme engine
-- [ ] **Phase 2** — Task Flow: real CRUD, lane changes, SQLite persistence, HUD sync
-- [ ] **Phase 3** — Intelligence: real AI integration, smart scheduling, focus analytics
-- [ ] **Phase 4** — Platform: system tray, notifications, cross-platform builds
-
----
-
-## 🤝 Contributing
-
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+### Build Scripts
+- `npm run tauri:dev`: Launch the desktop development environment.
+- `npm run tauri:build`: Build production installers for the current platform.
+- `npm run android:build:release`: Generate a production Android APK.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+MissionControl is licensed under the **MIT License**. See [LICENSE](LICENSE) for more details.
 
 ---
 
 <div align="center">
 
 **Built with obsessive attention to detail.**
-
 *MissionControl — because your work deserves a premium interface.*
-
-<br/>
 
 [⬆ Back to top](#-missioncontrol)
 

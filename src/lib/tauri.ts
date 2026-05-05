@@ -32,6 +32,15 @@ export function isTauriApp() {
   return isTauri();
 }
 
+/**
+ * Detect if we're running on a mobile platform (Android/iOS).
+ * On mobile Tauri, multi-window APIs are not available.
+ */
+export function isMobilePlatform() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || 
+    (navigator.maxTouchPoints > 0 && window.innerWidth < 1024);
+}
+
 export async function emitAppEvent<T>(eventName: string, payload: T) {
   if (isTauriApp()) {
     const { emit } = await import('@tauri-apps/api/event');
@@ -106,6 +115,13 @@ export function subscribeAppEvent<T>(
 
 export async function showQuickAddWindow() {
   if (isTauriApp()) {
+    // On mobile (Android/iOS), multi-window is not supported.
+    // Go straight to the in-app overlay.
+    if (isMobilePlatform()) {
+      await emitAppEvent('missioncontrol://show-mobile-quick-add', true);
+      return;
+    }
+
     const { LogicalSize } = await import('@tauri-apps/api/dpi');
     const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
     const quickAddWindow = await WebviewWindow.getByLabel('quick-add');
@@ -118,7 +134,7 @@ export async function showQuickAddWindow() {
       return;
     }
 
-    // Fallback for mobile: emit an event to show the Quick Add overlay in the main window
+    // Fallback: emit an event to show the Quick Add overlay in the main window
     await emitAppEvent('missioncontrol://show-mobile-quick-add', true);
     return;
   }
@@ -146,6 +162,13 @@ export async function showHudWindow() {
   }
 
   if (isTauriApp()) {
+    // On mobile (Android/iOS), multi-window is not supported.
+    // Navigate to the Focus tab instead.
+    if (isMobilePlatform()) {
+      await emitAppEvent('missioncontrol://show-mobile-focus', true);
+      return;
+    }
+
     const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
     const hudWindow = await WebviewWindow.getByLabel('hud');
 
@@ -156,7 +179,7 @@ export async function showHudWindow() {
       return;
     }
 
-    // Fallback for mobile: the "Focus" tab in the main window is the HUD equivalent
+    // Fallback: the "Focus" tab in the main window is the HUD equivalent
     await emitAppEvent('missioncontrol://show-mobile-focus', true);
     return;
   }
@@ -189,6 +212,11 @@ export async function quitMissionControl() {
 
 export async function showMainWindow() {
   if (isTauriApp()) {
+    // On mobile, we're already on the main window — no-op.
+    if (isMobilePlatform()) {
+      return;
+    }
+
     const { WebviewWindow, getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow');
     let mainWindow = (await getAllWebviewWindows()).find((window) => window.label === 'main');
 

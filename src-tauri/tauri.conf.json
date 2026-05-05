@@ -19,35 +19,7 @@
         "height": 760,
         "resizable": true,
         "decorations": true,
-        "visible": false
-      },
-      {
-        "label": "hud",
-        "title": "MissionControl HUD",
-        "url": "hud.html",
-        "width": 360,
-        "height": 78,
-        "resizable": false,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": true,
-        "skipTaskbar": false,
-        "focus": false,
-        "visible": false
-      },
-      {
-        "label": "quick-add",
-        "title": "MissionControl Quick Add",
-        "url": "quick-add.html",
-        "width": 540,
-        "height": 560,
-        "center": true,
-        "resizable": false,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "visible": false
+        "visible": true
       }
     ],
     "security": {

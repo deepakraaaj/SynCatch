@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle } from 'lucide-react';
+import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Menu, X, Plus, Monitor } from 'lucide-react';
 import { MissionIcon } from '../../components/ui/mission-icon';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -417,9 +417,9 @@ function MetricCard({
 
   return (
     <Card className="rounded-[20px] p-3 sm:rounded-[28px] sm:p-5">
-      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">{label}</p>
-      <p className={cn('mt-2 text-xl font-semibold leading-none sm:mt-4 sm:text-[2rem]', toneClass)}>{value}</p>
-      {caption ? <p className="mt-2 text-xs text-text-secondary sm:mt-3 sm:text-sm">{caption}</p> : null}
+      <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted truncate">{label}</p>
+      <p className={cn('mt-1 text-lg font-bold leading-none sm:mt-4 sm:text-[2rem]', toneClass)}>{value}</p>
+      {caption ? <p className="mt-1.5 text-[10px] text-text-secondary sm:mt-3 sm:text-sm line-clamp-1">{caption}</p> : null}
     </Card>
   );
 }
@@ -434,12 +434,14 @@ function SectionHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-3">
-      <div>
-        <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
-        {detail ? <p className="mt-1 text-sm text-text-secondary">{detail}</p> : null}
+    <div className="mb-4 flex items-start justify-between gap-2 sm:gap-3">
+      <div className="min-w-0">
+        <h2 className="text-base font-bold text-text-primary sm:text-lg truncate">{title}</h2>
+        {detail ? <p className="mt-0.5 text-xs text-text-secondary sm:text-sm line-clamp-1">{detail}</p> : null}
       </div>
-      {action}
+      <div className="shrink-0">
+        {action}
+      </div>
     </div>
   );
 }
@@ -749,14 +751,16 @@ function TaskListItem({
     >
       <button className="w-full text-left" onClick={onSelect} type="button">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <p className="text-[15px] font-semibold tracking-tight text-text-primary">{task.title}</p>
-            {active ? <Badge tone="accent">Live</Badge> : null}
-            {blocked ? <Badge tone="warning">Blocked</Badge> : null}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            <p className="min-w-0 flex-1 truncate text-[14px] font-bold tracking-tight text-text-primary sm:text-[15px]">{task.title}</p>
+            <div className="flex shrink-0 gap-1">
+              {active ? <Badge tone="accent" className="shrink-0 text-[9px] px-1.5">Live</Badge> : null}
+              {blocked ? <Badge tone="warning" className="shrink-0 text-[9px] px-1.5">Blocked</Badge> : null}
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-            <Badge className="px-1.5 py-0.5 text-[10px]" tone={getTaskTone(task)}>{humanizePriority(task.priority)}</Badge>
-            <Badge className="px-1.5 py-0.5 text-[10px]" tone="neutral">{task.estimated_minutes}m</Badge>
+            <Badge className="shrink-0 px-1.5 py-0.5 text-[10px]" tone={getTaskTone(task)}>{humanizePriority(task.priority)}</Badge>
+            <Badge className="shrink-0 px-1.5 py-0.5 text-[10px]" tone="neutral">{task.estimated_minutes}m</Badge>
           </div>
         </div>
         {describeTask(task) ? (
@@ -815,9 +819,9 @@ function SubtaskBoardItem({
     >
       <button className="w-full text-left" onClick={onSelect} type="button">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <p className="text-[13px] font-semibold tracking-tight text-text-primary">{task.title}</p>
-            {active ? <Badge tone="accent">Live</Badge> : null}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            <p className="min-w-0 flex-1 truncate text-[13px] font-bold tracking-tight text-text-primary">{task.title}</p>
+            {active ? <Badge tone="accent" className="shrink-0 text-[8px] px-1.2 py-0">Live</Badge> : null}
           </div>
           <div className="flex items-center gap-1.5">
             <Badge className="px-1.5 py-0.5 text-[9px]" tone={getTaskTone(task)}>{humanizePriority(task.priority)}</Badge>
@@ -1104,31 +1108,31 @@ function TodayFocusCard({
     : minutes;
 
   return (
-    <Card className="rounded-[24px] p-4 sm:rounded-[34px] sm:p-6">
+    <Card className="rounded-[22px] p-3.5 sm:rounded-[34px] sm:p-6">
       <div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-[11px] uppercase tracking-[0.3em] text-text-muted">Current focus</p>
-            <h2 className="mt-2 text-xl font-semibold leading-tight text-text-primary sm:text-3xl">
+            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-muted">Current focus</p>
+            <h2 className="mt-1 text-lg font-bold leading-tight text-text-primary sm:mt-2 sm:text-3xl">
               {currentTask?.title ?? 'Pick a task'}
             </h2>
           </div>
 
           <div className="grid w-full gap-3 rounded-[20px] border border-borderSoft/30 bg-panel/46 p-3 sm:min-w-[220px] sm:w-auto sm:rounded-[26px] sm:p-4">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Live timer</p>
-              <p className="mt-2 text-[2rem] font-semibold leading-none text-text-primary sm:text-[2.6rem]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-text-muted">Live timer</p>
+              <p className="mt-1 text-[1.8rem] font-bold leading-none text-text-primary sm:mt-2 sm:text-[2.6rem]">
                 {formatClock(activeSessionMetrics.focus_seconds)}
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Badge tone={activeSession?.status === 'paused' ? 'warning' : 'accent'}>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge tone={activeSession?.status === 'paused' ? 'warning' : 'accent'} className="text-[9px] px-1.5">
                 {activeSession?.status === 'paused' ? 'Paused' : activeSession ? 'Running' : 'Ready'}
               </Badge>
-              <Badge tone="neutral">{activeSession?.planned_minutes ?? minutes}m target</Badge>
+              <Badge tone="neutral" className="text-[9px] px-1.5">{activeSession?.planned_minutes ?? minutes}m target</Badge>
               {activeSession ? (
-                <Badge tone="neutral">
+                <Badge tone="neutral" className="text-[9px] px-1.5">
                   {formatDurationFromSeconds(activeSessionMetrics.distraction_seconds)} distracted
                 </Badge>
               ) : null}
@@ -2015,8 +2019,8 @@ export function MainApp() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold text-text-primary">{mission.title}</p>
-                <Badge tone={mission.status === 'active' ? 'accent' : mission.status === 'completed' ? 'success' : 'neutral'}>
+                <p className="min-w-0 flex-1 truncate font-semibold text-text-primary">{mission.title}</p>
+                <Badge tone={mission.status === 'active' ? 'accent' : mission.status === 'completed' ? 'success' : 'neutral'} className="shrink-0">
                   {mission.status === 'on_hold' ? 'On hold' : mission.status.charAt(0).toUpperCase() + mission.status.slice(1)}
                 </Badge>
               </div>
@@ -2041,26 +2045,26 @@ export function MainApp() {
               )}
             </div>
           </div>
-          <div className="mt-4 flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => { setEditingMission(mission); setMissionComposerOpen(true); }} className="gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={() => { setEditingMission(mission); setMissionComposerOpen(true); }} className="h-8 gap-1.5 px-2 text-xs sm:text-sm">
               <Pencil className="h-3.5 w-3.5" /> Edit
             </Button>
             {mission.status === 'active' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'on_hold')} className="gap-2 text-warning">
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'on_hold')} className="h-8 gap-1.5 px-2 text-xs text-warning sm:text-sm">
                 <Pause className="h-3.5 w-3.5" /> Pause
               </Button>
             ) : mission.status === 'on_hold' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'active')} className="gap-2 text-accent">
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'active')} className="h-8 gap-1.5 px-2 text-xs text-accent sm:text-sm">
                 <Play className="h-3.5 w-3.5" /> Resume
               </Button>
             ) : null}
             {mission.status === 'active' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'completed')} className="gap-2 text-success">
-                <CheckCircle className="h-3.5 w-3.5" /> Complete
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'completed')} className="h-8 gap-1.5 px-2 text-xs text-success sm:text-sm">
+                <CheckCircle className="h-3.5 w-3.5" /> Done
               </Button>
             ) : mission.status === 'completed' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'active')} className="gap-2 text-accent">
-                <RotateCcw className="h-3.5 w-3.5" /> Re-activate
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'active')} className="h-8 gap-1.5 px-2 text-xs text-accent sm:text-sm">
+                <RotateCcw className="h-3.5 w-3.5" /> Undo
               </Button>
             ) : null}
             <Button 
@@ -2071,9 +2075,9 @@ export function MainApp() {
                   void deleteMission(mission.id);
                 }
               }} 
-              className="gap-2 text-danger opacity-0 group-hover:opacity-100 transition-opacity"
+              className="h-8 gap-1.5 px-2 text-xs text-danger opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity sm:text-sm"
             >
-              <Trash2 className="h-3.5 w-3.5" /> Delete
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
         </Card>
@@ -2083,23 +2087,34 @@ export function MainApp() {
     return (
       <div className="space-y-6">
         {missionComposerOpen ? (
-          <Card className="rounded-[34px] p-6">
-            <SectionHeading title={editingMission ? 'Edit mission' : 'New mission'} />
-            <MissionComposer
-              initial={editingMission ?? undefined}
-              submitLabel={editingMission ? 'Save changes' : 'Create mission'}
-              onCancel={() => { setMissionComposerOpen(false); setEditingMission(null); }}
-              onSubmit={async (draft) => {
-                if (editingMission) {
-                  await saveMission({ ...editingMission, ...draft, updated_at: new Date().toISOString() });
-                } else {
-                  await createMission(draft);
-                }
-                setMissionComposerOpen(false);
-                setEditingMission(null);
-              }}
-            />
-          </Card>
+          <div className="fixed inset-0 z-[60] flex flex-col bg-surface-1 lg:relative lg:inset-auto lg:z-0 lg:bg-transparent">
+            <div className="flex items-center justify-between border-b border-borderSoft/20 p-4 lg:hidden">
+              <h2 className="text-lg font-bold text-text-primary">{editingMission ? 'Edit Mission' : 'New Mission'}</h2>
+              <Button onClick={() => { setMissionComposerOpen(false); setEditingMission(null); }} size="sm" variant="ghost" className="h-9 w-9 p-0 rounded-full">
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 lg:p-0">
+              <Card className="rounded-[24px] p-5 sm:rounded-[34px] sm:p-6 lg:border-none lg:bg-transparent lg:p-0">
+                {!isMobile && <SectionHeading title={editingMission ? 'Edit mission' : 'New mission'} />}
+                <MissionComposer
+                  initial={editingMission ?? undefined}
+                  submitLabel={editingMission ? 'Save changes' : 'Create mission'}
+                  onCancel={() => { setMissionComposerOpen(false); setEditingMission(null); }}
+                  onSubmit={async (draft) => {
+                    if (editingMission) {
+                      await saveMission({ ...editingMission, ...draft, updated_at: new Date().toISOString() });
+                    } else {
+                      await createMission(draft);
+                    }
+                    setMissionComposerOpen(false);
+                    setEditingMission(null);
+                  }}
+                />
+              </Card>
+            </div>
+          </div>
         ) : null}
 
         {activeMissions.length > 0 ? (
@@ -2138,20 +2153,31 @@ export function MainApp() {
     return (
       <div className="space-y-6">
         {taskComposerOpen ? (
-          <Card className="rounded-[34px] p-6">
-            <SectionHeading title="Add task" />
-            <TaskCreationComposer
-              autoFocus
-              fillHeight={false}
-              onCancel={() => setTaskComposerOpen(false)}
-              onSubmitted={() => {
-                setTaskComposerOpen(false);
-                setActiveView('tasks');
-              }}
-              source="main"
-              submitLabel="Save task"
-            />
-          </Card>
+          <div className="fixed inset-0 z-[60] flex flex-col bg-surface-1 lg:relative lg:inset-auto lg:z-0 lg:bg-transparent">
+            <div className="flex items-center justify-between border-b border-borderSoft/20 p-4 lg:hidden">
+              <h2 className="text-lg font-bold text-text-primary">Add Task</h2>
+              <Button onClick={() => setTaskComposerOpen(false)} size="sm" variant="ghost" className="h-9 w-9 p-0 rounded-full">
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 lg:p-0">
+              <Card className="rounded-[24px] p-5 sm:rounded-[34px] sm:p-6 lg:border-none lg:bg-transparent lg:p-0">
+                {!isMobile && <SectionHeading title="Add task" />}
+                <TaskCreationComposer
+                  autoFocus
+                  fillHeight={isMobile}
+                  onCancel={() => setTaskComposerOpen(false)}
+                  onSubmitted={() => {
+                    setTaskComposerOpen(false);
+                    setActiveView('tasks');
+                  }}
+                  source="main"
+                  submitLabel="Save task"
+                />
+              </Card>
+            </div>
+          </div>
         ) : null}
 
         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
@@ -2887,25 +2913,51 @@ export function MainApp() {
         <div className="fixed inset-0 z-50 flex lg:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity"
             onClick={() => setMobileNavOpen(false)}
             aria-label="Close navigation"
           />
-          <aside className="relative z-10 flex h-full w-full max-w-[280px] flex-col border-r border-borderSoft/24 bg-surface-2 p-6 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-text-primary">Navigation</p>
-              <Button onClick={() => setMobileNavOpen(false)} size="sm" type="button" variant="ghost">
-                Close
+          <aside className="relative z-10 flex h-full w-[280px] flex-col border-r border-borderSoft/24 bg-surface-2 p-6 shadow-2xl transition-transform duration-300">
+            <div className="mb-8 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded-lg bg-accent/20 flex items-center justify-center">
+                  <div className="h-3 w-3 rounded-full bg-accent animate-pulse" />
+                </div>
+                <p className="text-sm font-bold tracking-tight text-text-primary uppercase">MissionControl</p>
+              </div>
+              <Button onClick={() => setMobileNavOpen(false)} size="sm" type="button" variant="ghost" className="h-8 w-8 p-0 rounded-full">
+                <X className="h-4 w-4" />
               </Button>
             </div>
-            <SidebarContent
-              activeView={activeView}
-              onViewSelect={(view) => {
-                setActiveView(view);
-                setMobileNavOpen(false);
-              }}
-              activeSession={activeSession}
-            />
+            
+            <div className="flex-1 overflow-y-auto">
+              <SidebarContent
+                activeView={activeView}
+                onViewSelect={(view) => {
+                  setActiveView(view);
+                  setMobileNavOpen(false);
+                }}
+                activeSession={activeSession}
+              />
+            </div>
+
+            <div className="mt-6 space-y-2 pt-6 border-t border-borderSoft/20">
+              <p className="px-2 text-[10px] font-bold uppercase tracking-widest text-text-muted mb-2">Quick Actions</p>
+              <Button 
+                onClick={() => { setMobileNavOpen(false); setActiveView('tasks'); setTaskComposerOpen(true); }} 
+                className="w-full justify-start gap-3 rounded-2xl" 
+                variant="secondary"
+              >
+                <Plus className="h-4 w-4" /> New Task
+              </Button>
+              <Button 
+                onClick={() => { setMobileNavOpen(false); setActiveView('focus'); }} 
+                className="w-full justify-start gap-3 rounded-2xl" 
+                variant="ghost"
+              >
+                <Crosshair className="h-4 w-4" /> Focus Mode
+              </Button>
+            </div>
           </aside>
         </div>
       ) : null}
@@ -2925,44 +2977,41 @@ export function MainApp() {
               <h2 className="text-lg font-semibold text-text-primary sm:text-2xl">{viewCopy}</h2>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Button
                 onClick={() => setMobileNavOpen(true)}
                 size="sm"
                 type="button"
                 variant="ghost"
-                className="lg:hidden"
+                className="lg:hidden h-9 w-9 p-0 sm:h-auto sm:w-auto sm:px-3"
               >
-                Menu
+                <Menu className="h-5 w-5 sm:mr-2" />
+                <span className="hidden sm:inline">Menu</span>
               </Button>
+              
               {activeView === 'tasks' ? (
-                taskComposerOpen ? (
-                  <Button onClick={() => setTaskComposerOpen(false)} size="sm" type="button" variant="ghost">
-                    Close
-                  </Button>
-                ) : (
-                  <Button onClick={() => setTaskComposerOpen(true)} size="sm" type="button">
-                    Create task
-                  </Button>
-                )
+                <Button onClick={() => setTaskComposerOpen(true)} size="sm" type="button" className="px-3 sm:px-4">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Create task</span>
+                  <span className="sm:hidden">Add</span>
+                </Button>
               ) : activeView === 'missions' ? (
-                missionComposerOpen ? (
-                  <Button onClick={() => { setMissionComposerOpen(false); setEditingMission(null); }} size="sm" type="button" variant="ghost">
-                    Close
-                  </Button>
-                ) : (
-                  <Button onClick={() => setMissionComposerOpen(true)} size="sm" type="button">
-                    New mission
-                  </Button>
-                )
+                <Button onClick={() => setMissionComposerOpen(true)} size="sm" type="button" className="px-3 sm:px-4">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">New mission</span>
+                  <span className="sm:hidden">New</span>
+                </Button>
               ) : null}
-              <HeaderClock />
-              <Button onClick={() => void showQuickAddWindow()} size="sm" type="button" variant="secondary">
-                Quick Add
-              </Button>
-              <Button onClick={() => void showHudWindow()} size="sm" type="button" variant="ghost">
-                HUD
-              </Button>
+
+              <div className="hidden items-center gap-2 sm:flex md:gap-3">
+                <HeaderClock />
+                <Button onClick={() => void showQuickAddWindow()} size="sm" type="button" variant="secondary" className="hidden md:flex">
+                  Quick Add
+                </Button>
+                <Button onClick={() => void showHudWindow()} size="sm" type="button" variant="ghost" className="hidden lg:flex">
+                  HUD
+                </Button>
+              </div>
             </div>
           </header>
 
