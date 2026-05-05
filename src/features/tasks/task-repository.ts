@@ -3,6 +3,7 @@ import { getSqlDatabase } from '../../lib/database';
 import { createSeedTasks } from './task-seed';
 import { hydrateTaskRecord, normalizeTaskDraft, sortTasks } from './task-helpers';
 import type { Task, TaskDraft, TaskEnergy } from './task-types';
+import { useAuthStore } from '../auth/auth-store';
 
 const LOCAL_STORAGE_KEY = 'missioncontrol-tasks-v2';
 
@@ -11,6 +12,7 @@ interface TaskRepository {
   listTasks(): Promise<Task[]>;
   createTask(draft: TaskDraft): Promise<Task>;
   updateTask(task: Task): Promise<void>;
+  deleteTask(taskId: string): Promise<void>;
 }
 
 interface SqlTaskRow {
@@ -76,6 +78,12 @@ class BrowserTaskRepository implements TaskRepository {
   async updateTask(task: Task) {
     const tasks = await this.listTasks();
     const nextTasks = tasks.map((existing) => (existing.id === task.id ? task : existing));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sortTasks(nextTasks)));
+  }
+
+  async deleteTask(taskId: string) {
+    const tasks = await this.listTasks();
+    const nextTasks = tasks.filter((task) => task.id !== taskId);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sortTasks(nextTasks)));
   }
 }
@@ -171,6 +179,11 @@ class SqlTaskRepository implements TaskRepository {
     const db = await this.getDatabase();
     await db.execute(TASK_UPDATE_SQL, taskUpdateParams(task));
   }
+
+  async deleteTask(taskId: string) {
+    const db = await this.getDatabase();
+    await db.execute('DELETE FROM tasks WHERE id = ? OR parent_task_id = ?', [taskId, taskId]);
+  }
 }
 
 class SupabaseTaskRepository implements TaskRepository {
@@ -192,6 +205,11 @@ class SupabaseTaskRepository implements TaskRepository {
     const { updateTask } = await import('../../lib/supabase');
     await updateTask(task);
   }
+
+  async deleteTask(taskId: string) {
+    const { deleteTask } = await import('../../lib/supabase');
+    await deleteTask(taskId);
+  }
 }
 
 let repositoryPromise: Promise<TaskRepository> | null = null;
@@ -199,7 +217,7 @@ const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
 
 export function getTaskRepository() {
   repositoryPromise ??= Promise.resolve(
-    SUPABASE_CONFIGURED
+    SUPABASE_CONFIGURED && !useAuthStore.getState().localMode
       ? new SupabaseTaskRepository()
       : isTauriApp()
         ? new SqlTaskRepository()

@@ -104,7 +104,7 @@ export function ProfileSettingsCard({
         </Button>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
+      <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
         <div className="space-y-4">
           <div className="rounded-[28px] border border-borderSoft/30 bg-panel/30 p-5">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start">

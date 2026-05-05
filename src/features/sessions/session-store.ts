@@ -9,6 +9,7 @@ import {
   resumeWorkSession,
 } from './session-helpers';
 import type { SessionCaptureKind, SessionRecoveryState, SessionSegmentType, WorkSession } from './session-types';
+import { useAuthStore } from '../auth/auth-store';
 
 const STORAGE_KEY = 'missioncontrol-smart-sessions-v1';
 const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
@@ -76,7 +77,7 @@ function parseSnapshot() {
 function persistSnapshot(snapshot: SessionStoreSnapshot) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
 
-  if (SUPABASE_CONFIGURED) {
+  if (SUPABASE_CONFIGURED && !useAuthStore.getState().localMode) {
     // Persist any new/changed sessions to Supabase in the background
     void import('../../lib/supabase').then(({ upsertWorkSession }) => {
       for (const session of snapshot.sessions) {
@@ -113,7 +114,7 @@ export const useSessionStore = create<SessionStore>((set, get) => {
         return;
       }
 
-      if (SUPABASE_CONFIGURED) {
+      if (SUPABASE_CONFIGURED && !useAuthStore.getState().localMode) {
         try {
           const { selectWorkSessions } = await import('../../lib/supabase');
           const sessions = await selectWorkSessions();

@@ -1,5 +1,6 @@
 import { getSqlDatabase } from '../../lib/database';
 import { ACTIVITY_CHANGED_EVENT, emitAppEvent, isTauriApp } from '../../lib/tauri';
+import { useAuthStore } from '../auth/auth-store';
 
 const LOCAL_STORAGE_KEY = 'missioncontrol-activity-log-v1';
 
@@ -16,7 +17,8 @@ export type ActivityAction =
   | 'focus_status_changed'
   | 'hud_mode_toggled'
   | 'hud_transparency_toggled'
-  | 'distraction_logged';
+  | 'distraction_logged'
+  | 'task_deleted';
 
 export type ActivitySource = 'main' | 'hud' | 'quick-add' | 'system';
 
@@ -179,7 +181,7 @@ const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
 
 export function getActivityRepository() {
   repositoryPromise ??= Promise.resolve(
-    SUPABASE_CONFIGURED
+    SUPABASE_CONFIGURED && !useAuthStore.getState().localMode
       ? new SupabaseActivityRepository()
       : isTauriApp()
         ? new SqlActivityRepository()

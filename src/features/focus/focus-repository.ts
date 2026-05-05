@@ -1,6 +1,7 @@
 import { getSqlDatabase } from '../../lib/database';
 import { isTauriApp } from '../../lib/tauri';
 import type { FocusSyncState } from './focus-store';
+import { useAuthStore } from '../auth/auth-store';
 
 const FOCUS_STORAGE_KEY = 'missioncontrol-focus';
 
@@ -191,7 +192,7 @@ const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
 export function getFocusRepository(): Promise<FocusRepository> {
   if (!repositoryPromise) {
     repositoryPromise = Promise.resolve(
-      SUPABASE_CONFIGURED
+      SUPABASE_CONFIGURED && !useAuthStore.getState().localMode
         ? new SupabaseFocusRepository()
         : isTauriApp()
           ? new SqlFocusRepository()

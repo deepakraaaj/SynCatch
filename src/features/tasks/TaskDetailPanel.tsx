@@ -8,6 +8,7 @@ import { useMissionStore } from '../missions/mission-store';
 import { getSubtasks, humanizeEnergy, humanizeLane, humanizePriority } from './task-helpers';
 import { useTaskStore } from './task-store';
 import type { Task, TaskEnergy, TaskLane, TaskPriority } from './task-types';
+import { Trash2 } from 'lucide-react';
 
 interface TaskDetailPanelProps {
   task: Task;
@@ -70,12 +71,14 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 function SubtaskRow({
   subtask,
   onMarkDone,
+  onDelete,
 }: {
   subtask: Task;
   onMarkDone: () => void;
+  onDelete: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-[14px] border border-borderSoft/30 bg-panel/30 px-3 py-2.5">
+    <div className="group flex items-center gap-3 rounded-[14px] border border-borderSoft/30 bg-panel/30 px-3 py-2.5">
       <button
         type="button"
         onClick={onMarkDone}
@@ -92,10 +95,19 @@ function SubtaskRow({
       <span className={cn('flex-1 text-sm', subtask.lane === 'done' ? 'text-text-muted line-through' : 'text-text-primary')}>
         {subtask.title}
       </span>
-      {subtask.energy !== 'shallow' ? (
-        <span className="text-[10px] text-text-muted">{humanizeEnergy(subtask.energy)}</span>
-      ) : null}
-      <span className="text-[10px] text-text-muted">{subtask.estimated_minutes}m</span>
+      <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+        {subtask.energy !== 'shallow' ? (
+          <span className="text-[10px] text-text-muted">{humanizeEnergy(subtask.energy)}</span>
+        ) : null}
+        <span className="text-[10px] text-text-muted">{subtask.estimated_minutes}m</span>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="ml-1 rounded p-1 text-text-muted hover:bg-warning/10 hover:text-warning"
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -167,11 +179,13 @@ export function TaskDetailPanel({ task, allTasks, onClose }: TaskDetailPanelProp
   const saveTask = useTaskStore((s) => s.saveTask);
   const createSubtask = useTaskStore((s) => s.createSubtask);
   const markDone = useTaskStore((s) => s.markDone);
+  const deleteTask = useTaskStore((s) => s.deleteTask);
   const missions = useMissionStore((s) => s.missions);
 
   const [draft, setDraft] = useState<Task>(task);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Sync when selected task changes
   useEffect(() => {
@@ -207,6 +221,15 @@ export function TaskDetailPanel({ task, allTasks, onClose }: TaskDetailPanelProp
       energy: 'shallow',
       priority: 'normal',
     });
+  }
+
+  async function handleDelete() {
+    if (confirmDelete) {
+      await deleteTask(task.id);
+      onClose?.();
+    } else {
+      setConfirmDelete(true);
+    }
   }
 
   return (
@@ -392,6 +415,7 @@ export function TaskDetailPanel({ task, allTasks, onClose }: TaskDetailPanelProp
                 key={sub.id}
                 subtask={sub}
                 onMarkDone={() => void markDone(sub.id)}
+                onDelete={() => void deleteTask(sub.id)}
               />
             ))}
             <AddSubtaskRow onAdd={handleAddSubtask} />
@@ -399,16 +423,40 @@ export function TaskDetailPanel({ task, allTasks, onClose }: TaskDetailPanelProp
         </div>
       </div>
 
-      {/* Footer actions */}
       <div className="flex items-center justify-between border-t border-borderSoft/24 px-5 py-3">
-        <Button
-          size="sm"
-          onClick={() => void markDone(task.id)}
-          disabled={task.lane === 'done'}
-          variant={task.lane === 'done' ? 'ghost' : 'primary'}
-        >
-          {task.lane === 'done' ? 'Completed ✓' : 'Mark done'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => void markDone(task.id)}
+            disabled={task.lane === 'done'}
+            variant={task.lane === 'done' ? 'ghost' : 'primary'}
+          >
+            {task.lane === 'done' ? 'Completed ✓' : 'Mark done'}
+          </Button>
+          
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void handleDelete()}
+            className={cn(
+              'text-text-muted hover:text-warning',
+              confirmDelete ? 'bg-warning/10 text-warning' : ''
+            )}
+          >
+            <Trash2 size={16} className="mr-2" />
+            {confirmDelete ? 'Confirm delete?' : 'Delete'}
+          </Button>
+          
+          {confirmDelete && (
+            <button 
+              className="text-xs text-text-muted hover:text-text-primary"
+              onClick={() => setConfirmDelete(false)}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+        
         <div className="flex items-center gap-2">
           {draft.completed_at ? (
             <p className="text-xs text-text-muted">

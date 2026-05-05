@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isTauriApp } from '../../lib/tauri';
 import { useAuthStore } from './auth-store';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -8,8 +9,9 @@ export function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const isDesktop = isTauriApp();
 
-  const { loading, error, signIn, signUp, clearError } = useAuthStore();
+  const { loading, error, signIn, signUp, clearError, setLocalMode } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,9 +97,41 @@ export function SignInScreen() {
           </button>
         </div>
 
+        {isDesktop ? (
+          <div className="mt-6 border-t border-slate-700 pt-6">
+            <h3 className="text-sm font-medium text-slate-300 mb-3 text-center">Or stay offline</h3>
+            <Button
+              type="button"
+              onClick={() => setLocalMode(true)}
+              variant="outline"
+              className="w-full border-slate-700 hover:bg-slate-800 text-slate-300"
+            >
+              Use Local Mode (No Sync)
+            </Button>
+            <p className="mt-3 text-xs text-slate-500 text-center">
+              Your data will be saved locally on this computer only.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-6 border-t border-slate-700 pt-6">
+            <h3 className="text-sm font-medium text-slate-300 mb-3 text-center">Looking for an offline experience?</h3>
+            <a 
+               href="https://github.com/deepakraaaj/MissionControl/releases" 
+               target="_blank" 
+               rel="noreferrer"
+               className="flex items-center justify-center w-full px-4 py-2 border border-accent/30 text-accent hover:bg-accent/10 rounded-lg text-sm font-medium transition-colors"
+            >
+              Download the Desktop App
+            </a>
+            <p className="mt-3 text-xs text-slate-500 text-center">
+              The desktop app features a built-in Local Mode that works entirely offline without an account.
+            </p>
+          </div>
+        )}
+
         <div className="mt-8 pt-8 border-t border-slate-700">
           <p className="text-xs text-slate-500 text-center">
-            Your data is securely stored and synced across all your devices.
+            Your data is securely stored and synced across all your devices in Cloud Mode.
           </p>
         </div>
       </div>

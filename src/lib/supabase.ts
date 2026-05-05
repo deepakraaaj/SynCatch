@@ -116,6 +116,19 @@ export async function updateTask(task: Task): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteTask(taskId: string): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client
+    .from('tasks')
+    .delete()
+    .eq('id', taskId)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
 // Focus state queries
 export async function selectFocusState(): Promise<FocusSyncState | null> {
   const userId = await getUserId();

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { sortMissions, deriveCompletedAt, deriveStartedAt } from './mission-helpers';
 import { getMissionRepository } from './mission-repository';
 import type { Mission, MissionDraft, MissionStatus } from './mission-types';
+import { showSuccessToast } from '../toasts/toast-store';
 
 interface MissionStore {
   missions: Mission[];
@@ -76,6 +77,7 @@ export const useMissionStore = create<MissionStore>((set, get) => ({
       missions: sortMissions([mission, ...state.missions]),
       selectedMissionId: mission.id,
     }));
+    showSuccessToast('Mission launched', mission.title);
     return mission;
   },
 
@@ -128,6 +130,7 @@ export const useMissionStore = create<MissionStore>((set, get) => ({
   },
 
   deleteMission: async (missionId) => {
+    const mission = get().missions.find((m) => m.id === missionId);
     const repo = await getMissionRepository();
     await repo.deleteMission(missionId);
     set((state) => {
@@ -138,5 +141,8 @@ export const useMissionStore = create<MissionStore>((set, get) => ({
           : state.selectedMissionId;
       return { missions, selectedMissionId };
     });
+    if (mission) {
+      showSuccessToast('Mission deleted', mission.title);
+    }
   },
 }));

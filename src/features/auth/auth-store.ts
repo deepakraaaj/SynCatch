@@ -18,6 +18,8 @@ interface AuthStore {
   updateProfile: (displayName: string) => Promise<void>;
   hydrate: () => Promise<void>;
   clearError: () => void;
+  localMode: boolean;
+  setLocalMode: (enabled: boolean) => void;
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -25,6 +27,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   loading: true,
   error: null,
   profileSaving: false,
+  localMode: localStorage.getItem('mission-control-local-mode') === 'true',
+
+  setLocalMode: (enabled: boolean) => {
+    if (enabled) {
+      localStorage.setItem('mission-control-local-mode', 'true');
+    } else {
+      localStorage.removeItem('mission-control-local-mode');
+    }
+    set({ localMode: enabled });
+  },
 
   hydrate: async () => {
     try {

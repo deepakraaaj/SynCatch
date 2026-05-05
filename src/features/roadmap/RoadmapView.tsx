@@ -6,7 +6,7 @@ import { formatMinutes } from '../../lib/date';
 import type { Mission } from '../missions/mission-types';
 import type { Task } from '../tasks/task-types';
 
-type ViewMode = 'gantt' | 'vertical' | 'grid';
+type ViewMode = 'gantt' | 'vertical' | 'grid' | 'kanban';
 
 interface RoadmapViewProps {
   missions: Mission[];
@@ -31,7 +31,7 @@ interface MissionStats {
   estimatedMinutes: number;
 }
 
-const VIEW_MODES: ViewMode[] = ['grid', 'vertical', 'gantt'];
+const VIEW_MODES: ViewMode[] = ['grid', 'vertical', 'kanban', 'gantt'];
 const ROADMAP_WEEKS = 8;
 
 const missionToneMap: Record<Mission['color'], MissionTone> = {
@@ -102,6 +102,8 @@ const missionToneMap: Record<Mission['color'], MissionTone> = {
 
 export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortMode, setSortMode] = useState<'progress' | 'load' | 'due'>('progress');
 
   const rootTasks = useMemo(
     () => allTasks.filter((task) => task.parent_task_id === null),
@@ -148,24 +150,88 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
     return tasksByMission.get(missionId) ?? [];
   }
 
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+
+  const totalOverdueTasks = activeMissionTasks.filter((t) => {
+    if (!t.due_date || isTaskDone(t)) return false;
+    const dueDate = new Date(`${t.due_date}T00:00:00`);
+    return dueDate < todayDate;
+  }).length;
+
+  let filteredMissions = activeMissions;
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase();
+    filteredMissions = activeMissions.filter(
+      (m) =>
+        m.title.toLowerCase().includes(q) ||
+        (m.objective && m.objective.toLowerCase().includes(q)) ||
+        getTasksForMission(m.id).some((t) => t.title.toLowerCase().includes(q))
+    );
+  }
+
+  const sortedMissions = [...filteredMissions].sort((a, b) => {
+    const aStats = getMissionStats(getTasksForMission(a.id));
+    const bStats = getMissionStats(getTasksForMission(b.id));
+    if (sortMode === 'progress') {
+      return getMissionProgress(bStats) - getMissionProgress(aStats);
+    } else if (sortMode === 'load') {
+      return bStats.estimatedMinutes - aStats.estimatedMinutes;
+    } else {
+      const aDate = a.target_date || '9999-12-31';
+      const bDate = b.target_date || '9999-12-31';
+      return aDate.localeCompare(bDate);
+    }
+  });
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <p className="text-[10px] uppercase tracking-[0.3em] text-accent/75">Mission planning</p>
-        <h2 className="text-[clamp(1.55rem,1.8vw,1.95rem)] font-semibold tracking-[-0.04em] text-text-primary">
-          Roadmap
-        </h2>
-        <p className="max-w-2xl text-sm leading-6 text-text-secondary">
-          Track mission progress, remaining load, and what is actually moving next.
-        </p>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-2">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-accent/75">Mission planning</p>
+          <h2 className="text-[clamp(1.25rem,1.8vw,1.95rem)] font-semibold tracking-[-0.04em] text-text-primary">
+            Roadmap
+          </h2>
+          <p className="max-w-2xl text-sm leading-6 text-text-secondary">
+            Track mission progress, remaining load, and what is actually moving next.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-full border border-borderSoft/30 bg-panel/50 px-3 py-1.5 min-w-0 w-full sm:min-w-[240px] sm:w-auto">
+            <span className="text-text-muted">⌕</span>
+            <input
+              className="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search missions, tasks..."
+              value={searchQuery}
+            />
+          </div>
+          <div className="flex items-center gap-1 rounded-full border border-borderSoft/30 bg-panel/50 p-1">
+            <span className="px-2 text-[10px] uppercase tracking-[0.1em] text-text-muted">Sort</span>
+            {(['progress', 'load', 'due'] as const).map((mode) => (
+              <button
+                className={cn(
+                  'rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors',
+                  sortMode === mode ? 'bg-text-primary text-panel' : 'text-text-secondary hover:text-text-primary',
+                )}
+                key={mode}
+                onClick={() => setSortMode(mode)}
+                type="button"
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <Card className="rounded-[28px] border-borderSoft/24 bg-panel/86 p-3">
+      <Card className="rounded-[20px] border-borderSoft/24 bg-panel/86 p-2 sm:rounded-[28px] sm:p-3">
         <div className="scrollbar-hidden overflow-x-auto">
           <div className="flex min-w-max items-stretch gap-2.5">
           <MetricCard
             caption="Missions in play"
-            className="w-[180px] shrink-0"
+            className="w-[150px] shrink-0 sm:w-[180px]"
             eyebrow="Active"
             meterPercent={Math.min(100, activeMissions.length * 18)}
             tone="accent"
@@ -173,7 +239,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
           />
           <MetricCard
             caption={`${totalDoneTasks} of ${activeMissionTasks.length} tasks complete`}
-            className="w-[220px] shrink-0"
+            className="w-[180px] shrink-0 sm:w-[220px]"
             eyebrow="Completion"
             meterPercent={completionRate}
             tone="success"
@@ -181,7 +247,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
           />
           <MetricCard
             caption={`${activeMissionTasks.length} task${activeMissionTasks.length === 1 ? '' : 's'} planned`}
-            className="w-[220px] shrink-0"
+            className="w-[180px] shrink-0 sm:w-[220px]"
             eyebrow="Planned load"
             meterPercent={
               activeMissionTasks.length
@@ -197,7 +263,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
                 ? `${scheduledMissionCount} mission${scheduledMissionCount === 1 ? '' : 's'} with a target date`
                 : 'No mission dates set'
             }
-            className="w-[210px] shrink-0"
+            className="w-[170px] shrink-0 sm:w-[210px]"
             eyebrow="Scheduled"
             meterPercent={
               activeMissions.length
@@ -206,6 +272,14 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
             }
             tone="neutral"
             value={String(scheduledMissionCount)}
+          />
+          <MetricCard
+            caption={totalOverdueTasks ? 'needs attention' : 'all on track'}
+            className="w-[150px] shrink-0 sm:w-[180px]"
+            eyebrow="Overdue"
+            meterPercent={totalOverdueTasks ? 100 : 0}
+            tone={totalOverdueTasks ? 'warning' : 'neutral'}
+            value={String(totalOverdueTasks)}
           />
 
           <div className="ml-1 inline-flex h-fit shrink-0 items-center gap-1 self-center rounded-full border border-borderSoft/30 bg-panel2/40 p-1">
@@ -257,7 +331,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        {activeMissions.length === 0 ? (
+        {sortedMissions.length === 0 ? (
           <Card className="rounded-[34px] p-10 text-center">
             <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Roadmap empty</p>
             <p className="mt-3 text-lg font-semibold text-text-primary">No active missions yet</p>
@@ -269,13 +343,16 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
         ) : (
           <>
             {viewMode === 'grid' ? (
-              <GridView missions={activeMissions} getTasksForMission={getTasksForMission} />
+              <GridView getTasksForMission={getTasksForMission} missions={sortedMissions} />
             ) : null}
             {viewMode === 'vertical' ? (
-              <VerticalView missions={activeMissions} getTasksForMission={getTasksForMission} />
+              <VerticalView getTasksForMission={getTasksForMission} missions={sortedMissions} />
+            ) : null}
+            {viewMode === 'kanban' ? (
+              <KanbanView getTasksForMission={getTasksForMission} missions={sortedMissions} />
             ) : null}
             {viewMode === 'gantt' ? (
-              <GanttView missions={activeMissions} getTasksForMission={getTasksForMission} />
+              <GanttView getTasksForMission={getTasksForMission} missions={sortedMissions} />
             ) : null}
           </>
         )}
@@ -380,16 +457,16 @@ function MissionGridCard({
         onClick={onToggle}
         type="button"
       >
-        <div className="grid gap-3 pl-2 pr-1 xl:grid-cols-[minmax(260px,1.55fr)_minmax(120px,.7fr)_minmax(140px,.8fr)_minmax(190px,.95fr)_92px] xl:items-center">
+        <div className="grid gap-2 pl-2 pr-1 sm:gap-3 xl:grid-cols-[minmax(260px,1.55fr)_minmax(120px,.7fr)_minmax(140px,.8fr)_minmax(190px,.95fr)_92px] xl:items-center">
           <div className="min-w-0">
             <div className="flex items-start gap-3">
-              <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border text-[1.7rem]', tone.border, tone.soft)}>
+              <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border text-xl sm:h-12 sm:w-12 sm:rounded-[18px] sm:text-[1.7rem]', tone.border, tone.soft)}>
                 {mission.emoji}
               </div>
 
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="truncate text-[1.35rem] font-semibold tracking-[-0.05em] text-text-primary">
+                  <h3 className="truncate text-base font-semibold tracking-[-0.05em] text-text-primary sm:text-[1.35rem]">
                     {mission.title}
                   </h3>
                   {mission.is_pinned ? <Badge tone="accent">Pinned</Badge> : null}
@@ -443,7 +520,7 @@ function MissionGridCard({
 
       {expanded ? (
         <div className="mt-4 border-t border-borderSoft/24 pt-4">
-          <div className="grid gap-3 xl:grid-cols-[minmax(170px,.85fr)_minmax(220px,1fr)_minmax(250px,1.1fr)]">
+          <div className="grid gap-2 sm:gap-3 xl:grid-cols-[minmax(170px,.85fr)_minmax(220px,1fr)_minmax(250px,1.1fr)]">
             <RoadmapMetricPanel
               caption={`${stats.now} active • ${stats.next} next • ${stats.inbox + stats.later} waiting`}
               label="Load profile"
@@ -661,6 +738,101 @@ function GanttView({
         </div>
       </div>
     </Card>
+  );
+}
+
+function KanbanView({
+  missions,
+  getTasksForMission,
+}: {
+  missions: Mission[];
+  getTasksForMission: (id: string) => Task[];
+}) {
+  const lanes: { lane: Task['lane']; label: string }[] = [
+    { lane: 'now', label: 'Active' },
+    { lane: 'next', label: 'Next' },
+    { lane: 'inbox', label: 'Queue' },
+    { lane: 'done', label: 'Done' },
+  ];
+
+  const laneTasks = lanes.map((col) => {
+    return {
+      ...col,
+      tasks: missions.flatMap((mission) => {
+        const tasks = getTasksForMission(mission.id);
+        const tone = getMissionTone(mission.color);
+        return tasks
+          .filter((t) => t.lane === col.lane || (col.lane === 'done' && isTaskDone(t)) || (col.lane === 'inbox' && !isTaskDone(t) && t.lane !== 'now' && t.lane !== 'next' && t.lane !== 'done'))
+          .map((t) => ({ ...t, mission, tone }));
+      }),
+    };
+  });
+
+  return (
+    <div className="flex h-full min-h-0 items-start gap-3 overflow-x-auto pb-4 sm:gap-4">
+      {laneTasks.map((col) => (
+        <div
+          className="flex min-w-[240px] max-w-[300px] shrink-0 flex-col gap-3 rounded-[20px] border border-borderSoft/24 bg-panel/22 p-3 sm:min-w-[280px] sm:max-w-[320px] sm:rounded-[24px] sm:p-4"
+          key={col.lane}
+        >
+          <div className="flex items-center justify-between pb-1">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'h-2 w-2 rounded-full',
+                  col.lane === 'done'
+                    ? 'bg-success'
+                    : col.lane === 'now'
+                      ? 'bg-accent'
+                      : col.lane === 'next'
+                        ? 'bg-accent/55'
+                        : 'bg-warning/75',
+                )}
+              />
+              <span className="text-[11px] uppercase tracking-[0.2em] font-semibold text-text-primary">
+                {col.label}
+              </span>
+            </div>
+            <span className="text-[11px] text-text-muted">{col.tasks.length}</span>
+          </div>
+
+          <div className="flex flex-col gap-2.5">
+            {col.tasks.map((task) => {
+              const isOverdue = task.due_date && new Date(`${task.due_date}T00:00:00`) < new Date(new Date().setHours(0,0,0,0));
+              return (
+                <div
+                  className={cn("flex flex-col gap-2.5 rounded-[16px] border border-borderSoft/24 bg-panel2/42 p-3.5", `border-l-2 ${task.tone.border.replace('border-', 'border-l-')}`)}
+                  key={task.id}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={cn('text-[10px] uppercase tracking-[0.15em]', task.tone.text)}>
+                      {task.mission.title}
+                    </span>
+                    <span className="text-[10px] text-text-muted">{formatMinutes(task.estimated_minutes)}</span>
+                  </div>
+                  <p className={cn("text-sm leading-5", col.lane === 'done' ? 'text-text-muted line-through' : 'text-text-primary')}>{task.title}</p>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <div className={cn('flex h-5 w-5 items-center justify-center rounded-full text-[9px] uppercase font-semibold text-text-primary', task.tone.border, task.tone.soft)}>
+                      {task.title.substring(0, 1)}
+                    </div>
+                    {task.due_date ? (
+                      <span className={cn('rounded-full px-2 py-0.5 text-[10px]', isOverdue && col.lane !== 'done' ? 'bg-red-500/10 text-red-400' : 'text-text-muted')}>
+                        {isOverdue && col.lane !== 'done' ? '⚠ ' : ''}{formatDateLabel(task.due_date)}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+            {col.tasks.length === 0 ? (
+              <div className="rounded-[12px] border border-dashed border-borderSoft/28 bg-panel/16 py-6 text-center text-xs font-medium italic text-text-secondary">
+                Nothing here
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

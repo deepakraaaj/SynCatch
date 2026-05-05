@@ -91,12 +91,18 @@
 @layer base {
   * {
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
 
   html,
   body,
   #root {
     height: 100%;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
@@ -108,6 +114,14 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  @media (max-width: 1024px) {
+    body {
+      overflow: auto;
+      overscroll-behavior-y: contain;
+    }
   }
 
   body::before {
@@ -143,6 +157,14 @@
     font: inherit;
   }
 
+  /* Ensure minimum touch targets on mobile */
+  @media (max-width: 1024px) {
+    button,
+    [role="button"] {
+      min-height: 36px;
+    }
+  }
+
   ::selection {
     background: rgb(var(--accent) / 0.28);
     color: rgb(var(--text-primary));
@@ -160,6 +182,14 @@
   ::-webkit-scrollbar-thumb {
     background: rgb(var(--border-strong) / 0.4);
     border-radius: 999px;
+  }
+
+  /* Hide scrollbars on mobile for cleaner look */
+  @media (max-width: 1024px) {
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
   }
 }
 
@@ -359,6 +389,72 @@
     background: rgb(var(--accent));
     box-shadow: 0 0 8px rgb(var(--accent) / 0.5);
     animation: pulseDot 2.4s ease-in-out infinite;
+  }
+
+  /* Mobile bottom navigation bar */
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    border-top: 1px solid rgb(var(--border-subtle) / 0.34);
+    background: linear-gradient(180deg, rgb(var(--surface-1) / 0.97), rgb(var(--surface-2) / 0.98));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .mobile-bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+    padding: 10px 4px 8px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: rgb(var(--text-muted));
+    transition: color 150ms ease, background-color 150ms ease;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    min-height: 56px;
+  }
+
+  .mobile-bottom-nav-item:active {
+    background: rgb(var(--accent) / 0.06);
+  }
+
+  .mobile-bottom-nav-item--active {
+    color: rgb(var(--accent));
+  }
+
+  .mobile-bottom-nav-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgb(var(--accent));
+    margin-top: 2px;
+  }
+
+  /* Capture popup mobile overrides */
+  @media (max-width: 640px) {
+    .capture-popup-shell {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      max-width: 100%;
+      z-index: 50;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
   }
 }
 

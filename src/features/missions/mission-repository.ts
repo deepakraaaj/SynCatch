@@ -2,6 +2,7 @@ import { isTauriApp } from '../../lib/tauri';
 import { getSqlDatabase } from '../../lib/database';
 import { hydrateMissionRecord, normalizeMissionDraft, sortMissions } from './mission-helpers';
 import type { Mission, MissionDraft } from './mission-types';
+import { useAuthStore } from '../auth/auth-store';
 
 const LOCAL_STORAGE_KEY = 'missioncontrol-missions-v1';
 
@@ -202,7 +203,7 @@ const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
 
 export function getMissionRepository(): Promise<MissionRepository> {
   repositoryPromise ??= Promise.resolve(
-    SUPABASE_CONFIGURED
+    SUPABASE_CONFIGURED && !useAuthStore.getState().localMode
       ? new SupabaseMissionRepository()
       : isTauriApp()
         ? new SqlMissionRepository()

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -345,8 +346,43 @@ function NavButton({
       type="button"
     >
       <p className="text-xs font-medium text-text-primary">{label}</p>
-      {caption ? <p className="mt-1 text-[11px] text-text-muted">{caption}</p> : null}
+      {caption ? <p className="mt-1 hidden text-[11px] text-text-muted sm:block">{caption}</p> : null}
     </button>
+  );
+}
+
+function SidebarContent({
+  activeView,
+  onViewSelect,
+  activeSession,
+}: {
+  activeView: MainView;
+  onViewSelect: (view: MainView) => void;
+  activeSession: WorkSession | null;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted">MissionControl</p>
+        <h1 className="mt-3 text-2xl font-semibold text-text-primary">Focus</h1>
+      </div>
+
+      <div className="mt-8 space-y-2">
+        {views.map((view) => (
+          <NavButton
+            active={activeView === view.id}
+            caption={view.caption}
+            key={view.id}
+            label={view.label}
+            onClick={() => onViewSelect(view.id)}
+          />
+        ))}
+      </div>
+
+      <div className="mt-auto">
+        <SidebarLiveStatus activeSession={activeSession} />
+      </div>
+    </div>
   );
 }
 
@@ -371,10 +407,10 @@ function MetricCard({
           : 'text-accent';
 
   return (
-    <Card className="rounded-[28px] p-5">
+    <Card className="rounded-[20px] p-3 sm:rounded-[28px] sm:p-5">
       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">{label}</p>
-      <p className={cn('mt-4 text-[2rem] font-semibold leading-none', toneClass)}>{value}</p>
-      {caption ? <p className="mt-3 text-sm text-text-secondary">{caption}</p> : null}
+      <p className={cn('mt-2 text-xl font-semibold leading-none sm:mt-4 sm:text-[2rem]', toneClass)}>{value}</p>
+      {caption ? <p className="mt-2 text-xs text-text-secondary sm:mt-3 sm:text-sm">{caption}</p> : null}
     </Card>
   );
 }
@@ -782,7 +818,7 @@ function SubtaskBoardItem({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-nowrap gap-2 overflow-x-auto pb-1 scrollbar-none">
         <Button onClick={onFocus} size="sm" type="button">
           Focus
         </Button>
@@ -892,7 +928,7 @@ function CapturePopup({
   const isLongForm = option.kind === 'note' || option.kind === 'blocker' || option.kind === 'idea';
 
   return (
-    <div className="absolute bottom-6 right-6 z-30 w-[360px]">
+    <div className="capture-popup-shell absolute bottom-6 right-6 z-30 w-full max-w-[360px] sm:w-[360px]">
       <Card className="rounded-[28px] border border-accent/20 bg-panel/94 p-5 shadow-panel">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -967,7 +1003,7 @@ function HeaderClock() {
   const now = useTickingNow(30000);
 
   return (
-    <div className="hidden rounded-full border border-borderSoft/28 bg-panel/36 px-4 py-2 text-sm text-text-secondary lg:block">
+    <div className="hidden h-9 items-center rounded-full border border-borderSoft/32 bg-panel/40 px-4 text-sm font-medium text-text-secondary lg:flex">
       {headerTimeFormatter.format(new Date(now))}
     </div>
   );
@@ -981,14 +1017,31 @@ function SidebarLiveStatus({ activeSession }: { activeSession: WorkSession | nul
   );
 
   return (
-    <Card className="rounded-[28px] p-5">
-      <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Live status</p>
-      <p className="mt-3 text-xl font-semibold text-text-primary">
-        {activeSession ? activeSession.task_title : 'Idle'}
-      </p>
-      <p className="mt-2 text-sm text-text-secondary">
-        {activeSession ? `${formatClock(metrics.focus_seconds)} · ${activeSession.status}` : 'No session'}
-      </p>
+    <Card className="rounded-[22px] px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-text-primary">
+            {activeSession ? activeSession.task_title : 'Idle'}
+          </p>
+          <div className="mt-0.5 flex items-center gap-2 text-[11px] text-text-secondary">
+            <span className="font-mono">
+              {activeSession ? formatClock(metrics.focus_seconds) : '00:00:00'}
+            </span>
+            {activeSession && (
+              <>
+                <span className="h-0.5 w-0.5 rounded-full bg-text-muted" />
+                <span className="capitalize">{activeSession.status}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div className={cn('h-1.5 w-1.5 rounded-full', activeSession ? 'animate-pulse bg-accent' : 'bg-text-muted/30')} />
+          <span className={cn('text-[10px] font-bold uppercase tracking-wider', activeSession ? 'text-accent' : 'text-text-muted')}>
+            {activeSession ? 'Live' : 'Off'}
+          </span>
+        </div>
+      </div>
     </Card>
   );
 }
@@ -1033,20 +1086,20 @@ function TodayFocusCard({
     : minutes;
 
   return (
-    <Card className="rounded-[34px] p-6">
+    <Card className="rounded-[24px] p-4 sm:rounded-[34px] sm:p-6">
       <div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-[11px] uppercase tracking-[0.3em] text-text-muted">Current focus</p>
-            <h2 className="mt-2 text-3xl font-semibold leading-tight text-text-primary">
+            <h2 className="mt-2 text-xl font-semibold leading-tight text-text-primary sm:text-3xl">
               {currentTask?.title ?? 'Pick a task'}
             </h2>
           </div>
 
-          <div className="grid min-w-[220px] gap-3 rounded-[26px] border border-borderSoft/30 bg-panel/46 p-4">
+          <div className="grid w-full gap-3 rounded-[20px] border border-borderSoft/30 bg-panel/46 p-3 sm:min-w-[220px] sm:w-auto sm:rounded-[26px] sm:p-4">
             <div>
               <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Live timer</p>
-              <p className="mt-2 text-[2.6rem] font-semibold leading-none text-text-primary">
+              <p className="mt-2 text-[2rem] font-semibold leading-none text-text-primary sm:text-[2.6rem]">
                 {formatClock(activeSessionMetrics.focus_seconds)}
               </p>
             </div>
@@ -1196,6 +1249,7 @@ export function MainApp() {
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [missionComposerOpen, setMissionComposerOpen] = useState(false);
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const dragImageRef = useRef<HTMLImageElement | null>(null);
   const dropHandledRef = useRef(false);
   const activeSession = useMemo(
@@ -1611,7 +1665,7 @@ export function MainApp() {
           </Card>
         ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.95fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.95fr)]">
           <TodayFocusCard
             activeSession={activeSession}
             currentTask={currentTask}
@@ -1692,14 +1746,14 @@ export function MainApp() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           <MetricCard label="Focus" value={formatDurationFromSeconds(todayFocusSeconds)} />
           <MetricCard label="Sessions" tone="neutral" value={String(todaySessions.length).padStart(2, '0')} />
           <MetricCard label="Distraction" tone="warning" value={formatDurationFromSeconds(todayDistractionSeconds)} />
           <MetricCard label="Switches" tone="success" value={String(todaySwitchCount).padStart(2, '0')} />
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <Card className="rounded-[34px] p-6">
             <SectionHeading action={<Badge tone="neutral">Today</Badge>} title="Sessions" />
 
@@ -1853,7 +1907,7 @@ export function MainApp() {
                     <div
                       key={task.id}
                       className={cn(
-                        'flex items-center gap-4 rounded-[20px] border px-4 py-3 transition-colors',
+                        'flex flex-col gap-3 rounded-[20px] border px-3 py-3 transition-colors sm:flex-row sm:items-center sm:gap-4 sm:px-4',
                         task.lane === 'now'
                           ? 'border-accent/25 bg-accent/7'
                           : isScheduledToday
@@ -1870,7 +1924,7 @@ export function MainApp() {
                           <p className="mt-0.5 text-[10px] text-text-muted/70">{missionName.emoji} {missionName.title}</p>
                         ) : null}
                       </div>
-                      <div className="flex shrink-0 items-center gap-2">
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
                         {task.lane === 'now' ? <Badge tone="accent">Active</Badge> : null}
                         {isScheduledToday && task.lane !== 'now' ? <Badge tone="warning">Today</Badge> : null}
                         <span className="text-xs text-text-muted">{task.estimated_minutes}m</span>
@@ -2045,7 +2099,7 @@ export function MainApp() {
           </Card>
         ) : null}
 
-        <div className="grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
           {taskBoard.map((column) => {
             const groupedSubtasks = groupSubtasksByParent(column.subtasks, tasksById);
 
@@ -2096,7 +2150,7 @@ export function MainApp() {
                                 {blocker ? (
                                   <p className="text-sm text-warning">{blocker.blocker}</p>
                                 ) : null}
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-nowrap gap-2">
                                   <Button onClick={() => handleStartSession(task)} size="sm" type="button">
                                     Focus
                                   </Button>
@@ -2132,12 +2186,13 @@ export function MainApp() {
 
                   {column.subtasks.length ? (
                     <div className="rounded-[24px] border border-dashed border-borderSoft/28 bg-panel/12 p-3">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Linked steps</p>
-                          <p className="mt-1 text-xs text-text-secondary">Checklist items grouped by parent task.</p>
+                      <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-text-muted">Linked steps</p>
+                          <span className="h-1 w-1 rounded-full bg-borderStrong/20" />
+                          <Badge tone="neutral">{column.subtasks.length}</Badge>
                         </div>
-                        <Badge tone="neutral">{column.subtasks.length}</Badge>
+                        <p className="hidden text-[11px] text-text-secondary xl:block">Grouped by parent</p>
                       </div>
 
                       <div className="space-y-3">
@@ -2146,12 +2201,12 @@ export function MainApp() {
                             key={group.parentTask?.id ?? group.tasks[0]?.id}
                             className="rounded-[20px] border border-borderSoft/24 bg-panel2/20 p-3"
                           >
-                            <div className="mb-3 flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted">Parent task</p>
+                            <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <p className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Parent:</p>
                                 {group.parentTask ? (
                                   <button
-                                    className="mt-1 truncate text-left text-sm font-medium text-text-primary transition-colors hover:text-accent"
+                                    className="truncate text-xs font-semibold text-text-primary transition-colors hover:text-accent"
                                     onClick={() => {
                                       selectTask(group.parentTask!.id);
                                       setDetailTaskId(group.parentTask!.id);
@@ -2161,10 +2216,10 @@ export function MainApp() {
                                     {group.parentTask.title}
                                   </button>
                                 ) : (
-                                  <p className="mt-1 text-sm font-medium text-text-primary">Detached checklist</p>
+                                  <p className="truncate text-xs font-semibold text-text-primary">Detached checklist</p>
                                 )}
                               </div>
-                              <Badge tone="neutral">{group.tasks.length} step{group.tasks.length === 1 ? '' : 's'}</Badge>
+                              <Badge className="shrink-0" tone="neutral">{group.tasks.length} step{group.tasks.length === 1 ? '' : 's'}</Badge>
                             </div>
 
                             <div className="space-y-2">
@@ -2255,7 +2310,7 @@ export function MainApp() {
                 return (
                   <div className="history-row-lite overflow-hidden rounded-[28px] border border-borderSoft/30 bg-panel/42" key={row.taskId}>
                     <button
-                      className="grid w-full gap-4 px-5 py-4 text-left lg:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr_0.9fr_1.3fr_0.6fr]"
+                      className="grid w-full gap-2 px-3 py-3 text-left sm:gap-4 sm:px-5 sm:py-4 lg:grid-cols-[minmax(0,1.4fr)_0.8fr_0.8fr_0.9fr_1.3fr_0.6fr]"
                       onClick={() => setExpandedHistoryId(expanded ? null : row.taskId)}
                       type="button"
                     >
@@ -2272,7 +2327,7 @@ export function MainApp() {
 
                     {expanded ? (
                       <div className="border-t border-borderSoft/24">
-                        <div className="grid gap-6 px-5 py-5 lg:grid-cols-3">
+                        <div className="grid gap-4 px-3 py-4 sm:gap-6 sm:px-5 sm:py-5 lg:grid-cols-3">
                           <div>
                             <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Sessions</p>
                             <div className="mt-3 space-y-2">
@@ -2352,7 +2407,7 @@ export function MainApp() {
   function renderInsights() {
     return (
       <div className="space-y-6">
-        <div className="grid gap-6 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="Best focus hours"
             value={hourlyFocus[0]?.label ?? 'n/a'}
@@ -2366,7 +2421,7 @@ export function MainApp() {
           />
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <Card className="rounded-[34px] p-6">
             <SectionHeading action={<Badge tone="accent">7d</Badge>} title="Focus vs distraction" />
 
@@ -2393,7 +2448,7 @@ export function MainApp() {
           </Card>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           <Card className="rounded-[34px] p-6">
             <SectionHeading title="Best hours" />
 
@@ -2470,11 +2525,11 @@ export function MainApp() {
   function renderReview() {
     return (
       <div className="space-y-6">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
           <Card className="rounded-[34px] p-6">
             <SectionHeading action={<Badge tone="accent">Today</Badge>} title="Daily review" />
 
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">What done</p>
                 <div className="mt-3 space-y-2">
@@ -2580,7 +2635,7 @@ export function MainApp() {
         <Card className="rounded-[34px] p-6">
           <SectionHeading action={<Badge tone="accent">Theme</Badge>} title="Appearance" />
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
             {THEMES.map((theme) => {
               const active = theme.id === themeId;
 
@@ -2621,7 +2676,7 @@ export function MainApp() {
           </div>
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
           <Card className="rounded-[34px] p-6">
             <SectionHeading action={<Badge tone="neutral">Live</Badge>} title="Behavior" />
 
@@ -2738,38 +2793,59 @@ export function MainApp() {
   }
 
   return (
-    <div className="h-full p-5">
-      <div className="app-frame relative flex h-full overflow-hidden rounded-[42px] border border-borderSoft/20">
-        <aside className="sidebar-shell relative z-10 flex w-[248px] flex-col border-r border-borderSoft/24 p-6">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted">MissionControl</p>
-            <h1 className="mt-3 text-2xl font-semibold text-text-primary">Focus</h1>
-          </div>
+    <div className="h-full p-2 sm:p-3 lg:p-5">
+      {mobileNavOpen ? (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Close navigation"
+          />
+          <aside className="relative z-10 flex h-full w-full max-w-[280px] flex-col border-r border-borderSoft/24 bg-surface-2 p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-text-primary">Navigation</p>
+              <Button onClick={() => setMobileNavOpen(false)} size="sm" type="button" variant="ghost">
+                Close
+              </Button>
+            </div>
+            <SidebarContent
+              activeView={activeView}
+              onViewSelect={(view) => {
+                setActiveView(view);
+                setMobileNavOpen(false);
+              }}
+              activeSession={activeSession}
+            />
+          </aside>
+        </div>
+      ) : null}
 
-          <div className="mt-8 space-y-2">
-            {views.map((view) => (
-              <NavButton
-                active={activeView === view.id}
-                caption={view.caption}
-                key={view.id}
-                label={view.label}
-                onClick={() => setActiveView(view.id)}
-                />
-              ))}
-          </div>
-
-          <div className="mt-auto">
-            <SidebarLiveStatus activeSession={activeSession} />
-          </div>
+      <div className="app-frame relative flex h-full flex-col overflow-hidden rounded-[24px] border border-borderSoft/20 sm:rounded-[32px] lg:flex-row lg:rounded-[42px]">
+        <aside className="sidebar-shell relative z-10 hidden w-full flex-col border-r border-borderSoft/24 p-6 lg:flex lg:w-[248px]">
+          <SidebarContent
+            activeView={activeView}
+            onViewSelect={(view) => setActiveView(view)}
+            activeSession={activeSession}
+          />
         </aside>
 
         <div className="relative z-10 flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center justify-between gap-4 border-b border-borderSoft/24 px-6 py-5">
+          <header className="flex items-center justify-between gap-3 border-b border-borderSoft/24 px-3 py-3 sm:gap-4 sm:px-6 sm:py-5">
             <div className="min-w-0">
-              <h2 className="text-2xl font-semibold text-text-primary">{viewCopy}</h2>
+              <h2 className="text-lg font-semibold text-text-primary sm:text-2xl">{viewCopy}</h2>
             </div>
 
             <div className="flex items-center gap-3">
+              <Button
+                onClick={() => setMobileNavOpen(true)}
+                size="sm"
+                type="button"
+                variant="ghost"
+                className="lg:hidden"
+              >
+                Menu
+              </Button>
               {activeView === 'tasks' ? (
                 taskComposerOpen ? (
                   <Button onClick={() => setTaskComposerOpen(false)} size="sm" type="button" variant="ghost">
@@ -2802,7 +2878,7 @@ export function MainApp() {
           </header>
 
           <div className="relative flex min-h-0 flex-1">
-            <main className="main-scroll-region relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-6">
+            <main className="main-scroll-region relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 pb-20 sm:px-6 sm:py-6 lg:pb-6">
               {activeView === 'focus' ? renderFocus() : null}
               {activeView === 'missions' ? renderMissions() : null}
               {activeView === 'roadmap' ? <RoadmapView missions={missions} allTasks={tasks} /> : null}
@@ -2845,6 +2921,43 @@ export function MainApp() {
           </div>
         </div>
       </div>
+
+      {/* Mobile bottom navigation */}
+      <nav className="mobile-bottom-nav lg:hidden">
+        {([
+          { id: 'focus' as MainView, label: 'Focus', Icon: Crosshair },
+          { id: 'today' as MainView, label: 'Today', Icon: Sun },
+          { id: 'tasks' as MainView, label: 'Tasks', Icon: CheckSquare },
+          { id: 'missions' as MainView, label: 'Missions', Icon: Target },
+          { id: 'roadmap' as MainView, label: 'More', Icon: MoreHorizontal },
+        ] as const).map((tab) => {
+          const isMore = tab.label === 'More';
+          const isActive = isMore
+            ? !['focus', 'today', 'tasks', 'missions'].includes(activeView)
+            : activeView === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              className={cn(
+                'mobile-bottom-nav-item',
+                isActive ? 'mobile-bottom-nav-item--active' : null,
+              )}
+              onClick={() => {
+                if (isMore) {
+                  setMobileNavOpen(true);
+                } else {
+                  setActiveView(tab.id);
+                }
+              }}
+            >
+              <tab.Icon size={20} strokeWidth={1.5} />
+              <span>{tab.label}</span>
+              {isActive ? <span className="mobile-bottom-nav-dot" /> : null}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }

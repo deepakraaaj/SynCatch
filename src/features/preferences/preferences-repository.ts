@@ -6,6 +6,7 @@ import {
   type SettingsSnapshot,
   type ThemeSnapshot,
 } from './preferences-types';
+import { useAuthStore } from '../auth/auth-store';
 
 const THEME_STORAGE_KEY = 'missioncontrol-theme';
 const SETTINGS_STORAGE_KEY = 'missioncontrol-settings';
@@ -157,7 +158,7 @@ const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
 export function getPreferencesRepository(): Promise<PreferencesRepository> {
   if (!repositoryPromise) {
     repositoryPromise = Promise.resolve(
-      SUPABASE_CONFIGURED
+      SUPABASE_CONFIGURED && !useAuthStore.getState().localMode
         ? new SupabasePreferencesRepository()
         : isTauriApp()
           ? new SqlPreferencesRepository()

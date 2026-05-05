@@ -8,6 +8,7 @@ export function MainAppWithAuth() {
   const session = useAuthStore((s) => s.session);
   const loading = useAuthStore((s) => s.loading);
   const hydrate = useAuthStore((s) => s.hydrate);
+  const localMode = useAuthStore((s) => s.localMode);
 
   useEffect(() => {
     void hydrate();
@@ -24,7 +25,7 @@ export function MainAppWithAuth() {
     );
   }
 
-  if (!session) {
+  if (!session && !localMode) {
     return <SignInScreen />;
   }
 
