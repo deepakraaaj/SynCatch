@@ -4,6 +4,7 @@ import { useAuthStore } from '../../features/auth/auth-store';
 import { SignInScreen } from '../../features/auth/SignInScreen';
 import { AppBootstrap } from '../bootstrap';
 import { MainApp } from './MainApp';
+import { AnimatedLoading } from '../../components/animated-loading';
 
 export function MainAppWithAuth() {
   const session = useAuthStore((s) => s.session);
@@ -15,14 +16,7 @@ export function MainAppWithAuth() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-panel">
-        <div className="flex flex-col items-center">
-          <Target className="mb-4 h-10 w-10 animate-pulse text-accent" />
-          <p className="text-sm text-text-muted">Loading MissionControl...</p>
-        </div>
-      </div>  
-    );
+    return <AnimatedLoading />;
   }
 
   if (!session && !localMode) {

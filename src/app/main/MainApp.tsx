@@ -2898,7 +2898,7 @@ export function MainApp() {
   }
 
   if (!tasksHydrated || !sessionsHydrated || tasksLoading) {
-    return <AnimatedLoading />;
+    return <AnimatedLoading autoDismiss={true} dismissAfter={1500} />;
   }
 
   return (

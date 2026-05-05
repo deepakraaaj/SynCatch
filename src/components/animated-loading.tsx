@@ -1,15 +1,24 @@
 import { useEffect, useState } from 'react';
 
-export function AnimatedLoading() {
+interface AnimatedLoadingProps {
+  autoDismiss?: boolean;
+  dismissAfter?: number;
+}
+
+export function AnimatedLoading({ autoDismiss = false, dismissAfter = 2000 }: AnimatedLoadingProps = {}) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
+    if (!autoDismiss) {
+      return;
+    }
+
     const timer = setTimeout(() => {
       setIsVisible(false);
-    }, 2000);
+    }, dismissAfter);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [autoDismiss, dismissAfter]);
 
   if (!isVisible) {
     return null;
