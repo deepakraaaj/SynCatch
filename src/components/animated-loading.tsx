@@ -6,7 +6,7 @@ export function AnimatedLoading() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false);
-    }, 3000);
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -16,31 +16,45 @@ export function AnimatedLoading() {
   }
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-gradient-to-br from-[#060A0C] via-[#0f1417] to-[#0a0d10]">
+    <div
+      className="fixed inset-0 z-[999] flex items-center justify-center"
+      style={{
+        background: 'linear-gradient(180deg, rgb(var(--bg-base)) 0%, rgb(var(--bg-soft)) 100%)',
+      }}
+    >
       <div className="flex flex-col items-center gap-6">
         {/* Animated Logo Circle */}
         <div className="relative w-24 h-24">
           {/* Outer rotating ring */}
           <div
-            className="absolute inset-0 rounded-full border-2 border-transparent border-t-accent border-r-accent/50"
+            className="absolute inset-0 rounded-full border-2 border-transparent"
             style={{
+              borderTopColor: 'rgb(var(--accent))',
+              borderRightColor: 'rgb(var(--accent) / 0.5)',
               animation: 'spin 2s linear infinite',
             }}
           />
 
           {/* Middle pulsing ring */}
           <div
-            className="absolute inset-2 rounded-full border border-accent/30"
+            className="absolute inset-2 rounded-full border"
             style={{
+              borderColor: 'rgb(var(--accent) / 0.3)',
               animation: 'pulse 2s ease-in-out infinite',
             }}
           />
 
           {/* Inner dot */}
-          <div className="absolute inset-6 rounded-full bg-gradient-to-br from-accent/40 to-accent/20 flex items-center justify-center">
+          <div
+            className="absolute inset-6 rounded-full flex items-center justify-center"
+            style={{
+              background: `linear-gradient(to bottom right, rgb(var(--accent) / 0.4), rgb(var(--accent) / 0.2))`,
+            }}
+          >
             <div
-              className="w-3 h-3 rounded-full bg-accent"
+              className="w-3 h-3 rounded-full"
               style={{
+                backgroundColor: 'rgb(var(--accent))',
                 animation: 'pulse 1.5s ease-in-out infinite',
               }}
             />
@@ -53,8 +67,9 @@ export function AnimatedLoading() {
             {'DeepZ'.split('').map((letter, index) => (
               <span
                 key={index}
-                className="text-3xl font-bold text-accent"
+                className="text-3xl font-bold"
                 style={{
+                  color: 'rgb(var(--accent))',
                   animation: `fadeInUp 0.6s ease-out forwards`,
                   animationDelay: `${index * 0.1}s`,
                   opacity: 0,
@@ -67,8 +82,9 @@ export function AnimatedLoading() {
 
           {/* Animated subtitle */}
           <p
-            className="text-xs uppercase tracking-widest text-text-muted/60"
+            className="text-xs uppercase tracking-widest"
             style={{
+              color: 'rgb(var(--text-muted) / 0.6)',
               animation: 'fadeIn 1s ease-out 0.6s forwards',
               opacity: 0,
             }}
@@ -87,8 +103,9 @@ export function AnimatedLoading() {
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="w-1.5 h-1.5 rounded-full bg-accent/60"
+                className="w-1.5 h-1.5 rounded-full"
                 style={{
+                  backgroundColor: 'rgb(var(--accent) / 0.6)',
                   animation: 'bounce 1.4s ease-in-out infinite',
                   animationDelay: `${i * 0.2}s`,
                 }}
@@ -101,16 +118,18 @@ export function AnimatedLoading() {
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
-          className="absolute w-96 h-96 bg-accent/5 rounded-full blur-3xl"
+          className="absolute w-96 h-96 rounded-full blur-3xl"
           style={{
+            backgroundColor: 'rgb(var(--accent) / 0.05)',
             bottom: '-100px',
             right: '-100px',
             animation: 'float 6s ease-in-out infinite',
           }}
         />
         <div
-          className="absolute w-96 h-96 bg-accent/3 rounded-full blur-3xl"
+          className="absolute w-96 h-96 rounded-full blur-3xl"
           style={{
+            backgroundColor: 'rgb(var(--accent) / 0.03)',
             top: '-100px',
             left: '-100px',
             animation: 'float 8s ease-in-out infinite',
