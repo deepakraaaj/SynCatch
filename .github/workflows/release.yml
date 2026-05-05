@@ -36,6 +36,11 @@ jobs:
             build_command: node scripts/run-tauri.mjs build --bundles nsis --verbose
             artifact_name: release-windows-nsis
             artifact_path: src-tauri/target/release/bundle/nsis/*.exe
+          - name: android-apk
+            platform: ubuntu-22.04
+            build_command: bash scripts/build-android-release.sh --target universal
+            artifact_name: release-android-apk
+            artifact_path: src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
 
     steps:
       - uses: actions/checkout@v5
@@ -61,6 +66,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Setup Java
+        if: matrix.name == 'android-apk'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android NDK
+        if: matrix.name == 'android-apk'
+        run: |
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/26.1.10909125" >> $GITHUB_ENV
+          rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
