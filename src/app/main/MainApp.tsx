@@ -36,17 +36,21 @@ import {
   type WorkSession,
 } from '../../features/sessions/session-types';
 import { useSettingsStore } from '../../features/settings/settings-store';
+import { MissionComposer } from '../../features/missions/MissionComposer';
+import { useMissionStore } from '../../features/missions/mission-store';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
+import { TaskDetailPanel } from '../../features/tasks/TaskDetailPanel';
 import { humanizePriority } from '../../features/tasks/task-helpers';
 import { useTaskStore } from '../../features/tasks/task-store';
 import { useThemeStore } from '../../features/themes/theme-store';
 import { THEMES } from '../../features/themes/themes';
-import type { Task, TaskLane } from '../../features/tasks/task-types';
+import type { Mission } from '../../features/missions/mission-types';
+import type { Task, TaskEnergy, TaskLane } from '../../features/tasks/task-types';
 import { cn } from '../../lib/cn';
 import { formatRelativeTime } from '../../lib/date';
 import { showHudWindow, showQuickAddWindow } from '../../lib/tauri';
 
-type MainView = 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'settings';
+type MainView = 'focus' | 'missions' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'settings';
 
 type CaptureState = {
   kind: SessionCaptureKind;
@@ -61,6 +65,8 @@ type TaskBoardColumn = {
 };
 
 const views: Array<{ id: MainView; label: string; caption?: string }> = [
+  { id: 'focus', label: 'What Now' },
+  { id: 'missions', label: 'Missions' },
   { id: 'today', label: 'Today' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'history', label: 'History' },
@@ -300,27 +306,17 @@ function getSuggestedTask(tasks: Task[], blockedTaskIds: Set<string>, currentTas
 }
 
 function getViewCopy(view: MainView) {
-  if (view === 'today') {
-    return 'Today';
-  }
-
-  if (view === 'tasks') {
-    return 'Tasks';
-  }
-
-  if (view === 'history') {
-    return 'History';
-  }
-
-  if (view === 'insights') {
-    return 'Insights';
-  }
-
-  if (view === 'settings') {
-    return 'Settings';
-  }
-
-  return 'Review';
+  const labels: Record<MainView, string> = {
+    focus: 'What Now',
+    missions: 'Missions',
+    today: 'Today',
+    tasks: 'Tasks',
+    history: 'History',
+    insights: 'Insights',
+    review: 'Review',
+    settings: 'Settings',
+  };
+  return labels[view] ?? 'Today';
 }
 
 function NavButton({
@@ -1064,6 +1060,14 @@ export function MainApp() {
   const moveTaskToLane = useTaskStore((state) => state.moveTaskToLane);
   const markDone = useTaskStore((state) => state.markDone);
 
+  const missions = useMissionStore((state) => state.missions);
+  const missionsHydrated = useMissionStore((state) => state.hydrated);
+  const createMission = useMissionStore((state) => state.createMission);
+  const saveMission = useMissionStore((state) => state.saveMission);
+  const setMissionStatus = useMissionStore((state) => state.setMissionStatus);
+  const deleteMission = useMissionStore((state) => state.deleteMission);
+  const hydrateMissions = useMissionStore((state) => state.hydrate);
+
   const currentMissionId = useFocusStore((state) => state.currentMissionId);
   const setCurrentMission = useFocusStore((state) => state.setCurrentMission);
   const startFocusSession = useFocusStore((state) => state.startSession);
@@ -1090,6 +1094,9 @@ export function MainApp() {
   const [taskComposerOpen, setTaskComposerOpen] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dropLane, setDropLane] = useState<TaskLane | null>(null);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const [missionComposerOpen, setMissionComposerOpen] = useState(false);
+  const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const dragImageRef = useRef<HTMLImageElement | null>(null);
   const dropHandledRef = useRef(false);
   const activeSession = useMemo(
@@ -1316,7 +1323,12 @@ export function MainApp() {
     };
   }, []);
 
+  useEffect(() => {
+    void hydrateMissions();
+  }, [hydrateMissions]);
+
   const viewCopy = getViewCopy(activeView);
+  const detailTask = detailTaskId ? tasks.find((t) => t.id === detailTaskId) ?? null : null;
 
   function handleStartSession(task: Task, nextMinutes = minutes, nextPresetId = presetId) {
     selectTask(task.id);
@@ -1663,6 +1675,240 @@ export function MainApp() {
     );
   }
 
+  function renderFocus() {
+    const today = new Date().toISOString().slice(0, 10);
+    const rootTasks = tasks.filter((t) => t.parent_task_id === null && t.lane !== 'done' && t.status !== 'done');
+    const groups: Array<{ energy: TaskEnergy; label: string; tasks: Task[] }> = [
+      { energy: 'deep', label: 'Deep work', tasks: [] },
+      { energy: 'shallow', label: 'Shallow', tasks: [] },
+      { energy: 'admin', label: 'Admin', tasks: [] },
+    ];
+
+    for (const task of rootTasks) {
+      const group = groups.find((g) => g.energy === task.energy);
+      group?.tasks.push(task);
+    }
+
+    for (const group of groups) {
+      group.tasks.sort((a, b) => {
+        const laneScore = (t: Task) => (t.lane === 'now' ? 3 : t.scheduled_for && t.scheduled_for <= today ? 2 : t.lane === 'next' ? 1 : 0);
+        const ls = laneScore(b) - laneScore(a);
+        if (ls !== 0) return ls;
+        const pv = (p: Task['priority']) => ({ critical: 4, high: 3, normal: 2, low: 1 }[p] ?? 0);
+        return pv(b.priority) - pv(a.priority);
+      });
+    }
+
+    const activeMission = missions.find((m) => m.id === currentMissionId);
+
+    return (
+      <div className="space-y-8">
+        {activeMission ? (
+          <Card className="rounded-[28px] border-accent/20 bg-accent/6 p-5">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{activeMission.emoji}</span>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.28em] text-accent/70">Active mission</p>
+                <p className="font-semibold text-text-primary">{activeMission.title}</p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {groups.map((group) => {
+          if (group.tasks.length === 0) return null;
+          const totalMin = group.tasks.reduce((s, t) => s + t.estimated_minutes, 0);
+          return (
+            <div key={group.energy} className="space-y-3">
+              <div className="flex items-baseline gap-3">
+                <h3 className="text-sm font-semibold text-text-primary">{group.label}</h3>
+                <span className="text-xs text-text-muted">{group.tasks.length} tasks · {totalMin}m total</span>
+              </div>
+              <div className="space-y-2">
+                {group.tasks.map((task) => {
+                  const missionName = missions.find((m) => m.id === task.mission_id);
+                  const isScheduledToday = task.scheduled_for && task.scheduled_for <= today;
+                  return (
+                    <div
+                      key={task.id}
+                      className={cn(
+                        'flex items-center gap-4 rounded-[20px] border px-4 py-3 transition-colors',
+                        task.lane === 'now'
+                          ? 'border-accent/25 bg-accent/7'
+                          : isScheduledToday
+                            ? 'border-warning/20 bg-warning/5'
+                            : 'border-borderSoft/30 bg-panel/20',
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-text-primary">{task.title}</p>
+                        {task.next_action ? (
+                          <p className="mt-0.5 truncate text-xs text-text-muted">{task.next_action}</p>
+                        ) : null}
+                        {missionName ? (
+                          <p className="mt-0.5 text-[10px] text-text-muted/70">{missionName.emoji} {missionName.title}</p>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {task.lane === 'now' ? <Badge tone="accent">Active</Badge> : null}
+                        {isScheduledToday && task.lane !== 'now' ? <Badge tone="warning">Today</Badge> : null}
+                        <span className="text-xs text-text-muted">{task.estimated_minutes}m</span>
+                        <Button size="sm" onClick={() => handleStartSession(task)}>Focus</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDetailTaskId(task.id)}>Detail</Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        {rootTasks.length === 0 ? (
+          <Card className="rounded-[34px] p-10 text-center">
+            <p className="text-4xl">✓</p>
+            <p className="mt-3 text-lg font-semibold text-text-primary">All clear</p>
+            <p className="mt-1 text-sm text-text-muted">No active tasks. Add one to get started.</p>
+          </Card>
+        ) : null}
+
+        {detailTask ? (
+          <div className="fixed inset-y-0 right-0 z-50 w-[420px] border-l border-borderSoft/30 bg-surface shadow-2xl">
+            <TaskDetailPanel task={detailTask} allTasks={tasks} onClose={() => setDetailTaskId(null)} />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderMissions() {
+    const activeMissions = missions.filter((m) => m.status === 'active');
+    const otherMissions = missions.filter((m) => m.status !== 'active');
+
+    function missionTaskStats(missionId: string) {
+      const mt = tasks.filter((t) => t.mission_id === missionId && t.parent_task_id === null);
+      const done = mt.filter((t) => t.lane === 'done').length;
+      return { total: mt.length, done };
+    }
+
+    function MissionCard({ mission }: { mission: Mission }) {
+      const stats = missionTaskStats(mission.id);
+      const progress = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
+
+      return (
+        <Card className="group relative rounded-[28px] p-5">
+          <div className="flex items-start gap-4">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] text-2xl"
+              style={{ backgroundColor: `color-mix(in srgb, var(--accent) 10%, transparent)` }}
+            >
+              {mission.emoji}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold text-text-primary">{mission.title}</p>
+                <Badge tone={mission.status === 'active' ? 'accent' : mission.status === 'completed' ? 'success' : 'neutral'}>
+                  {mission.status === 'on_hold' ? 'On hold' : mission.status.charAt(0).toUpperCase() + mission.status.slice(1)}
+                </Badge>
+              </div>
+              {mission.objective ? (
+                <p className="mt-1 text-sm text-text-secondary line-clamp-2">{mission.objective}</p>
+              ) : null}
+              {stats.total > 0 ? (
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px] text-text-muted">
+                    <span>{stats.done}/{stats.total} tasks done</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-panel/50">
+                    <div
+                      className="h-full rounded-full bg-accent/60 transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-text-muted">No tasks yet</p>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={() => { setEditingMission(mission); setMissionComposerOpen(true); }}>
+              Edit
+            </Button>
+            {mission.status === 'active' ? (
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'on_hold')}>
+                Pause
+              </Button>
+            ) : mission.status === 'on_hold' ? (
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'active')}>
+                Resume
+              </Button>
+            ) : null}
+            {mission.status === 'active' ? (
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'completed')}>
+                Complete
+              </Button>
+            ) : null}
+          </div>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {missionComposerOpen ? (
+          <Card className="rounded-[34px] p-6">
+            <SectionHeading title={editingMission ? 'Edit mission' : 'New mission'} />
+            <MissionComposer
+              initial={editingMission ?? undefined}
+              submitLabel={editingMission ? 'Save changes' : 'Create mission'}
+              onCancel={() => { setMissionComposerOpen(false); setEditingMission(null); }}
+              onSubmit={async (draft) => {
+                if (editingMission) {
+                  await saveMission({ ...editingMission, ...draft, updated_at: new Date().toISOString() });
+                } else {
+                  await createMission(draft);
+                }
+                setMissionComposerOpen(false);
+                setEditingMission(null);
+              }}
+            />
+          </Card>
+        ) : null}
+
+        {activeMissions.length > 0 ? (
+          <div className="space-y-3">
+            <SectionHeading action={<Badge tone="accent">{activeMissions.length}</Badge>} title="Active" />
+            <div className="grid gap-4 lg:grid-cols-2">
+              {activeMissions.map((m) => <MissionCard key={m.id} mission={m} />)}
+            </div>
+          </div>
+        ) : null}
+
+        {otherMissions.length > 0 ? (
+          <div className="space-y-3">
+            <SectionHeading action={<Badge tone="neutral">{otherMissions.length}</Badge>} title="Other" />
+            <div className="grid gap-4 lg:grid-cols-2">
+              {otherMissions.map((m) => <MissionCard key={m.id} mission={m} />)}
+            </div>
+          </div>
+        ) : null}
+
+        {missions.length === 0 && !missionComposerOpen ? (
+          <Card className="rounded-[34px] p-10 text-center">
+            <p className="text-4xl">🎯</p>
+            <p className="mt-3 text-lg font-semibold text-text-primary">No missions yet</p>
+            <p className="mt-1 text-sm text-text-muted">A Mission is the project every task belongs to.</p>
+            <div className="mt-5">
+              <Button onClick={() => setMissionComposerOpen(true)}>Create first mission</Button>
+            </div>
+          </Card>
+        ) : null}
+      </div>
+    );
+  }
+
   function renderTasks() {
     return (
       <div className="space-y-6">
@@ -1743,6 +1989,14 @@ export function MainApp() {
                                 >
                                   Done
                                 </Button>
+                                <Button
+                                  onClick={() => setDetailTaskId(task.id)}
+                                  size="sm"
+                                  type="button"
+                                  variant="ghost"
+                                >
+                                  Detail
+                                </Button>
                               </div>
                             </div>
                           )
@@ -1799,6 +2053,12 @@ export function MainApp() {
               })}
             </div>
           </Card>
+        ) : null}
+
+        {detailTask ? (
+          <div className="fixed inset-y-0 right-0 z-50 w-[420px] border-l border-borderSoft/30 bg-surface shadow-2xl">
+            <TaskDetailPanel task={detailTask} allTasks={tasks} onClose={() => setDetailTaskId(null)} />
+          </div>
         ) : null}
       </div>
     );
@@ -2351,6 +2611,16 @@ export function MainApp() {
                     Create task
                   </Button>
                 )
+              ) : activeView === 'missions' ? (
+                missionComposerOpen ? (
+                  <Button onClick={() => { setMissionComposerOpen(false); setEditingMission(null); }} size="sm" type="button" variant="ghost">
+                    Close
+                  </Button>
+                ) : (
+                  <Button onClick={() => setMissionComposerOpen(true)} size="sm" type="button">
+                    New mission
+                  </Button>
+                )
               ) : null}
               <HeaderClock />
               <Button onClick={() => void showQuickAddWindow()} size="sm" type="button" variant="secondary">
@@ -2363,6 +2633,8 @@ export function MainApp() {
           </header>
 
           <main className="main-scroll-region relative flex-1 overflow-x-hidden overflow-y-auto px-6 py-6">
+            {activeView === 'focus' ? renderFocus() : null}
+            {activeView === 'missions' ? renderMissions() : null}
             {activeView === 'today' ? renderToday() : null}
             {activeView === 'tasks' ? renderTasks() : null}
             {activeView === 'history' ? renderHistory() : null}
