@@ -51,7 +51,8 @@ import type { Mission } from '../../features/missions/mission-types';
 import type { Task, TaskEnergy, TaskLane } from '../../features/tasks/task-types';
 import { cn } from '../../lib/cn';
 import { formatRelativeTime } from '../../lib/date';
-import { showHudWindow, showQuickAddWindow } from '../../lib/tauri';
+import { showHudWindow, showQuickAddWindow, subscribeAppEvent } from '../../lib/tauri';
+import { useIsMobile } from '../../hooks/use-mobile';
 
 type MainView = 'focus' | 'missions' | 'roadmap' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'settings';
 
@@ -1498,6 +1499,24 @@ export function MainApp() {
       setCurrentMission(activeSession.task_id, 'system');
     }
   }, [activeSession, currentMissionId, setCurrentMission]);
+
+  useEffect(() => {
+    const unsubQuickAdd = subscribeAppEvent<boolean>('missioncontrol://show-mobile-quick-add', () => {
+      setTaskComposerOpen(true);
+      setActiveView('tasks');
+    });
+
+    const unsubFocus = subscribeAppEvent<boolean>('missioncontrol://show-mobile-focus', () => {
+      setActiveView('focus');
+    });
+
+    return () => {
+      unsubQuickAdd();
+      unsubFocus();
+    };
+  }, []);
+
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {

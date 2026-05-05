@@ -1,10 +1,15 @@
+#[cfg(desktop)]
 use tauri::{Emitter, Manager};
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 const DATABASE_PATH: &str = "sqlite:mission-control.db";
+#[cfg(desktop)]
 const TOGGLE_HUD_TRANSPARENCY_EVENT: &str = "missioncontrol://toggle-hud-transparency";
+#[cfg(desktop)]
 const SHOW_COMPACT_HUD_EVENT: &str = "missioncontrol://show-compact-hud";
+#[cfg(desktop)]
 const SHOW_HUD_TASK_COMPOSER_EVENT: &str = "missioncontrol://show-hud-task-composer";
+#[cfg(desktop)]
 const AUTOSTART_LAUNCH_ARG: &str = "--autostart";
 
 #[tauri::command]
@@ -170,6 +175,7 @@ fn database_migrations() -> Vec<Migration> {
     ]
 }
 
+#[cfg(desktop)]
 fn show_hud_task_composer(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("quick-add") {
         window.hide()?;
@@ -185,10 +191,12 @@ fn show_hud_task_composer(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(desktop)]
 fn is_autostart_launch() -> bool {
     std::env::args().any(|arg| arg == AUTOSTART_LAUNCH_ARG)
 }
 
+#[cfg(desktop)]
 fn prepare_autostart_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("hud") {
         window.show()?;
@@ -206,6 +214,7 @@ fn prepare_autostart_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()>
     Ok(())
 }
 
+#[cfg(desktop)]
 fn prepare_manual_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("main") {
         window.hide()?;
@@ -227,16 +236,16 @@ fn prepare_manual_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default();
-
     #[cfg(desktop)]
-    {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+    let builder =
+        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Err(error) = prepare_manual_launch_windows(&app) {
                 eprintln!("single instance relaunch error: {error}");
             }
         }));
-    }
+
+    #[cfg(not(desktop))]
+    let builder = tauri::Builder::default();
 
     builder
         .invoke_handler(tauri::generate_handler![quit_app])
@@ -246,6 +255,9 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            #[cfg(not(desktop))]
+            let _ = app;
+
             #[cfg(desktop)]
             {
                 use tauri_plugin_autostart::MacosLauncher;
@@ -280,11 +292,9 @@ pub fn run() {
                             if pressed_shortcut == &hud_transparency_handler_shortcut
                                 && event.state() == ShortcutState::Pressed
                             {
-                                if let Err(error) = app_handle.emit_to(
-                                    "hud",
-                                    TOGGLE_HUD_TRANSPARENCY_EVENT,
-                                    (),
-                                ) {
+                                if let Err(error) =
+                                    app_handle.emit_to("hud", TOGGLE_HUD_TRANSPARENCY_EVENT, ())
+                                {
                                     eprintln!("hud transparency shortcut error: {error}");
                                 }
                             }

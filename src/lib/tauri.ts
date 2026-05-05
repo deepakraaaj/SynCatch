@@ -115,8 +115,11 @@ export async function showQuickAddWindow() {
       await quickAddWindow.center();
       await quickAddWindow.show();
       await quickAddWindow.setFocus();
+      return;
     }
 
+    // Fallback for mobile: emit an event to show the Quick Add overlay in the main window
+    await emitAppEvent('missioncontrol://show-mobile-quick-add', true);
     return;
   }
 
@@ -150,8 +153,11 @@ export async function showHudWindow() {
       await hudWindow.show();
       await hudWindow.unminimize();
       await hudWindow.setFocus();
+      return;
     }
 
+    // Fallback for mobile: the "Focus" tab in the main window is the HUD equivalent
+    await emitAppEvent('missioncontrol://show-mobile-focus', true);
     return;
   }
 
