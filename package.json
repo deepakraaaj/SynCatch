@@ -1,13 +1,16 @@
 {
   "name": "mission-control",
   "private": true,
-  "version": "0.1.10",
+  "version": "0.1.12",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "android:build:release": "bash scripts/build-android-release.sh",
+    "android:test:emulator": "bash scripts/test-android-emulator.sh",
+    "android:validate:release": "bash scripts/build-android-release.sh --test-emulator",
     "tauri": "node scripts/run-tauri.mjs",
     "tauri:dev": "node scripts/run-tauri.mjs dev",
     "tauri:build": "node scripts/run-tauri.mjs build"
