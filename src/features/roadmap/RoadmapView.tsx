@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Target, CheckCircle2, Clock, Calendar, AlertCircle, Search, ArrowUpDown, LayoutGrid, List, KanbanSquare, GanttChartSquare } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { Card } from '../../components/ui/card';
 import { cn } from '../../lib/cn';
@@ -198,8 +199,8 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-borderSoft/30 bg-panel/50 px-3 py-1.5 min-w-0 w-full sm:min-w-[240px] sm:w-auto">
-            <span className="text-text-muted">⌕</span>
+          <div className="flex items-center gap-2 rounded-full border border-borderSoft/30 bg-panel/50 px-3 py-1.5 min-w-0 w-full sm:min-w-[240px] sm:w-auto transition-colors focus-within:border-accent/40 focus-within:bg-panel/70">
+            <Search className="h-4 w-4 text-text-muted" />
             <input
               className="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -208,7 +209,9 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
             />
           </div>
           <div className="flex items-center gap-1 rounded-full border border-borderSoft/30 bg-panel/50 p-1">
-            <span className="px-2 text-[10px] uppercase tracking-[0.1em] text-text-muted">Sort</span>
+            <span className="pl-2 pr-1 text-text-muted">
+              <ArrowUpDown className="h-3.5 w-3.5" />
+            </span>
             {(['progress', 'load', 'due'] as const).map((mode) => (
               <button
                 className={cn(
@@ -223,17 +226,39 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
               </button>
             ))}
           </div>
+          <div className="flex shrink-0 items-center gap-1 rounded-full border border-borderSoft/30 bg-panel/50 p-1">
+            {VIEW_MODES.map((mode) => {
+              const active = viewMode === mode;
+              const Icon = mode === 'grid' ? LayoutGrid : mode === 'vertical' ? List : mode === 'kanban' ? KanbanSquare : GanttChartSquare;
+              return (
+                <button
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium capitalize transition-colors',
+                    active
+                      ? 'bg-accent/12 text-accent'
+                      : 'text-text-secondary hover:bg-panel/52 hover:text-text-primary',
+                  )}
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  type="button"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline-block">{mode}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      <Card className="rounded-[20px] border-borderSoft/24 bg-panel/86 p-2 sm:rounded-[28px] sm:p-3">
+      <Card className="overflow-hidden rounded-[20px] border-borderSoft/24 bg-panel/86 sm:rounded-[28px]">
         <div className="scrollbar-hidden overflow-x-auto">
-          <div className="flex min-w-max items-stretch gap-2.5">
+          <div className="flex min-w-max items-stretch divide-x divide-borderSoft/20">
           <MetricCard
             caption="Missions in play"
             className="w-[150px] shrink-0 sm:w-[180px]"
             eyebrow="Active"
-            meterPercent={Math.min(100, activeMissions.length * 18)}
+            icon={Target}
             tone="accent"
             value={String(activeMissions.length)}
           />
@@ -241,7 +266,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
             caption={`${totalDoneTasks} of ${activeMissionTasks.length} tasks complete`}
             className="w-[180px] shrink-0 sm:w-[220px]"
             eyebrow="Completion"
-            meterPercent={completionRate}
+            icon={CheckCircle2}
             tone="success"
             value={`${completionRate}%`}
           />
@@ -249,11 +274,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
             caption={`${activeMissionTasks.length} task${activeMissionTasks.length === 1 ? '' : 's'} planned`}
             className="w-[180px] shrink-0 sm:w-[220px]"
             eyebrow="Planned load"
-            meterPercent={
-              activeMissionTasks.length
-                ? Math.min(100, Math.round((totalEstimatedMinutes / (activeMissionTasks.length * 60)) * 100))
-                : 0
-            }
+            icon={Clock}
             tone="warning"
             value={totalEstimatedMinutes ? formatMinutes(totalEstimatedMinutes) : '0m'}
           />
@@ -265,11 +286,7 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
             }
             className="w-[170px] shrink-0 sm:w-[210px]"
             eyebrow="Scheduled"
-            meterPercent={
-              activeMissions.length
-                ? Math.round((scheduledMissionCount / activeMissions.length) * 100)
-                : 0
-            }
+            icon={Calendar}
             tone="neutral"
             value={String(scheduledMissionCount)}
           />
@@ -277,31 +294,10 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
             caption={totalOverdueTasks ? 'needs attention' : 'all on track'}
             className="w-[150px] shrink-0 sm:w-[180px]"
             eyebrow="Overdue"
-            meterPercent={totalOverdueTasks ? 100 : 0}
+            icon={AlertCircle}
             tone={totalOverdueTasks ? 'warning' : 'neutral'}
             value={String(totalOverdueTasks)}
           />
-
-          <div className="ml-1 inline-flex h-fit shrink-0 items-center gap-1 self-center rounded-full border border-borderSoft/30 bg-panel2/40 p-1">
-            {VIEW_MODES.map((mode) => {
-              const active = viewMode === mode;
-              return (
-                <button
-                  className={cn(
-                    'rounded-full px-4 py-2 text-sm font-medium capitalize transition-colors',
-                    active
-                      ? 'border border-accent/30 bg-accent/12 text-accent'
-                      : 'text-text-secondary hover:bg-panel/52 hover:text-text-primary',
-                  )}
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  type="button"
-                >
-                  {mode}
-                </button>
-              );
-            })}
-          </div>
           </div>
         </div>
       </Card>
@@ -1105,14 +1101,14 @@ function MetricCard({
   eyebrow,
   value,
   caption,
-  meterPercent,
+  icon: Icon,
   tone,
   className,
 }: {
   eyebrow: string;
   value: string;
   caption: string;
-  meterPercent: number;
+  icon: React.ElementType;
   tone: 'accent' | 'success' | 'warning' | 'neutral';
   className?: string;
 }) {
@@ -1124,33 +1120,29 @@ function MetricCard({
         : tone === 'neutral'
           ? 'text-text-primary'
           : 'text-accent';
-  const meterTone =
+
+  const iconBg = 
     tone === 'success'
-      ? 'bg-success'
+      ? 'bg-success/10 text-success'
       : tone === 'warning'
-        ? 'bg-warning'
+        ? 'bg-warning/10 text-warning'
         : tone === 'neutral'
-          ? 'bg-text-primary/55'
-          : 'bg-accent';
+          ? 'bg-text-primary/5 text-text-primary'
+          : 'bg-accent/10 text-accent';
 
   return (
-    <div className={cn('rounded-[20px] border border-borderSoft/24 bg-panel2/34 px-4 py-3', className)}>
+    <div className={cn('px-5 py-4 transition-colors hover:bg-panel2/10', className)}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">{eyebrow}</p>
-          <p className={cn('mt-2 text-[1.35rem] font-semibold leading-none tracking-[-0.05em]', valueTone)}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-text-muted">{eyebrow}</p>
+          <p className={cn('mt-2 text-[1.4rem] font-semibold leading-none tracking-[-0.05em]', valueTone)}>
             {value}
           </p>
           <p className="mt-2 text-xs leading-5 text-text-secondary">{caption}</p>
         </div>
 
-        <div className="mt-1 flex h-10 w-16 shrink-0 items-end rounded-[14px] border border-borderSoft/18 bg-panel/26 px-2 py-2">
-          <div className="flex w-full items-end gap-1.5">
-            <span className={cn('w-2 rounded-full bg-borderSoft/45', meterPercent >= 25 ? meterTone : 'bg-borderSoft/28')} style={{ height: '35%' }} />
-            <span className={cn('w-2 rounded-full bg-borderSoft/45', meterPercent >= 50 ? meterTone : 'bg-borderSoft/28')} style={{ height: '55%' }} />
-            <span className={cn('w-2 rounded-full bg-borderSoft/45', meterPercent >= 75 ? meterTone : 'bg-borderSoft/28')} style={{ height: '78%' }} />
-            <span className={cn('w-2 rounded-full bg-borderSoft/45', meterPercent >= 100 ? meterTone : 'bg-borderSoft/28')} style={{ height: '100%' }} />
-          </div>
+        <div className={cn("mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px]", iconBg)}>
+          <Icon className="h-5 w-5" />
         </div>
       </div>
     </div>

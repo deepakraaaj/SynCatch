@@ -103,7 +103,7 @@ export function SignInScreen() {
             <Button
               type="button"
               onClick={() => setLocalMode(true)}
-              variant="outline"
+              variant="secondary"
               className="w-full border-slate-700 hover:bg-slate-800 text-slate-300"
             >
               Use Local Mode (No Sync)
