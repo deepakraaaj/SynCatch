@@ -13,6 +13,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input, Textarea } from '../../components/ui/input';
+import { AnimatedLoading } from '../../components/animated-loading';
 import { ProfileSettingsCard } from '../../features/auth/ProfileSettingsCard';
 import { useAuthStore } from '../../features/auth/auth-store';
 import { useFocusStore } from '../../features/focus/focus-store';
@@ -2897,14 +2898,7 @@ export function MainApp() {
   }
 
   if (!tasksHydrated || !sessionsHydrated || tasksLoading) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <Card className="w-full max-w-xl rounded-[34px] p-8 text-center">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-text-muted">MissionControl</p>
-          <h1 className="mt-3 text-3xl font-semibold text-text-primary">Loading</h1>
-        </Card>
-      </div>
-    );
+    return <AnimatedLoading />;
   }
 
   return (
