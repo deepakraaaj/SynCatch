@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight } from 'lucide-react';
+import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, Pencil, Trash2, Play, Pause, CheckCircle } from 'lucide-react';
 import { MissionIcon } from '../../components/ui/mission-icon';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -1215,6 +1215,7 @@ export function MainApp() {
   const quickAddShortcut = useSettingsStore((state) => state.quickAddShortcut);
   const focusPromptStyle = useSettingsStore((state) => state.focusPromptStyle);
   const syncMode = useSettingsStore((state) => state.syncMode);
+  const deleteMission = useMissionStore((state) => state.deleteMission);
   const launchAtLogin = useSettingsStore((state) => state.launchAtLogin);
   const launchAtLoginPending = useSettingsStore((state) => state.launchAtLoginPending);
   const setReduceMotion = useSettingsStore((state) => state.setReduceMotion);
@@ -2021,23 +2022,35 @@ export function MainApp() {
             </div>
           </div>
           <div className="mt-4 flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => { setEditingMission(mission); setMissionComposerOpen(true); }}>
-              Edit
+            <Button size="sm" variant="ghost" onClick={() => { setEditingMission(mission); setMissionComposerOpen(true); }} className="gap-2">
+              <Pencil className="h-3.5 w-3.5" /> Edit
             </Button>
             {mission.status === 'active' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'on_hold')}>
-                Pause
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'on_hold')} className="gap-2 text-warning">
+                <Pause className="h-3.5 w-3.5" /> Pause
               </Button>
             ) : mission.status === 'on_hold' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'active')}>
-                Resume
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'active')} className="gap-2 text-accent">
+                <Play className="h-3.5 w-3.5" /> Resume
               </Button>
             ) : null}
             {mission.status === 'active' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'completed')}>
-                Complete
+              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'completed')} className="gap-2 text-success">
+                <CheckCircle className="h-3.5 w-3.5" /> Complete
               </Button>
             ) : null}
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => {
+                if (confirm('Delete this mission and all its associations?')) {
+                  void deleteMission(mission.id);
+                }
+              }} 
+              className="gap-2 text-danger opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </Button>
           </div>
         </Card>
       );
