@@ -43,7 +43,7 @@ jobs:
             artifact_path: src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       - name: Install Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -62,7 +62,7 @@ jobs:
             patchelf
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -77,6 +77,7 @@ jobs:
       - name: Setup Android NDK
         if: matrix.name == 'android-apk'
         run: |
+          # NDK 26.1.10909125 - verified compatible with Tauri 2.x and Android Gradle plugin 8.x
           echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/26.1.10909125" >> $GITHUB_ENV
           rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
 
@@ -102,7 +103,7 @@ jobs:
           cat > src-tauri/gen/android/keystore.properties <<EOF
           password=${{ secrets.ANDROID_KEY_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          storeFile=src-tauri/gen/android/android-upload-keystore.jks
+          storeFile=android-upload-keystore.jks
           EOF
 
       - name: Build desktop bundle
