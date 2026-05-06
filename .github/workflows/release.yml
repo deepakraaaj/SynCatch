@@ -103,7 +103,7 @@ jobs:
           cat > src-tauri/gen/android/keystore.properties <<EOF
           password=${{ secrets.ANDROID_KEY_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          storeFile=android-upload-keystore.jks
+          storeFile=../android-upload-keystore.jks
           EOF
 
       - name: Build desktop bundle
