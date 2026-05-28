@@ -15,6 +15,7 @@ interface TaskDetailPanelProps {
   task: Task;
   allTasks: Task[];
   onClose?: () => void;
+  onOpenTask?: (taskId: string) => void;
 }
 
 const LANE_OPTIONS: TaskLane[] = ['inbox', 'now', 'next', 'later', 'done'];
@@ -176,7 +177,7 @@ function AddSubtaskRow({
   );
 }
 
-export function TaskDetailPanel({ task, allTasks, onClose }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, allTasks, onClose, onOpenTask }: TaskDetailPanelProps) {
   const saveTask = useTaskStore((s) => s.saveTask);
   const createSubtask = useTaskStore((s) => s.createSubtask);
   const markDone = useTaskStore((s) => s.markDone);
@@ -197,6 +198,7 @@ export function TaskDetailPanel({ task, allTasks, onClose }: TaskDetailPanelProp
   const subtasks = getSubtasks(allTasks, task.id);
   const doneSubtasks = subtasks.filter((s) => s.lane === 'done').length;
   const mission = missions.find((m) => m.id === draft.mission_id);
+  const parentTask = task.parent_task_id ? allTasks.find((t) => t.id === task.parent_task_id) : null;
 
   function update<K extends keyof Task>(field: K, value: Task[K]) {
     setDraft((d) => ({ ...d, [field]: value }));
@@ -234,14 +236,23 @@ export function TaskDetailPanel({ task, allTasks, onClose }: TaskDetailPanelProp
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 border-b border-borderSoft/24 px-5 py-4">
+      <div className="flex items-center justify-between gap-3 border-b border-borderSoft/24 px-5 py-4">
         <div className="min-w-0 flex-1">
           {mission ? (
             <p className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-[0.24em] text-text-muted">
               <MissionIcon icon={mission.emoji} className="h-3 w-3" /> {mission.title}
             </p>
+          ) : null}
+          {parentTask ? (
+            <button
+              type="button"
+              onClick={() => onOpenTask?.(parentTask.id)}
+              className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-accent transition-colors hover:text-accent/80"
+            >
+              ← Parent: {parentTask.title}
+            </button>
           ) : null}
           <input
             value={draft.title}
@@ -270,7 +281,7 @@ export function TaskDetailPanel({ task, allTasks, onClose }: TaskDetailPanelProp
       </div>
 
       {/* Body — scrollable */}
-      <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+      <div className="flex-1 min-h-0 space-y-5 overflow-y-auto px-5 py-4">
         {/* Status chips */}
         <div className="space-y-3">
           <div className="space-y-1.5">

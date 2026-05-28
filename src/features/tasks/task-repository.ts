@@ -4,6 +4,7 @@ import { createSeedTasks } from './task-seed';
 import { hydrateTaskRecord, normalizeTaskDraft, sortTasks } from './task-helpers';
 import type { Task, TaskDraft, TaskEnergy } from './task-types';
 import { useAuthStore } from '../auth/auth-store';
+import { enqueueSync } from '../../lib/sync-outbox';
 
 const LOCAL_STORAGE_KEY = 'missioncontrol-tasks-v2';
 
@@ -172,17 +173,26 @@ class SqlTaskRepository implements TaskRepository {
     const task = normalizeTaskDraft(draft);
     const db = await this.getDatabase();
     await db.execute(TASK_INSERT_SQL, taskInsertParams(task));
+    void enqueueSync('tasks', task.id, 'upsert', {
+      ...task,
+      tags_json: JSON.stringify(task.tags),
+    });
     return task;
   }
 
   async updateTask(task: Task) {
     const db = await this.getDatabase();
     await db.execute(TASK_UPDATE_SQL, taskUpdateParams(task));
+    void enqueueSync('tasks', task.id, 'upsert', {
+      ...task,
+      tags_json: JSON.stringify(task.tags),
+    });
   }
 
   async deleteTask(taskId: string) {
     const db = await this.getDatabase();
     await db.execute('DELETE FROM tasks WHERE id = ? OR parent_task_id = ?', [taskId, taskId]);
+    void enqueueSync('tasks', taskId, 'delete', { id: taskId });
   }
 }
 

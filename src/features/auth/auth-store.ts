@@ -6,6 +6,7 @@ import {
   showInfoToast,
   showSuccessToast,
 } from '../toasts/toast-store';
+import { syncEngine } from '../../lib/sync-engine';
 
 interface AuthStore {
   session: Session | null;
@@ -81,6 +82,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
       set({ session: data.session, loading: false, error: null });
       showSuccessToast('Signed in', data.user?.email ?? email);
+      void syncEngine.downloadAll();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Sign in failed';
       set({ error: message, loading: false });
@@ -102,6 +104,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ session: data.session, loading: false, error: null });
       if (data.session) {
         showSuccessToast('Account created', data.user?.email ?? email);
+        void syncEngine.downloadAll();
       } else {
         showInfoToast('Account created', 'Check your inbox to confirm your email before signing in.');
       }

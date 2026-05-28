@@ -7,8 +7,9 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Menu, X, Plus, Monitor } from 'lucide-react';
+import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, Wifi, WifiOff, type LucideIcon } from 'lucide-react';
 import { MissionIcon } from '../../components/ui/mission-icon';
+import { DatePicker } from '../../components/ui/date-picker';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -16,6 +17,7 @@ import { Input, Textarea } from '../../components/ui/input';
 import { AnimatedLoading } from '../../components/animated-loading';
 import { ProfileSettingsCard } from '../../features/auth/ProfileSettingsCard';
 import { useAuthStore } from '../../features/auth/auth-store';
+import { useSyncStore } from '../../features/sync/sync-store';
 import { useFocusStore } from '../../features/focus/focus-store';
 import {
   buildDailySeries,
@@ -43,6 +45,7 @@ import { useSettingsStore } from '../../features/settings/settings-store';
 import { MissionComposer } from '../../features/missions/MissionComposer';
 import { useMissionStore } from '../../features/missions/mission-store';
 import { RoadmapView } from '../../features/roadmap/RoadmapView';
+import { JournalView } from '../../features/journal/JournalView';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
 import { TaskDetailPanel } from '../../features/tasks/TaskDetailPanel';
 import { getRootTasks, humanizePriority } from '../../features/tasks/task-helpers';
@@ -56,7 +59,7 @@ import { formatRelativeTime } from '../../lib/date';
 import { showHudWindow, showQuickAddWindow, subscribeAppEvent } from '../../lib/tauri';
 import { useIsMobile } from '../../hooks/use-mobile';
 
-type MainView = 'focus' | 'missions' | 'roadmap' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'settings';
+type MainView = 'focus' | 'missions' | 'roadmap' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'journal' | 'settings';
 
 type CaptureState = {
   kind: SessionCaptureKind;
@@ -70,7 +73,9 @@ type TaskBoardColumn = {
   empty: string;
 };
 
-const views: Array<{ id: MainView; label: string; icon: any; caption?: string }> = [
+type CompletedFilterMode = 'all' | 'today' | '7d' | 'custom';
+
+const views: Array<{ id: MainView; label: string; icon: LucideIcon; caption?: string }> = [
   { id: 'focus', label: 'What Now', icon: Zap },
   { id: 'missions', label: 'Missions', icon: Rocket },
   { id: 'roadmap', label: 'Roadmap', icon: Target },
@@ -79,12 +84,13 @@ const views: Array<{ id: MainView; label: string; icon: any; caption?: string }>
   { id: 'history', label: 'History', icon: Clock },
   { id: 'insights', label: 'Insights', icon: BarChart3 },
   { id: 'review', label: 'Review', icon: ClipboardList },
+  { id: 'journal', label: 'Journal', icon: BookHeart },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 const captureOptions: Array<{
   kind: SessionCaptureKind;
-  icon: any;
+  icon: LucideIcon;
   label: string;
   placeholder: string;
 }> = [
@@ -113,6 +119,44 @@ const taskBoardColumns: TaskBoardColumn[] = [
   { lane: 'later', title: 'Backlog', tone: 'neutral', empty: 'Drop here' },
   { lane: 'done', title: 'Completed', tone: 'success', empty: 'Drop here' },
 ];
+
+const completedDigestLimit = 3;
+const completedFilterSummaryFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+function getCompletedFilterModeLabel(mode: CompletedFilterMode) {
+  if (mode === 'today') {
+    return 'Today';
+  }
+
+  if (mode === '7d') {
+    return '7d';
+  }
+
+  if (mode === 'custom') {
+    return 'Custom';
+  }
+
+  return 'All';
+}
+
+function getCompletedFilterTone(mode: CompletedFilterMode): 'neutral' | 'accent' | 'success' | 'warning' {
+  if (mode === 'today') {
+    return 'accent';
+  }
+
+  if (mode === '7d') {
+    return 'warning';
+  }
+
+  if (mode === 'custom') {
+    return 'success';
+  }
+
+  return 'neutral';
+}
 
 const zeroMetrics = {
   focus_seconds: 0,
@@ -230,6 +274,89 @@ function describeTask(task: Task) {
   return `${text.slice(0, 72).trim()}…`;
 }
 
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function getTaskCompletionTimestamp(task: Task) {
+  const timestamp = new Date(task.completed_at ?? task.updated_at).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getCompletedDigestItems(tasks: Task[], subtasks: Task[]) {
+  return [...tasks, ...subtasks].sort(
+    (left, right) => getTaskCompletionTimestamp(right) - getTaskCompletionTimestamp(left),
+  );
+}
+
+function getLocalDateTimeTimestamp(dateValue: string | null, timeValue: string, endOfDay = false) {
+  if (!dateValue) {
+    return null;
+  }
+
+  const [year, month, day] = dateValue.split('-').map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const [hoursRaw, minutesRaw] = timeValue.split(':').map(Number);
+  const hours = Number.isFinite(hoursRaw) ? hoursRaw : endOfDay ? 23 : 0;
+  const minutes = Number.isFinite(minutesRaw) ? minutesRaw : endOfDay ? 59 : 0;
+
+  return new Date(year, month - 1, day, hours, minutes, endOfDay ? 59 : 0, endOfDay ? 999 : 0).getTime();
+}
+
+function getTaskBoardTimestamp(task: Task) {
+  return new Date(task.completed_at ?? task.updated_at ?? task.created_at).getTime();
+}
+
+function taskMatchesBoardRange(task: Task, fromTimestamp: number | null, toTimestamp: number | null) {
+  const timestamp = getTaskBoardTimestamp(task);
+
+  if (fromTimestamp !== null && timestamp < fromTimestamp) {
+    return false;
+  }
+
+  if (toTimestamp !== null && timestamp > toTimestamp) {
+    return false;
+  }
+
+  return true;
+}
+
+function getCompletedFilterSummary(mode: CompletedFilterMode, fromTimestamp: number | null, toTimestamp: number | null) {
+  if (mode === 'all') {
+    return 'Showing the full task board';
+  }
+
+  if (mode === 'today') {
+    return 'Showing items from today';
+  }
+
+  if (mode === '7d') {
+    return 'Showing items from the last 7 days';
+  }
+
+  if (fromTimestamp && toTimestamp) {
+    return `Showing ${completedFilterSummaryFormatter.format(fromTimestamp)} to ${completedFilterSummaryFormatter.format(toTimestamp)}`;
+  }
+
+  if (fromTimestamp) {
+    return `Showing from ${completedFilterSummaryFormatter.format(fromTimestamp)}`;
+  }
+
+  if (toTimestamp) {
+    return `Showing up to ${completedFilterSummaryFormatter.format(toTimestamp)}`;
+  }
+
+  return 'Pick a date and time range';
+}
+
 function getTaskTone(task: Task) {
   if (task.priority === 'critical') {
     return 'warning' as const;
@@ -322,6 +449,7 @@ function getViewCopy(view: MainView) {
     history: 'History',
     insights: 'Insights',
     review: 'Review',
+    journal: 'Journal',
     settings: 'Settings',
   };
   return labels[view] ?? 'Today';
@@ -336,7 +464,7 @@ function NavButton({
 }: {
   active: boolean;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   caption?: string;
   onClick: () => void;
 }) {
@@ -466,6 +594,53 @@ function ProgressBar({
         }}
       />
     </div>
+  );
+}
+
+function SyncStatusCard() {
+  const { pendingCount, lastSyncedAt, isSyncing, syncNow } = useSyncStore();
+  const isOnline = navigator.onLine;
+
+  const statusDot = isSyncing ? 'bg-accent' : pendingCount > 0 ? 'bg-warning' : 'bg-success';
+  const statusLabel = isSyncing ? 'Syncing' : pendingCount > 0 ? `${pendingCount} pending` : 'All synced';
+
+  return (
+    <Card className="rounded-[34px] p-6">
+      <SectionHeading action={<Badge tone={pendingCount > 0 ? 'warning' : 'success'}>Live</Badge>} title="Sync" />
+
+      <div className="space-y-4">
+        <div className="rounded-[24px] border border-borderSoft/30 bg-panel/32 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn('h-3 w-3 rounded-full', statusDot, isSyncing && 'animate-pulse')} />
+              <div>
+                <p className="text-sm font-medium text-text-primary">{statusLabel}</p>
+                {lastSyncedAt ? (
+                  <p className="mt-1 text-sm text-text-secondary">
+                    Last synced {formatRelativeTime(lastSyncedAt)}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-text-secondary">Never synced</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {isOnline ? <Wifi className="h-4 w-4 text-success" /> : <WifiOff className="h-4 w-4 text-text-muted" />}
+              <Button
+                disabled={!isOnline || isSyncing || pendingCount === 0}
+                onClick={() => void syncNow()}
+                size="sm"
+                type="button"
+                variant={pendingCount > 0 ? 'primary' : 'secondary'}
+              >
+                {isSyncing ? 'Syncing' : 'Sync now'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -784,7 +959,6 @@ function TaskListItem({
 
 function SubtaskBoardItem({
   task,
-  parentTask,
   active,
   dragging,
   draggable,
@@ -796,7 +970,6 @@ function SubtaskBoardItem({
   onSelect,
 }: {
   task: Task;
-  parentTask: Task | null;
   active?: boolean;
   dragging?: boolean;
   draggable?: boolean;
@@ -852,6 +1025,213 @@ function SubtaskBoardItem({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CompletedDigestItem({
+  task,
+  parentTask,
+  dragging,
+  draggable,
+  onDragEnd,
+  onDragStart,
+  onRestore,
+  onSelect,
+}: {
+  task: Task;
+  parentTask: Task | null;
+  dragging?: boolean;
+  draggable?: boolean;
+  onDragEnd?: (event: ReactDragEvent<HTMLDivElement>) => void;
+  onDragStart?: (event: ReactDragEvent<HTMLDivElement>) => void;
+  onRestore: () => void;
+  onSelect: () => void;
+}) {
+  const isSubtask = Boolean(parentTask);
+
+  return (
+    <div
+      className={cn(
+        'group flex items-center gap-2 rounded-[16px] border p-2.5 transition-[transform,opacity,border-color,background-color] duration-150',
+        draggable ? 'cursor-grab active:cursor-grabbing' : null,
+        isSubtask
+          ? 'border-accent/18 bg-accent/7 hover:border-accent/28 hover:bg-accent/10'
+          : 'border-success/18 bg-success/7 hover:border-success/28 hover:bg-success/10',
+        dragging ? 'scale-[0.985] opacity-45' : null,
+      )}
+      draggable={draggable}
+      onDragEnd={onDragEnd}
+      onDragStart={onDragStart}
+    >
+      <button className="min-w-0 flex-1 text-left" onClick={onSelect} type="button">
+        <div className="flex min-w-0 items-start gap-2">
+          <span
+            className={cn(
+              'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
+              isSubtask ? 'border-accent/28 bg-accent/12 text-accent' : 'border-success/28 bg-success/12 text-success',
+            )}
+          >
+            {isSubtask ? <CornerDownRight className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="min-w-0 flex-1 truncate text-[13px] font-bold text-text-primary">{task.title}</p>
+              <span
+                className={cn(
+                  'inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.22em]',
+                  isSubtask
+                    ? 'border-accent/24 bg-accent/12 text-accent'
+                    : 'border-success/24 bg-success/12 text-success',
+                )}
+              >
+                {isSubtask ? 'Subtask' : 'Task'}
+              </span>
+            </div>
+            <p className="mt-1 truncate text-[11px] text-text-muted">
+              {isSubtask ? `Parent: ${parentTask?.title ?? 'Unknown task'}` : `Completed ${formatRelativeTime(task.updated_at)}`}
+            </p>
+          </div>
+        </div>
+      </button>
+
+      <button
+        aria-label={`Restore ${task.title} to queue`}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-muted opacity-80 transition-colors hover:bg-panel/70 hover:text-text-primary group-hover:opacity-100"
+        onClick={onRestore}
+        title="Restore to queue"
+        type="button"
+      >
+        <RotateCcw className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function CompletedFilterPanel({
+  mode,
+  fromDate,
+  fromTime,
+  toDate,
+  toTime,
+  onModeChange,
+  onFromDateChange,
+  onFromTimeChange,
+  onToDateChange,
+  onToTimeChange,
+  onClear,
+}: {
+  mode: CompletedFilterMode;
+  fromDate: string;
+  fromTime: string;
+  toDate: string;
+  toTime: string;
+  onModeChange: (mode: CompletedFilterMode) => void;
+  onFromDateChange: (value: string) => void;
+  onFromTimeChange: (value: string) => void;
+  onToDateChange: (value: string) => void;
+  onToTimeChange: (value: string) => void;
+  onClear: () => void;
+}) {
+  const modes: Array<{ id: CompletedFilterMode; label: string }> = [
+    { id: 'all', label: 'All' },
+    { id: 'today', label: 'Today' },
+    { id: '7d', label: '7d' },
+    { id: 'custom', label: 'Custom' },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="grid flex-1 grid-cols-4 rounded-full border border-borderSoft/30 bg-panel/24 p-1">
+          {modes.map((item) => {
+            const active = mode === item.id;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onModeChange(item.id)}
+                className={cn(
+                  'rounded-full px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] transition-colors',
+                  active
+                    ? 'bg-accent/14 text-accent shadow-[0_0_0_1px_rgb(var(--accent)/0.12)]'
+                    : 'text-text-muted hover:text-text-primary',
+                )}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <Button
+          aria-label="Clear completed filter"
+          className="h-9 w-9 shrink-0 rounded-full p-0"
+          onClick={onClear}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {mode === 'custom' ? (
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <CalendarDays className="h-3.5 w-3.5 text-accent" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-text-muted">Custom range</p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="rounded-[18px] border border-borderSoft/30 bg-panel/30 p-2.5">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-muted">From</span>
+                <Clock className="h-3.5 w-3.5 text-text-muted" />
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="min-w-0 flex-1">
+                  <DatePicker
+                    onChange={(value) => onFromDateChange(value ?? '')}
+                    placeholder="Start date"
+                    value={fromDate || null}
+                  />
+                </div>
+                <Input
+                  className="h-9 w-full rounded-[14px] px-3 text-sm sm:w-[104px]"
+                  onChange={(event) => onFromTimeChange(event.target.value)}
+                  type="time"
+                  value={fromTime}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-[18px] border border-borderSoft/30 bg-panel/30 p-2.5">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-muted">To</span>
+                <Clock className="h-3.5 w-3.5 text-text-muted" />
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="min-w-0 flex-1">
+                  <DatePicker
+                    onChange={(value) => onToDateChange(value ?? '')}
+                    placeholder="End date"
+                    value={toDate || null}
+                  />
+                </div>
+                <Input
+                  className="h-9 w-full rounded-[14px] px-3 text-sm sm:w-[104px]"
+                  onChange={(event) => onToTimeChange(event.target.value)}
+                  type="time"
+                  value={toTime}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -949,6 +1329,7 @@ function CapturePopup({
   }
 
   const isLongForm = option.kind === 'note' || option.kind === 'blocker' || option.kind === 'idea';
+  const OptionIcon = option.icon;
 
   return (
     <div className="capture-popup-shell absolute bottom-6 right-6 z-30 w-full max-w-[360px] sm:w-[360px]">
@@ -956,7 +1337,10 @@ function CapturePopup({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">{option.label}</p>
-            <h3 className="mt-2 text-lg font-semibold text-text-primary">{option.icon} Quick capture</h3>
+            <h3 className="mt-2 flex items-center gap-2 text-lg font-semibold text-text-primary">
+              <OptionIcon className="h-4 w-4 text-accent" />
+              Quick capture
+            </h3>
           </div>
 
           <Button onClick={onClose} size="sm" type="button" variant="ghost">
@@ -1268,6 +1652,13 @@ export function MainApp() {
   const [captureSaving, setCaptureSaving] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [taskComposerOpen, setTaskComposerOpen] = useState(false);
+  const [completedArchiveOpen, setCompletedArchiveOpen] = useState(false);
+  const [completedFilterMode, setCompletedFilterMode] = useState<CompletedFilterMode>('today');
+  const [completedFilterFromDate, setCompletedFilterFromDate] = useState('');
+  const [completedFilterFromTime, setCompletedFilterFromTime] = useState('00:00');
+  const [completedFilterToDate, setCompletedFilterToDate] = useState('');
+  const [completedFilterToTime, setCompletedFilterToTime] = useState('23:59');
+  const [pageDateMenuOpen, setPageDateMenuOpen] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dropLane, setDropLane] = useState<TaskLane | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
@@ -1482,6 +1873,167 @@ export function MainApp() {
     () => missions.filter((mission) => mission.status === 'completed').length,
     [missions],
   );
+
+  const completedFilterRange = useMemo(() => {
+    if (completedFilterMode === 'all') {
+      return { from: null, to: null };
+    }
+
+    if (completedFilterMode === 'today') {
+      const from = new Date(analyticsNow);
+      from.setHours(0, 0, 0, 0);
+      const to = new Date(analyticsNow);
+      to.setHours(23, 59, 59, 999);
+
+      return { from: from.getTime(), to: to.getTime() };
+    }
+
+    if (completedFilterMode === '7d') {
+      const from = new Date(analyticsNow);
+      from.setDate(from.getDate() - 6);
+      from.setHours(0, 0, 0, 0);
+      const to = new Date(analyticsNow);
+      to.setHours(23, 59, 59, 999);
+
+      return { from: from.getTime(), to: to.getTime() };
+    }
+
+    return {
+      from: getLocalDateTimeTimestamp(completedFilterFromDate, completedFilterFromTime),
+      to: getLocalDateTimeTimestamp(completedFilterToDate, completedFilterToTime, true),
+    };
+  }, [
+    analyticsNow,
+    completedFilterFromDate,
+    completedFilterFromTime,
+    completedFilterMode,
+    completedFilterToDate,
+    completedFilterToTime,
+  ]);
+
+  function initializeCustomCompletedFilter() {
+    const now = new Date(analyticsNow);
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+
+    setCompletedFilterFromDate(formatDateInputValue(start));
+    setCompletedFilterFromTime('00:00');
+    setCompletedFilterToDate(formatDateInputValue(now));
+    setCompletedFilterToTime('23:59');
+  }
+
+  function handleCompletedFilterModeChange(mode: CompletedFilterMode) {
+    setCompletedFilterMode(mode);
+    setCompletedArchiveOpen(false);
+
+    if (mode === 'custom' && completedFilterMode !== 'custom') {
+      initializeCustomCompletedFilter();
+    }
+  }
+
+  function handleClearCompletedFilter() {
+    const now = new Date(analyticsNow);
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+
+    setCompletedFilterMode('today');
+    setCompletedFilterFromDate(formatDateInputValue(start));
+    setCompletedFilterFromTime('00:00');
+    setCompletedFilterToDate(formatDateInputValue(now));
+    setCompletedFilterToTime('23:59');
+    setCompletedArchiveOpen(false);
+  }
+
+  const completedFilterSummary = useMemo(
+    () =>
+      getCompletedFilterSummary(
+        completedFilterMode,
+        completedFilterRange.from,
+        completedFilterRange.to,
+      ),
+    [completedFilterMode, completedFilterRange.from, completedFilterRange.to],
+  );
+
+  const completedFilterDateLabel = useMemo(() => {
+    if (completedFilterMode === 'all') return 'All time';
+
+    const { from, to } = completedFilterRange;
+    if (!from && !to) return 'Page date';
+
+    const formatDate = (ts: number) => {
+      const d = new Date(ts);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    };
+
+    if (from && to) {
+      const f = formatDate(from);
+      const t = formatDate(to);
+      if (f === t) return f;
+      return `${f} – ${t}`;
+    }
+
+    if (from) return `From ${formatDate(from)}`;
+    if (to) return `Up to ${formatDate(to)}`;
+
+    return 'Page date';
+  }, [completedFilterMode, completedFilterRange]);
+  const completedFilterModeLabel = getCompletedFilterModeLabel(completedFilterMode);
+  const completedFilterTone = getCompletedFilterTone(completedFilterMode);
+
+  const allCompletedItems = useMemo(
+    () => getCompletedDigestItems(completedTasks, subtaskBoard.done),
+    [completedTasks, subtaskBoard.done],
+  );
+  const visibleTaskBoard = useMemo(
+    () =>
+      taskBoard.map((column) => ({
+        ...column,
+        tasks: column.tasks.filter((task) =>
+          taskMatchesBoardRange(task, completedFilterRange.from, completedFilterRange.to),
+        ),
+        subtasks: column.subtasks.filter((task) =>
+          taskMatchesBoardRange(task, completedFilterRange.from, completedFilterRange.to),
+        ),
+      })),
+    [completedFilterRange.from, completedFilterRange.to, taskBoard],
+  );
+  const visibleBlockedTasks = useMemo(
+    () =>
+      blockedTasks.filter((task) =>
+        taskMatchesBoardRange(task, completedFilterRange.from, completedFilterRange.to),
+      ),
+    [blockedTasks, completedFilterRange.from, completedFilterRange.to],
+  );
+
+  useEffect(() => {
+    if (activeView !== 'tasks') {
+      setPageDateMenuOpen(false);
+    }
+  }, [activeView]);
+
+  useEffect(() => {
+    if (taskComposerOpen) {
+      setPageDateMenuOpen(false);
+    }
+  }, [taskComposerOpen]);
+
+  useEffect(() => {
+    if (!pageDateMenuOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPageDateMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [pageDateMenuOpen]);
 
   useEffect(() => {
     const image = new Image();
@@ -2150,6 +2702,105 @@ export function MainApp() {
     );
   }
 
+  function renderTaskDateFilterControl() {
+    return (
+      <div className="relative shrink-0">
+        <Button
+          aria-controls="task-date-filter-popover"
+          aria-expanded={pageDateMenuOpen}
+          aria-label={`Open page date filter. Current range: ${completedFilterSummary}`}
+          className="h-9 shrink-0 rounded-full px-3 sm:px-4 max-[380px]:w-9 max-[380px]:justify-center max-[380px]:gap-0 max-[380px]:px-0"
+          onClick={() => setPageDateMenuOpen((open) => !open)}
+          size="sm"
+          type="button"
+          title={completedFilterSummary}
+          variant="secondary"
+        >
+          <CalendarDays className="h-4 w-4" />
+          <span className="hidden sm:inline max-[380px]:hidden">{completedFilterDateLabel}</span>
+          <span className="sm:hidden max-[380px]:hidden">{completedFilterDateLabel}</span>
+          <span
+            className={cn(
+              'inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] leading-none max-[380px]:hidden',
+              completedFilterTone === 'accent'
+                ? 'border-accent/20 bg-accent/12 text-accent'
+                : completedFilterTone === 'warning'
+                  ? 'border-warning/20 bg-warning/12 text-warning'
+                  : completedFilterTone === 'success'
+                    ? 'border-success/20 bg-success/12 text-success'
+                    : 'border-borderSoft/40 bg-panel/60 text-text-secondary',
+            )}
+          >
+            {completedFilterModeLabel}
+          </span>
+          <ChevronDown
+            className={cn('h-3.5 w-3.5 transition-transform duration-150 max-[380px]:hidden', pageDateMenuOpen ? 'rotate-180' : null)}
+          />
+        </Button>
+
+        {pageDateMenuOpen ? (
+          <>
+            <div
+              aria-hidden="true"
+              className="fixed inset-0 z-30 bg-transparent"
+              onClick={() => setPageDateMenuOpen(false)}
+            />
+            <div className="absolute right-0 top-full z-40 mt-3 w-[min(420px,calc(100vw-1.5rem))]">
+              <Card
+                id="task-date-filter-popover"
+                className="max-h-[calc(100vh-6rem)] overflow-y-auto rounded-[24px] border border-borderSoft/28 bg-panel/96 p-3 shadow-[0_18px_50px_rgb(var(--shadow-color)/0.22)] backdrop-blur-md sm:max-h-none sm:p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-text-muted">Page date</p>
+                    <h3 className="mt-1 text-base font-bold text-text-primary">Date & time</h3>
+                    <p className="mt-1 text-sm text-text-secondary">{completedFilterSummary}</p>
+                  </div>
+
+                  <Badge tone={completedFilterTone} className="shrink-0">
+                    {completedFilterModeLabel}
+                  </Badge>
+                </div>
+
+                <div className="mt-3">
+                  <CompletedFilterPanel
+                    fromDate={completedFilterFromDate}
+                    fromTime={completedFilterFromTime}
+                    mode={completedFilterMode}
+                    onClear={handleClearCompletedFilter}
+                    onFromDateChange={(value) => {
+                      setCompletedFilterMode('custom');
+                      setCompletedFilterFromDate(value);
+                      setCompletedArchiveOpen(false);
+                    }}
+                    onFromTimeChange={(value) => {
+                      setCompletedFilterMode('custom');
+                      setCompletedFilterFromTime(value);
+                      setCompletedArchiveOpen(false);
+                    }}
+                    onModeChange={handleCompletedFilterModeChange}
+                    onToDateChange={(value) => {
+                      setCompletedFilterMode('custom');
+                      setCompletedFilterToDate(value);
+                      setCompletedArchiveOpen(false);
+                    }}
+                    onToTimeChange={(value) => {
+                      setCompletedFilterMode('custom');
+                      setCompletedFilterToTime(value);
+                      setCompletedArchiveOpen(false);
+                    }}
+                    toDate={completedFilterToDate}
+                    toTime={completedFilterToTime}
+                  />
+                </div>
+              </Card>
+            </div>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
   function renderTasks() {
     return (
       <div className="space-y-6">
@@ -2181,14 +2832,22 @@ export function MainApp() {
           </div>
         ) : null}
 
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {taskBoard.map((column) => {
+        <div className="flex gap-4 overflow-x-auto pb-4 2xl:grid 2xl:grid-cols-[repeat(4,minmax(220px,1fr))_minmax(260px,320px)] 2xl:overflow-visible">
+          {visibleTaskBoard.map((column) => {
             const groupedSubtasks = groupSubtasksByParent(column.subtasks, tasksById);
+            const isCompletedColumn = column.lane === 'done';
+            const completedItems = isCompletedColumn ? getCompletedDigestItems(column.tasks, column.subtasks) : [];
+            const visibleCompletedItems = completedArchiveOpen
+              ? completedItems
+              : completedItems.slice(0, completedDigestLimit);
+            const hiddenCompletedCount = Math.max(0, completedItems.length - completedDigestLimit);
+            const completedTotalCount = allCompletedItems.length;
 
             return (
               <Card
                 className={cn(
-                  'kanban-column flex min-h-[420px] w-[280px] shrink-0 flex-col rounded-[34px] p-5 sm:w-[320px]',
+                  'kanban-column flex min-h-[420px] w-[280px] shrink-0 flex-col rounded-[34px] p-5 2xl:w-auto',
+                  'sm:w-[320px]',
                   dropLane === column.lane ? 'border-accent/30 bg-accent/8 shadow-[0_18px_44px_rgb(var(--accent)/0.12)]' : null,
                 )}
                 key={column.lane}
@@ -2207,13 +2866,108 @@ export function MainApp() {
                 onDrop={(event) => void handleTaskLaneDrop(event, column.lane)}
               >
                 <SectionHeading
-                  action={<Badge tone={column.tone}>{column.tasks.length + column.subtasks.length}</Badge>}
+                  action={<Badge tone={column.tone}>{isCompletedColumn ? completedItems.length : column.tasks.length + column.subtasks.length}</Badge>}
                   title={column.title}
                 />
 
-                <div className="flex-1 space-y-3">
-                  {column.tasks.length ? (
-                    column.tasks.map((task) => {
+                {isCompletedColumn ? (
+                  <div className="flex flex-1 flex-col gap-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-[18px] border border-borderSoft/30 bg-panel/38 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">Shown</p>
+                        <p className="mt-1 text-xl font-bold leading-none text-success">{completedItems.length}</p>
+                      </div>
+                      <div className="rounded-[18px] border border-borderSoft/30 bg-panel/38 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">All</p>
+                        <p className="mt-1 text-xl font-bold leading-none text-text-primary">{completedTotalCount}</p>
+                      </div>
+                    </div>
+
+                    {completedItems.length ? (
+                      <div className="min-h-0 space-y-2">
+                        <div className="flex items-center justify-between gap-2 px-1">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-text-muted">
+                            {completedArchiveOpen ? 'Archive' : 'Recent'}
+                          </p>
+                          {hiddenCompletedCount ? (
+                            <Badge tone="success" className="px-2 py-0.5 text-[9px]">
+                              +{hiddenCompletedCount}
+                            </Badge>
+                          ) : null}
+                        </div>
+
+                        <div
+                          className={cn(
+                            'space-y-2',
+                            completedArchiveOpen ? 'max-h-[420px] overflow-y-auto pr-1 scrollbar-thin' : null,
+                          )}
+                        >
+                          {visibleCompletedItems.map((task) => (
+                            <CompletedDigestItem
+                              draggable
+                              dragging={draggedTaskId === task.id}
+                              key={task.id}
+                              onDragEnd={handleTaskDragEnd}
+                              onDragStart={(event) => handleTaskDragStart(event, task.id)}
+                              onRestore={() => void moveTaskToLane(task.id, 'inbox', 'main')}
+                              onSelect={() => {
+                                selectTask(task.id);
+                                setDetailTaskId(task.id);
+                              }}
+                              parentTask={task.parent_task_id ? tasksById.get(task.parent_task_id) ?? null : null}
+                              task={task}
+                            />
+                          ))}
+                        </div>
+
+                        {hiddenCompletedCount ? (
+                          <Button
+                            className="mt-1 w-full justify-between px-3"
+                            onClick={() => setCompletedArchiveOpen((open) => !open)}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <span>{completedArchiveOpen ? 'Show recent' : `Show ${hiddenCompletedCount} more`}</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="rounded-[24px] border border-dashed border-success/20 bg-success/7 p-4">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-success/18 bg-success/10 text-success">
+                            <CheckCircle2 className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-text-primary">No completed items in this range</p>
+                            <p className="mt-1 text-xs text-text-muted">
+                              {completedFilterMode === 'all'
+                                ? 'Finished tasks will collect here.'
+                                : 'Widen the date or time range, or clear the filter.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {completedFilterMode !== 'today' ? (
+                          <Button
+                            className="mt-3 w-full justify-between px-3"
+                            onClick={handleClearCompletedFilter}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <span>Clear filter</span>
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex-1 space-y-3">
+                    {column.tasks.length ? (
+                      column.tasks.map((task) => {
                       const blocker = blockedEntryByTaskId.get(task.id);
                       const isComplete = column.lane === 'done';
 
@@ -2262,7 +3016,7 @@ export function MainApp() {
                           onSelect={() => selectTask(task.id)}
                           task={task}
                         />
-                       );
+                      );
                     })
                   ) : null}
 
@@ -2306,7 +3060,6 @@ export function MainApp() {
                                   onDragStart={(event) => handleTaskDragStart(event, task.id)}
                                   onFocus={() => handleStartSession(task)}
                                   onSelect={() => selectTask(task.id)}
-                                  parentTask={null}
                                   task={task}
                                 />
                               ))}
@@ -2330,17 +3083,18 @@ export function MainApp() {
                     </div>
                   ) : null}
                 </div>
+                )}
               </Card>
             );
           })}
         </div>
 
-        {blockedTasks.length ? (
+        {visibleBlockedTasks.length ? (
           <Card className="rounded-[34px] p-5">
-            <SectionHeading action={<Badge tone="warning">{blockedTasks.length}</Badge>} title="Blocked" />
+            <SectionHeading action={<Badge tone="warning">{visibleBlockedTasks.length}</Badge>} title="Blocked" />
 
             <div className="grid gap-3 lg:grid-cols-2">
-              {blockedTasks.map((task) => {
+              {visibleBlockedTasks.map((task) => {
                 const blocker = blockedEntryByTaskId.get(task.id);
 
                 return (
@@ -2859,8 +3613,8 @@ export function MainApp() {
                       {useAuthStore.getState().localMode ? 'Local Mode' : 'Cloud Sync'}
                     </p>
                     <p className="mt-1 text-sm text-text-secondary">
-                      {useAuthStore.getState().localMode 
-                        ? 'Your data is only on this PC. Sign in to sync across devices.' 
+                      {useAuthStore.getState().localMode
+                        ? 'Your data is only on this PC. Sign in to sync across devices.'
                         : 'Your data is safely synced to the cloud.'}
                     </p>
                   </div>
@@ -2892,6 +3646,8 @@ export function MainApp() {
               </div>
             </div>
           </Card>
+
+          <SyncStatusCard />
         </div>
       </div>
     );
@@ -2912,7 +3668,7 @@ export function MainApp() {
             onClick={() => setMobileNavOpen(false)}
             aria-label="Close navigation"
           />
-          <aside className="relative z-10 flex h-full w-[280px] flex-col border-r border-borderSoft/24 bg-surface-2 p-6 shadow-2xl transition-transform duration-300">
+          <aside className="relative z-10 flex h-full min-h-0 w-[280px] flex-col overflow-hidden border-r border-borderSoft/24 bg-surface-2 p-6 shadow-2xl transition-transform duration-300">
             <div className="mb-8 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <div className="h-6 w-6 rounded-lg bg-accent/20 flex items-center justify-center">
@@ -2985,10 +3741,16 @@ export function MainApp() {
               </Button>
               
               {activeView === 'tasks' ? (
-                <Button onClick={() => setTaskComposerOpen(true)} size="sm" type="button" className="px-3 sm:px-4">
+                <Button
+                  aria-label="Create task"
+                  onClick={() => setTaskComposerOpen(true)}
+                  size="sm"
+                  type="button"
+                  className="px-3 sm:px-4 max-[380px]:h-9 max-[380px]:w-9 max-[380px]:justify-center max-[380px]:gap-0 max-[380px]:px-0"
+                >
                   <Plus className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Create task</span>
-                  <span className="sm:hidden">Add</span>
+                  <span className="hidden sm:inline max-[380px]:hidden">Create task</span>
+                  <span className="sm:hidden max-[380px]:hidden">Add</span>
                 </Button>
               ) : activeView === 'missions' ? (
                 <Button onClick={() => setMissionComposerOpen(true)} size="sm" type="button" className="px-3 sm:px-4">
@@ -2998,8 +3760,10 @@ export function MainApp() {
                 </Button>
               ) : null}
 
+              {activeView === 'tasks' ? renderTaskDateFilterControl() : null}
+
               <div className="hidden items-center gap-2 sm:flex md:gap-3">
-                <HeaderClock />
+                {activeView === 'tasks' ? null : <HeaderClock />}
                 <Button onClick={() => void showQuickAddWindow()} size="sm" type="button" variant="secondary" className="hidden md:flex">
                   Quick Add
                 </Button>
@@ -3020,6 +3784,7 @@ export function MainApp() {
               {activeView === 'history' ? renderHistory() : null}
               {activeView === 'insights' ? renderInsights() : null}
               {activeView === 'review' ? renderReview() : null}
+              {activeView === 'journal' ? <JournalView /> : null}
               {activeView === 'settings' ? renderSettings() : null}
 
               <CapturePopup
@@ -3042,10 +3807,11 @@ export function MainApp() {
                   type="button"
                 />
 
-                <aside className="absolute inset-y-0 right-0 z-40 w-full max-w-[420px] border-l border-borderSoft/30 bg-panel shadow-2xl min-[1400px]:relative min-[1400px]:inset-auto min-[1400px]:w-[420px] min-[1400px]:max-w-none min-[1400px]:shrink-0 min-[1400px]:shadow-none">
+                <aside className="absolute inset-y-0 right-0 z-40 w-full max-w-[420px] overflow-hidden border-l border-borderSoft/30 bg-panel shadow-2xl min-[1400px]:relative min-[1400px]:inset-auto min-[1400px]:h-full min-[1400px]:min-h-0 min-[1400px]:w-[420px] min-[1400px]:max-w-none min-[1400px]:shrink-0 min-[1400px]:overflow-hidden min-[1400px]:shadow-none">
                   <TaskDetailPanel
                     allTasks={tasks}
                     onClose={() => setDetailTaskId(null)}
+                    onOpenTask={setDetailTaskId}
                     task={detailTask}
                   />
                 </aside>

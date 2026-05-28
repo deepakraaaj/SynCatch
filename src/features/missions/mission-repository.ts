@@ -3,6 +3,7 @@ import { getSqlDatabase } from '../../lib/database';
 import { hydrateMissionRecord, normalizeMissionDraft, sortMissions } from './mission-helpers';
 import type { Mission, MissionDraft } from './mission-types';
 import { useAuthStore } from '../auth/auth-store';
+import { enqueueSync } from '../../lib/sync-outbox';
 
 const LOCAL_STORAGE_KEY = 'missioncontrol-missions-v1';
 
@@ -131,6 +132,11 @@ class SqlMissionRepository implements MissionRepository {
         mission.updated_at,
       ],
     );
+    void enqueueSync('missions', mission.id, 'upsert', {
+      ...mission,
+      tags_json: JSON.stringify(mission.tags),
+      is_pinned: mission.is_pinned ? 1 : 0,
+    });
     return mission;
   }
 
@@ -165,11 +171,17 @@ class SqlMissionRepository implements MissionRepository {
         mission.id,
       ],
     );
+    void enqueueSync('missions', mission.id, 'upsert', {
+      ...mission,
+      tags_json: JSON.stringify(mission.tags),
+      is_pinned: mission.is_pinned ? 1 : 0,
+    });
   }
 
   async deleteMission(missionId: string) {
     const db = await this.db();
     await db.execute('DELETE FROM missions WHERE id = ?', [missionId]);
+    void enqueueSync('missions', missionId, 'delete', { id: missionId });
   }
 }
 

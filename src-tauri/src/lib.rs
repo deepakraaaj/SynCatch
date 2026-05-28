@@ -172,6 +172,54 @@ fn database_migrations() -> Vec<Migration> {
             "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 10,
+            description: "create_journal_tables",
+            sql: r#"
+              CREATE TABLE IF NOT EXISTS journal_entries (
+                id TEXT PRIMARY KEY NOT NULL,
+                kind TEXT NOT NULL CHECK (kind IN ('regret', 'manifestation', 'best_moment', 'lesson')),
+                content TEXT NOT NULL,
+                entry_date TEXT NOT NULL,
+                linked_entry_id TEXT REFERENCES journal_entries(id) ON DELETE SET NULL,
+                mission_id TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+              );
+              CREATE INDEX IF NOT EXISTS idx_journal_entries_entry_date ON journal_entries(entry_date DESC);
+              CREATE INDEX IF NOT EXISTS idx_journal_entries_updated_at ON journal_entries(updated_at DESC);
+
+              CREATE TABLE IF NOT EXISTS journal_days (
+                entry_date TEXT PRIMARY KEY NOT NULL,
+                mood INTEGER NOT NULL DEFAULT 0 CHECK (mood >= 0 AND mood <= 5),
+                gratitude TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+              );
+            "#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 11,
+            description: "create_sync_outbox",
+            sql: r#"
+              CREATE TABLE IF NOT EXISTS sync_outbox (
+                id TEXT PRIMARY KEY NOT NULL,
+                table_name TEXT NOT NULL,
+                row_id TEXT NOT NULL,
+                operation TEXT NOT NULL CHECK (operation IN ('upsert', 'delete')),
+                payload TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                synced_at TEXT,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT
+              );
+              CREATE INDEX IF NOT EXISTS idx_sync_outbox_pending
+                ON sync_outbox(synced_at, created_at);
+            "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

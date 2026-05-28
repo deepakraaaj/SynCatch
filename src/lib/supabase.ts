@@ -129,6 +129,34 @@ export async function deleteTask(taskId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function upsertTask(task: any): Promise<void> {
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('tasks').upsert({
+    id: task.id,
+    user_id: task.user_id,
+    mission_id: task.mission_id,
+    parent_task_id: task.parent_task_id,
+    title: task.title,
+    outcome: task.outcome,
+    next_action: task.next_action,
+    notes: task.notes,
+    status: task.status,
+    priority: task.priority,
+    lane: task.lane,
+    energy: task.energy,
+    estimated_minutes: task.estimated_minutes,
+    due_date: task.due_date,
+    scheduled_for: task.scheduled_for,
+    tags: task.tags,
+    completed_at: task.completed_at,
+    created_at: task.created_at,
+    updated_at: task.updated_at,
+  }, { onConflict: 'id' }) as any);
+
+  if (error) throw error;
+}
+
 // Focus state queries
 export async function selectFocusState(): Promise<FocusSyncState | null> {
   const userId = await getUserId();
@@ -400,6 +428,160 @@ export async function deleteMission(missionId: string): Promise<void> {
     .delete()
     .eq('id', missionId)
     .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
+export async function upsertMission(mission: any): Promise<void> {
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('missions').upsert({
+    id: mission.id,
+    user_id: mission.user_id,
+    title: mission.title,
+    description: mission.description,
+    emoji: mission.emoji,
+    color: mission.color,
+    objective: mission.objective,
+    why_it_matters: mission.why_it_matters,
+    definition_of_success: mission.definition_of_success,
+    status: mission.status,
+    started_at: mission.started_at,
+    completed_at: mission.completed_at,
+    target_date: mission.target_date,
+    estimated_hours: mission.estimated_hours,
+    is_pinned: mission.is_pinned,
+    sort_order: mission.sort_order,
+    tags: mission.tags,
+    notes: mission.notes,
+    created_at: mission.created_at,
+    updated_at: mission.updated_at,
+  }, { onConflict: 'id' }) as any);
+
+  if (error) throw error;
+}
+
+// Journal queries
+export async function selectJournalEntries(entryDate?: string): Promise<any[]> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  let query = client.from('journal_entries').select('*').eq('user_id', userId);
+
+  if (entryDate) {
+    query = query.eq('entry_date', entryDate);
+  }
+
+  const { data, error } = await (query
+    .order('entry_date', { ascending: false })
+    .order('sort_order', { ascending: true }) as any);
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function insertJournalEntry(entry: any): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('journal_entries').insert({
+    id: entry.id,
+    user_id: userId,
+    kind: entry.kind,
+    content: entry.content,
+    entry_date: entry.entry_date,
+    linked_entry_id: entry.linked_entry_id,
+    mission_id: entry.mission_id,
+    sort_order: entry.sort_order,
+    created_at: entry.created_at,
+    updated_at: entry.updated_at,
+  }) as any);
+
+  if (error) throw error;
+}
+
+export async function updateJournalEntry(entry: any): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client
+    .from('journal_entries')
+    .update({
+      kind: entry.kind,
+      content: entry.content,
+      entry_date: entry.entry_date,
+      linked_entry_id: entry.linked_entry_id,
+      mission_id: entry.mission_id,
+      sort_order: entry.sort_order,
+      updated_at: entry.updated_at,
+    })
+    .eq('id', entry.id)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
+export async function deleteJournalEntry(entryId: string): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client
+    .from('journal_entries')
+    .delete()
+    .eq('id', entryId)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
+export async function upsertJournalEntry(entry: any): Promise<void> {
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('journal_entries').upsert({
+    id: entry.id,
+    user_id: entry.user_id,
+    kind: entry.kind,
+    content: entry.content,
+    entry_date: entry.entry_date,
+    linked_entry_id: entry.linked_entry_id,
+    mission_id: entry.mission_id,
+    sort_order: entry.sort_order,
+    created_at: entry.created_at,
+    updated_at: entry.updated_at,
+  }, { onConflict: 'id' }) as any);
+
+  if (error) throw error;
+}
+
+export async function selectJournalDays(): Promise<any[]> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { data, error } = await (client
+    .from('journal_days')
+    .select('*')
+    .eq('user_id', userId)
+    .order('entry_date', { ascending: false }) as any);
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function upsertJournalDay(day: any): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('journal_days').upsert(
+    {
+      user_id: userId,
+      entry_date: day.entry_date,
+      mood: day.mood,
+      gratitude: day.gratitude,
+      created_at: day.created_at,
+      updated_at: day.updated_at,
+    },
+    { onConflict: 'user_id,entry_date' },
+  ) as any);
 
   if (error) throw error;
 }

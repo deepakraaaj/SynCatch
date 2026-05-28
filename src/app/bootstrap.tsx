@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { useEffect } from 'react';
 import { ToastViewport } from '../components/ui/toast-viewport';
 import { useMissionStore } from '../features/missions/mission-store';
+import { useJournalStore } from '../features/journal/journal-store';
 import type { FocusSyncState } from '../features/focus/focus-store';
 import { useFocusStore } from '../features/focus/focus-store';
 import {
@@ -21,6 +22,8 @@ import {
   THEME_CHANGED_EVENT,
   TOGGLE_HUD_TRANSPARENCY_EVENT,
 } from '../lib/tauri';
+import { syncEngine } from '../lib/sync-engine';
+import { useAuthStore } from '../features/auth/auth-store';
 
 export function AppBootstrap({ children }: PropsWithChildren) {
   const themeId = useThemeStore((state) => state.themeId);
@@ -32,6 +35,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
   const hydrateSessions = useSessionStore((state) => state.hydrate);
   const hydrateTasks = useTaskStore((state) => state.hydrate);
   const hydrateMissions = useMissionStore((state) => state.hydrate);
+  const hydrateJournal = useJournalStore((state) => state.hydrate);
 
   useEffect(() => {
     if (
@@ -53,7 +57,10 @@ export function AppBootstrap({ children }: PropsWithChildren) {
       hydrateSessions(),
       hydrateTasks(),
       hydrateMissions(),
+      hydrateJournal(),
     ]);
+
+    syncEngine.start();
 
     const unsubscribe = subscribeAppEvent(TASKS_CHANGED_EVENT, () => {
       void useTaskStore.getState().refresh(true);
@@ -82,7 +89,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
       unsubscribeSettings();
       unsubscribeHudTransparency();
     };
-  }, [hydrateFocus, hydrateMissions, hydrateSessions, hydrateSettings, hydrateTasks, hydrateTheme]);
+  }, [hydrateFocus, hydrateMissions, hydrateSessions, hydrateSettings, hydrateTasks, hydrateTheme, hydrateJournal]);
 
   return (
     <>
