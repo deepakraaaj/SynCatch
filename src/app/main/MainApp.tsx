@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, Wifi, WifiOff, type LucideIcon } from 'lucide-react';
+import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, Wifi, WifiOff, MessageCircle, type LucideIcon } from 'lucide-react';
 import { MissionIcon } from '../../components/ui/mission-icon';
 import { DatePicker } from '../../components/ui/date-picker';
 import { Badge } from '../../components/ui/badge';
@@ -46,6 +46,8 @@ import { MissionComposer } from '../../features/missions/MissionComposer';
 import { useMissionStore } from '../../features/missions/mission-store';
 import { RoadmapView } from '../../features/roadmap/RoadmapView';
 import { JournalView } from '../../features/journal/JournalView';
+import { AssistantView } from '../../features/assistant/AssistantView';
+import { AssistantWidget } from '../../features/assistant/AssistantWidget';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
 import { TaskDetailPanel } from '../../features/tasks/TaskDetailPanel';
 import { getRootTasks, humanizePriority } from '../../features/tasks/task-helpers';
@@ -59,7 +61,7 @@ import { formatRelativeTime } from '../../lib/date';
 import { showHudWindow, showQuickAddWindow, subscribeAppEvent } from '../../lib/tauri';
 import { useIsMobile } from '../../hooks/use-mobile';
 
-type MainView = 'focus' | 'missions' | 'roadmap' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'journal' | 'settings';
+type MainView = 'focus' | 'missions' | 'roadmap' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'journal' | 'assistant' | 'settings';
 
 type CaptureState = {
   kind: SessionCaptureKind;
@@ -85,6 +87,7 @@ const views: Array<{ id: MainView; label: string; icon: LucideIcon; caption?: st
   { id: 'insights', label: 'Insights', icon: BarChart3 },
   { id: 'review', label: 'Review', icon: ClipboardList },
   { id: 'journal', label: 'Journal', icon: BookHeart },
+  { id: 'assistant', label: 'Assistant', icon: MessageCircle },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -450,6 +453,7 @@ function getViewCopy(view: MainView) {
     insights: 'Insights',
     review: 'Review',
     journal: 'Journal',
+    assistant: 'Assistant',
     settings: 'Settings',
   };
   return labels[view] ?? 'Today';
@@ -3658,7 +3662,7 @@ export function MainApp() {
   }
 
   return (
-    <div className="h-full p-2 sm:p-3 lg:p-5">
+    <div className="h-full">
       {mobileNavOpen ? (
         <div className="fixed inset-0 z-50 flex lg:hidden">
           <button
@@ -3713,7 +3717,7 @@ export function MainApp() {
         </div>
       ) : null}
 
-      <div className="app-frame relative flex h-full flex-col overflow-visible lg:overflow-hidden rounded-[24px] border border-borderSoft/20 sm:rounded-[32px] lg:flex-row lg:rounded-[42px]">
+      <div className="app-frame relative flex h-full flex-col overflow-visible lg:overflow-hidden lg:flex-row">
         <aside className="sidebar-shell relative z-10 hidden w-full flex-col border-r border-borderSoft/24 p-6 lg:flex lg:w-[248px]">
           <SidebarContent
             activeView={activeView}
@@ -3785,6 +3789,7 @@ export function MainApp() {
               {activeView === 'insights' ? renderInsights() : null}
               {activeView === 'review' ? renderReview() : null}
               {activeView === 'journal' ? <JournalView /> : null}
+              {activeView === 'assistant' ? <AssistantView /> : null}
               {activeView === 'settings' ? renderSettings() : null}
 
               <CapturePopup
@@ -3820,6 +3825,9 @@ export function MainApp() {
           </div>
         </div>
       </div>
+
+      {/* Floating AI assistant — available on every screen */}
+      <AssistantWidget />
 
       {/* Mobile bottom navigation */}
       <nav className="mobile-bottom-nav lg:hidden">

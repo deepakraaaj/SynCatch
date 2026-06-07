@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Trash2, X, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, X, Plus, Edit2, Eye } from 'lucide-react';
 import { DatePicker } from '../../components/ui/date-picker';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -12,6 +13,20 @@ import { useJournalStore } from './journal-store';
 import { useMissionStore } from '../missions/mission-store';
 import { JOURNAL_KIND_META, toLocalDateString, getJournalKindMeta } from './journal-helpers';
 import type { JournalEntry, JournalDay, JournalEntryKind } from './journal-types';
+
+function useDebouncedCallback<T extends (...args: any[]) => any>(callback: T, delay: number) {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  return useCallback(
+    (...args: Parameters<T>) => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        callback(...args);
+      }, delay);
+    },
+    [callback, delay],
+  );
+}
 
 function getMoodGradient(mood: number | null | undefined): string {
   const gradients: Record<number, string> = {
@@ -35,13 +50,18 @@ function JournalEntryItem({
   missionTitle,
   onDelete,
   onTurnIntoLesson,
+  onEdit,
 }: {
   entry: JournalEntry;
   linkedRegretContent: string | null;
   missionTitle: string | null;
   onDelete: (id: string) => void;
   onTurnIntoLesson: (entry: JournalEntry) => void;
+  onEdit: (entry: JournalEntry) => void;
 }) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const meta = getJournalKindMeta(entry.kind);
   const Icon = meta.icon;
   const toneBorder = meta.tone === 'warning' ? 'border-amber-500/20' : meta.tone === 'success' ? 'border-emerald-500/20' : meta.tone === 'accent' ? 'border-sky-500/20' : 'border-slate-500/15';
@@ -59,7 +79,31 @@ function JournalEntryItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <Icon className="h-4 w-4 text-text-secondary mt-0.5 flex-shrink-0" />
-            <p className="text-[15px] leading-relaxed text-text-primary font-[450]">{entry.content}</p>
+            <div className="flex-1 min-w-0">
+              <p className={cn("text-[15px] leading-relaxed text-text-primary font-[450]", isExpanded ? "" : "line-clamp-3")}>{entry.content}</p>
+              {entry.content.length > 150 && !isExpanded && (
+                <motion.button
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  onClick={() => setIsExpanded(true)}
+                  className="text-[12px] text-text-secondary/70 hover:text-text-secondary mt-1 font-medium transition-colors"
+                  type="button"
+                >
+                  Read more
+                </motion.button>
+              )}
+              {isExpanded && (
+                <motion.button
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  onClick={() => setIsExpanded(false)}
+                  className="text-[12px] text-text-secondary/70 hover:text-text-secondary mt-1 font-medium transition-colors"
+                  type="button"
+                >
+                  Show less
+                </motion.button>
+              )}
+            </div>
           </div>
 
           {linkedRegretContent && (
@@ -80,6 +124,26 @@ function JournalEntryItem({
         </div>
 
         <div className="flex shrink-0 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity delay-100">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-sky-500/12 text-text-muted/60 hover:text-sky-600/70 transition-colors"
+            onClick={() => setIsExpanded(!isExpanded)}
+            title="View full entry"
+            type="button"
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-emerald-500/12 text-text-muted/60 hover:text-emerald-600/70 transition-colors"
+            onClick={() => onEdit(entry)}
+            title="Edit entry"
+            type="button"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </motion.button>
           {entry.kind === 'regret' && (
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -89,23 +153,158 @@ function JournalEntryItem({
               title="Turn this into a lesson"
               type="button"
             >
+              ✨
             </motion.button>
           )}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-red-500/12 text-text-muted/60 hover:text-red-600/70 transition-colors"
-            onClick={() => {
-              if (window.confirm('Remove this entry?')) onDelete(entry.id);
+            disabled={isDeleting}
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-red-500/12 text-text-muted/60 hover:text-red-600/70 transition-colors disabled:opacity-50"
+            onClick={async () => {
+              setIsDeleting(true);
+              try {
+                await onDelete(entry.id);
+              } finally {
+                setIsDeleting(false);
+              }
             }}
             title="Delete entry"
             type="button"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            {isDeleting ? (
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity }} className="h-3.5 w-3.5 rounded-full border border-text-muted/40 border-t-text-muted/70" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
           </motion.button>
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function JournalEntryModal({
+  mode,
+  kind,
+  initialContent = '',
+  onClose,
+  onSubmit,
+}: {
+  mode: 'create' | 'edit';
+  kind: JournalEntryKind;
+  initialContent?: string;
+  onClose: () => void;
+  onSubmit: (content: string) => Promise<void>;
+}) {
+  const meta = getJournalKindMeta(kind);
+  const Icon = meta.icon;
+  const [content, setContent] = useState(initialContent);
+  const [saving, setSaving] = useState(false);
+
+  const trimmed = content.trim();
+  const isUnchanged = trimmed === initialContent.trim();
+  const canSubmit = trimmed.length > 0 && (mode === 'create' || !isUnchanged) && !saving;
+
+  const handleSubmit = useCallback(async () => {
+    if (trimmed.length === 0 || (mode === 'edit' && isUnchanged) || saving) return;
+    setSaving(true);
+    try {
+      await onSubmit(trimmed);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }, [trimmed, mode, isUnchanged, saving, onSubmit, onClose]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') void handleSubmit();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose, handleSubmit]);
+
+  const toneAccent =
+    meta.tone === 'warning' ? 'text-amber-500' :
+    meta.tone === 'success' ? 'text-emerald-500' :
+    meta.tone === 'accent' ? 'text-sky-500' : 'text-text-secondary';
+
+  return createPortal(
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 20 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg overflow-hidden rounded-t-[28px] border border-borderSoft/40 bg-panel shadow-panel sm:rounded-[28px] pb-[env(safe-area-inset-bottom)] sm:pb-0"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-borderSoft/25 px-6 py-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className={cn('flex h-10 w-10 items-center justify-center rounded-2xl bg-text-primary/5', toneAccent)}>
+              <Icon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.4px] text-text-muted/60">{mode === 'create' ? 'New entry' : 'Editing'}</p>
+              <h2 className="truncate text-base font-semibold text-text-primary">{meta.label}</h2>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            type="button"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted/70 transition-colors hover:bg-text-primary/8 hover:text-text-primary"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-2 px-6 py-5">
+          <Textarea
+            autoFocus
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder={meta.prompt}
+            className="min-h-[160px] resize-none rounded-[18px] border-borderSoft/30 bg-panel2/40 text-[15px] leading-relaxed placeholder:text-text-muted/50"
+          />
+          <div className="flex items-center justify-between px-1">
+            <p className="text-[11px] text-text-muted/50">⌘/Ctrl + Enter to save</p>
+            <p className={cn('text-[11px] tabular-nums', trimmed.length === 0 ? 'text-danger/70' : 'text-text-muted/50')}>
+              {content.length} characters
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-borderSoft/25 px-6 py-4">
+          <Button onClick={onClose} size="sm" type="button" variant="secondary" className="text-[13px] font-medium">
+            Cancel
+          </Button>
+          <Button disabled={!canSubmit} onClick={handleSubmit} size="sm" type="button" className="min-w-[120px] text-[13px] font-medium">
+            {saving ? (
+              <span className="flex items-center justify-center gap-2">
+                <motion.span
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  className="h-3.5 w-3.5 rounded-full border-2 border-current/40 border-t-current"
+                />
+                {mode === 'create' ? 'Adding' : 'Saving'}
+              </span>
+            ) : (
+              mode === 'create' ? 'Add entry' : 'Save changes'
+            )}
+          </Button>
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body,
   );
 }
 
@@ -129,7 +328,9 @@ function JournalEntrySection({
   entriesById: Map<string, JournalEntry>;
 }) {
   const [isAdding, setIsAdding] = useState(false);
-  const [newContent, setNewContent] = useState('');
+  const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
+  const updateEntry = useJournalStore((state) => state.updateEntry);
+
   const meta = JOURNAL_KIND_META[kind];
   const Icon = meta.icon;
   const sectionEntries = entries.filter((e) => e.kind === kind && e.entry_date === selectedDate);
@@ -167,45 +368,54 @@ function JournalEntrySection({
                   missionTitle={missionTitle}
                   onDelete={onDeleteEntry}
                   onTurnIntoLesson={onTurnIntoLesson}
+                  onEdit={(e) => setEditingEntry(e)}
                 />
               );
             })}
           </AnimatePresence>
 
-          {isAdding ? (
-            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 pt-2">
-              <Textarea
-                autoFocus
-                className="min-h-[96px] rounded-[18px] text-[15px] leading-relaxed border-borderSoft/30 bg-panel/40 placeholder:text-text-muted/50"
-                onChange={(e) => setNewContent(e.target.value)}
-                placeholder={meta.prompt}
-                value={newContent}
-              />
-              <div className="flex gap-2 justify-end pt-1">
-                <Button onClick={() => { setIsAdding(false); setNewContent(''); }} size="sm" type="button" variant="secondary" className="text-[13px] font-medium">Cancel</Button>
-                <Button disabled={!newContent.trim()} onClick={() => { onAddEntry(kind, newContent); setNewContent(''); setIsAdding(false); }} size="sm" type="button" className="text-[13px] font-medium">Save</Button>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              className="w-full rounded-[18px] border border-dashed border-borderSoft/30 bg-panel/20 py-4 text-[13px] font-medium text-text-secondary/70 hover:border-text-secondary/40 hover:bg-panel/35 hover:text-text-secondary transition-all duration-200"
-              onClick={() => setIsAdding(true)}
-              type="button"
-            >
-              <Plus className="mr-2 inline h-4 w-4" />
-              Add entry
-            </motion.button>
-          )}
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+            className="w-full rounded-[18px] border border-dashed border-borderSoft/30 bg-panel/20 py-4 text-[13px] font-medium text-text-secondary/70 hover:border-text-secondary/40 hover:bg-panel/35 hover:text-text-secondary transition-all duration-200"
+            onClick={() => setIsAdding(true)}
+            type="button"
+          >
+            <Plus className="mr-2 inline h-4 w-4" />
+            Add entry
+          </motion.button>
 
-          {sectionEntries.length === 0 && !isAdding && (
+          {sectionEntries.length === 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-[18px] border border-borderSoft/20 bg-panel/10 py-6 px-4 text-center">
               <p className="text-[12px] uppercase tracking-[0.4px] text-text-muted/50 font-medium mb-1">Nothing yet</p>
               <p className="text-[13px] text-text-secondary/60">{meta.prompt}</p>
             </motion.div>
           )}
         </div>
+
+        <AnimatePresence>
+          {isAdding && (
+            <JournalEntryModal
+              mode="create"
+              kind={kind}
+              onClose={() => setIsAdding(false)}
+              onSubmit={async (content) => {
+                await onAddEntry(kind, content);
+              }}
+            />
+          )}
+          {editingEntry && (
+            <JournalEntryModal
+              mode="edit"
+              kind={editingEntry.kind}
+              initialContent={editingEntry.content}
+              onClose={() => setEditingEntry(null)}
+              onSubmit={async (content) => {
+                await updateEntry({ ...editingEntry, content, updated_at: new Date().toISOString() });
+              }}
+            />
+          )}
+        </AnimatePresence>
       </Card>
     </motion.div>
   );
@@ -304,6 +514,11 @@ export function JournalView() {
   const createEntry = useJournalStore((state) => state.createEntry);
   const deleteEntry = useJournalStore((state) => state.deleteEntry);
   const saveDay = useJournalStore((state) => state.saveDay);
+  const loading = useJournalStore((state) => state.loading);
+  const error = useJournalStore((state) => state.error);
+
+  const [gratitudeInput, setGratitudeInput] = useState('');
+  const [operationError, setOperationError] = useState<string | null>(null);
 
   const missions = useMemo(() => {
     const map: Record<string, string> = {};
@@ -321,20 +536,48 @@ export function JournalView() {
 
   const todayDay = days.find((d) => d.entry_date === selectedDate);
 
+  useEffect(() => {
+    setGratitudeInput(todayDay?.gratitude ?? '');
+  }, [todayDay?.entry_date]);
+
   const handleAddEntry = async (kind: JournalEntryKind, content: string) => {
-    await createEntry({ kind, content, entry_date: selectedDate });
+    try {
+      setOperationError(null);
+      await createEntry({ kind, content, entry_date: selectedDate });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create entry';
+      setOperationError(message);
+    }
   };
 
   const handleTurnIntoLesson = async (regretEntry: JournalEntry) => {
-    await createEntry({
-      kind: 'lesson',
-      content: `Growth from: ${regretEntry.content}`,
-      entry_date: selectedDate,
-      linked_entry_id: regretEntry.id,
-    });
+    try {
+      setOperationError(null);
+      await createEntry({
+        kind: 'lesson',
+        content: `Growth from: ${regretEntry.content}`,
+        entry_date: selectedDate,
+        linked_entry_id: regretEntry.id,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create lesson';
+      setOperationError(message);
+    }
   };
 
-  const handleSaveDay = async (mood: number, gratitude: string) => {
+  const handleDeleteEntry = async (entryId: string) => {
+    try {
+      setOperationError(null);
+      if (window.confirm('Remove this entry?')) {
+        await deleteEntry(entryId);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete entry';
+      setOperationError(message);
+    }
+  };
+
+  const handleSaveDay = useCallback(async (mood: number, gratitude: string) => {
     await saveDay({
       entry_date: selectedDate,
       mood,
@@ -342,22 +585,76 @@ export function JournalView() {
       created_at: todayDay?.created_at ?? new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
-  };
+  }, [selectedDate, todayDay?.created_at, saveDay]);
+
+  const debouncedSaveGratitude = useDebouncedCallback(
+    (gratitude: string) => {
+      handleSaveDay(todayDay?.mood ?? 0, gratitude);
+    },
+    500,
+  );
 
   return (
     <div className="space-y-8">
-      <Card className="rounded-[32px] border-borderSoft/15 bg-gradient-to-br from-panel/50 via-panel/40 to-panel/50 p-6 sm:p-8 backdrop-blur-sm">
+      {(error || operationError) && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="rounded-[20px] border border-red-500/30 bg-red-500/10 p-4 flex items-start gap-3"
+        >
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-700 dark:text-red-200">{error || operationError}</p>
+            {error?.includes('journal_entries') && (
+              <p className="text-xs text-red-600 dark:text-red-300 mt-2">
+                💡 Tip: Make sure your Supabase migrations are applied. Run <code className="bg-red-500/20 px-2 py-1 rounded text-xs">supabase migration up --remote</code>
+              </p>
+            )}
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setOperationError(null)}
+            className="flex-shrink-0 text-red-600 hover:text-red-700 transition-colors"
+            type="button"
+          >
+            <X className="h-4 w-4" />
+          </motion.button>
+        </motion.div>
+      )}
+
+      <Card className="rounded-3xl border-borderSoft/20 bg-gradient-to-br from-panel/50 via-panel/40 to-panel/50 p-6 sm:p-8 backdrop-blur-sm shadow-sm">
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 bg-panel/50 backdrop-blur-sm rounded-[32px] flex items-center justify-center z-10"
+          >
+            <div className="flex flex-col items-center gap-2">
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity }} className="h-8 w-8 rounded-full border-2 border-text-secondary/30 border-t-text-secondary" />
+              <p className="text-sm text-text-muted/70">Loading journal...</p>
+            </div>
+          </motion.div>
+        )}
         <div className="space-y-6">
           <DateStepper onDateChange={selectDate} selectedDate={selectedDate} />
 
           <div className="pt-6 border-t border-borderSoft/20">
             <p className="text-[11px] uppercase tracking-[0.5px] text-text-muted/60 font-bold mb-4">Mood</p>
-            <MoodSelector mood={todayDay?.mood ?? 0} onChange={(m) => handleSaveDay(m, todayDay?.gratitude ?? '')} />
+            <MoodSelector mood={todayDay?.mood ?? 0} onChange={(m) => handleSaveDay(m, gratitudeInput)} />
           </div>
 
           <div className="pt-6 border-t border-borderSoft/20">
             <p className="text-[11px] uppercase tracking-[0.5px] text-text-muted/60 font-bold mb-3">Gratitude</p>
-            <Input className="h-11 rounded-[16px] text-[14px] border-borderSoft/30 bg-panel/30 placeholder:text-text-muted/50 font-[450]" onChange={(e) => handleSaveDay(todayDay?.mood ?? 0, e.target.value)} placeholder="One moment you're grateful for…" value={todayDay?.gratitude ?? ''} />
+            <Input
+              className="h-11 rounded-[16px] text-[14px] border-borderSoft/30 bg-panel/30 placeholder:text-text-muted/50 font-[450]"
+              onChange={(e) => {
+                setGratitudeInput(e.target.value);
+                debouncedSaveGratitude(e.target.value);
+              }}
+              placeholder="One moment you're grateful for…"
+              value={gratitudeInput}
+            />
           </div>
         </div>
       </Card>
@@ -371,7 +668,7 @@ export function JournalView() {
             kind={kind}
             missions={missions}
             onAddEntry={handleAddEntry}
-            onDeleteEntry={deleteEntry}
+            onDeleteEntry={handleDeleteEntry}
             onTurnIntoLesson={handleTurnIntoLesson}
             selectedDate={selectedDate}
           />

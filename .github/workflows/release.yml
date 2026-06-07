@@ -111,6 +111,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_CEREBRAS_API_KEY: ${{ secrets.VITE_CEREBRAS_API_KEY }}
+          VITE_CEREBRAS_MODEL: ${{ secrets.VITE_CEREBRAS_MODEL || 'gpt-oss-120b' }}
         run: |
           set -o pipefail
           mkdir -p ci-logs

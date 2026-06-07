@@ -72,13 +72,22 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
   },
 
   createEntry: async (draft) => {
-    const repo = await getJournalRepository();
-    const entry = await repo.createEntry(draft);
-    set((state) => ({
-      entries: sortJournalEntries([entry, ...state.entries]),
-    }));
-    showSuccessToast('Entry added', entry.kind);
-    return entry;
+    try {
+      const repo = await getJournalRepository();
+      const entry = await repo.createEntry(draft);
+      set((state) => ({
+        entries: sortJournalEntries([entry, ...state.entries]),
+      }));
+      showSuccessToast('Entry added', entry.kind);
+      return entry;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create entry';
+      console.error('createEntry error:', error);
+      set((state) => ({
+        error: message,
+      }));
+      throw error;
+    }
   },
 
   updateEntry: async (entry) => {
