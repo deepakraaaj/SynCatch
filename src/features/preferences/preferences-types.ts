@@ -5,6 +5,19 @@ export interface ThemeSnapshot {
 }
 
 export type SyncMode = 'local' | 'cloud';
+export type SidebarPinnedAppId =
+  | 'focus'
+  | 'missions'
+  | 'roadmap'
+  | 'today'
+  | 'tasks'
+  | 'history'
+  | 'insights'
+  | 'review'
+  | 'journal'
+  | 'notes'
+  | 'assistant'
+  | 'settings';
 
 export interface SettingsSnapshot {
   reduceMotion: boolean;
@@ -12,6 +25,7 @@ export interface SettingsSnapshot {
   focusPromptStyle: 'gentle' | 'direct';
   syncMode: SyncMode;
   launchAtLogin: boolean;
+  sidebarPinnedApps: SidebarPinnedAppId[];
 }
 
 export const DEFAULT_THEME_SNAPSHOT: ThemeSnapshot = {
@@ -24,4 +38,5 @@ export const DEFAULT_SETTINGS_SNAPSHOT: SettingsSnapshot = {
   focusPromptStyle: 'gentle',
   syncMode: 'local',
   launchAtLogin: false,
+  sidebarPinnedApps: [],
 };

@@ -220,6 +220,36 @@ fn database_migrations() -> Vec<Migration> {
             "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 12,
+            description: "create_notes_tables",
+            sql: r#"
+              CREATE TABLE IF NOT EXISTS note_categories (
+                id TEXT PRIMARY KEY NOT NULL,
+                label TEXT NOT NULL,
+                color TEXT NOT NULL DEFAULT 'slate',
+                icon TEXT NOT NULL DEFAULT 'Tag',
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+              );
+
+              CREATE TABLE IF NOT EXISTS notes (
+                id TEXT PRIMARY KEY NOT NULL,
+                title TEXT NOT NULL DEFAULT '',
+                content TEXT NOT NULL DEFAULT '',
+                category_id TEXT NOT NULL DEFAULT 'general',
+                mission_id TEXT,
+                pinned INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+              );
+              CREATE INDEX IF NOT EXISTS idx_notes_category ON notes(category_id);
+              CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at DESC);
+            "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

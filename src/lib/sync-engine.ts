@@ -6,17 +6,24 @@ import {
   selectMissionsByUser,
   selectJournalEntries,
   selectJournalDays,
+  selectNotesByUser,
+  selectNoteCategoriesByUser,
   upsertTask,
   upsertMission,
   upsertJournalEntry,
   upsertJournalDay,
+  upsertNote,
+  upsertNoteCategory,
   deleteTask as deleteTaskCloud,
   deleteMission as deleteMissionCloud,
   deleteJournalEntry as deleteJournalEntryCloud,
+  deleteNoteRow as deleteNoteCloud,
+  deleteNoteCategory as deleteNoteCategoryCloud,
 } from './supabase';
 import { useTaskStore } from '../features/tasks/task-store';
 import { useMissionStore } from '../features/missions/mission-store';
 import { useJournalStore } from '../features/journal/journal-store';
+import { useNoteStore } from '../features/notes/note-store';
 
 export interface SyncStatus {
   pendingCount: number;
@@ -288,10 +295,57 @@ class SyncEngine {
         });
       }
 
+      // Pull all note categories
+      const noteCategories = await selectNoteCategoriesByUser();
+      for (const category of noteCategories) {
+        await invoke('plugin:sql|execute', {
+          database: 'sqlite:mission-control.db',
+          query: `
+            INSERT OR REPLACE INTO note_categories (
+              id, label, color, icon, sort_order, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          `,
+          values: [
+            category.id,
+            category.label,
+            category.color,
+            category.icon,
+            category.sort_order,
+            category.created_at,
+            category.updated_at,
+          ],
+        });
+      }
+
+      // Pull all notes
+      const notes = await selectNotesByUser();
+      for (const note of notes) {
+        await invoke('plugin:sql|execute', {
+          database: 'sqlite:mission-control.db',
+          query: `
+            INSERT OR REPLACE INTO notes (
+              id, title, content, category_id, mission_id, pinned, sort_order, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+          values: [
+            note.id,
+            note.title,
+            note.content,
+            note.category_id,
+            note.mission_id,
+            note.pinned ? 1 : 0,
+            note.sort_order,
+            note.created_at,
+            note.updated_at,
+          ],
+        });
+      }
+
       // Reload stores from SQLite
       void useTaskStore.getState().refresh(true);
       void useMissionStore.getState().refresh();
       void useJournalStore.getState().refresh();
+      void useNoteStore.getState().refresh();
 
       localStorage.setItem('mc-last-synced-at', new Date().toISOString());
       this.updateStatus();
@@ -354,6 +408,10 @@ class SyncEngine {
         await deleteMissionCloud(row.row_id);
       } else if (row.table_name === 'journal_entries') {
         await deleteJournalEntryCloud(row.row_id);
+      } else if (row.table_name === 'notes') {
+        await deleteNoteCloud(row.row_id);
+      } else if (row.table_name === 'note_categories') {
+        await deleteNoteCategoryCloud(row.row_id);
       }
     } else {
       // Handle upserts with field transforms
@@ -386,6 +444,19 @@ class SyncEngine {
           user_id: userId,
         };
         await upsertJournalDay(transformed as any);
+      } else if (row.table_name === 'notes') {
+        const transformed = {
+          ...payload,
+          user_id: userId,
+          pinned: Boolean(payload.pinned),
+        };
+        await upsertNote(transformed as any);
+      } else if (row.table_name === 'note_categories') {
+        const transformed = {
+          ...payload,
+          user_id: userId,
+        };
+        await upsertNoteCategory(transformed as any);
       }
     }
   }

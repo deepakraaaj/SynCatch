@@ -4,6 +4,7 @@ import { emitAppEvent, SETTINGS_CHANGED_EVENT } from '../../lib/tauri';
 import { getPreferencesRepository } from '../preferences/preferences-repository';
 import {
   DEFAULT_SETTINGS_SNAPSHOT,
+  type SidebarPinnedAppId,
   type SyncMode,
   type SettingsSnapshot,
 } from '../preferences/preferences-types';
@@ -17,6 +18,7 @@ interface SettingsState extends SettingsSnapshot {
   setFocusPromptStyle: (style: 'gentle' | 'direct') => void;
   setSyncMode: (mode: SyncMode) => void;
   setLaunchAtLogin: (launchAtLogin: boolean) => Promise<void>;
+  toggleSidebarPinnedApp: (appId: SidebarPinnedAppId) => void;
   syncFromExternal: (state: SettingsSnapshot) => void;
 }
 
@@ -37,6 +39,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       focusPromptStyle: get().focusPromptStyle,
       syncMode: get().syncMode,
       launchAtLogin: get().launchAtLogin,
+      sidebarPinnedApps: get().sidebarPinnedApps,
     };
   }
 
@@ -119,6 +122,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       } finally {
         set({ launchAtLoginPending: false });
       }
+    },
+    toggleSidebarPinnedApp: (appId) => {
+      const current = get().sidebarPinnedApps;
+      const nextPinnedApps = current.includes(appId)
+        ? current.filter((id) => id !== appId)
+        : [...current, appId];
+
+      set({ sidebarPinnedApps: nextPinnedApps });
+      commitSettingsUpdate();
     },
     syncFromExternal: (state) => {
       set({ ...state, hydrated: true, launchAtLoginPending: false });

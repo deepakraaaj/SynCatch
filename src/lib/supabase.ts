@@ -585,3 +585,188 @@ export async function upsertJournalDay(day: any): Promise<void> {
 
   if (error) throw error;
 }
+
+// Note category queries
+export async function selectNoteCategoriesByUser(): Promise<any[]> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+  const { hydrateNoteCategoryRecord } = await import('../features/notes/note-helpers');
+
+  const { data, error } = await (client
+    .from('note_categories')
+    .select('*')
+    .eq('user_id', userId)
+    .order('sort_order', { ascending: true })
+    .order('label', { ascending: true }) as any);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => hydrateNoteCategoryRecord(row));
+}
+
+export async function insertNoteCategory(category: any): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('note_categories').insert({
+    id: category.id,
+    user_id: userId,
+    label: category.label,
+    color: category.color,
+    icon: category.icon,
+    sort_order: category.sort_order,
+    created_at: category.created_at,
+    updated_at: category.updated_at,
+  }) as any);
+
+  if (error) throw error;
+}
+
+export async function updateNoteCategory(category: any): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client
+    .from('note_categories')
+    .update({
+      label: category.label,
+      color: category.color,
+      icon: category.icon,
+      sort_order: category.sort_order,
+      updated_at: category.updated_at,
+    })
+    .eq('id', category.id)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
+export async function deleteNoteCategory(categoryId: string): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+  const { GENERAL_CATEGORY_ID } = await import('../features/notes/note-helpers');
+
+  const { error: reassignError } = await (client
+    .from('notes')
+    .update({ category_id: GENERAL_CATEGORY_ID })
+    .eq('category_id', categoryId)
+    .eq('user_id', userId) as any);
+
+  if (reassignError) throw reassignError;
+
+  const { error } = await (client
+    .from('note_categories')
+    .delete()
+    .eq('id', categoryId)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
+export async function upsertNoteCategory(category: any): Promise<void> {
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('note_categories').upsert({
+    id: category.id,
+    user_id: category.user_id,
+    label: category.label,
+    color: category.color,
+    icon: category.icon,
+    sort_order: category.sort_order,
+    created_at: category.created_at,
+    updated_at: category.updated_at,
+  }, { onConflict: 'id' }) as any);
+
+  if (error) throw error;
+}
+
+// Note queries
+export async function selectNotesByUser(): Promise<any[]> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+  const { hydrateNoteRecord } = await import('../features/notes/note-helpers');
+
+  const { data, error } = await (client
+    .from('notes')
+    .select('*')
+    .eq('user_id', userId)
+    .order('pinned', { ascending: false })
+    .order('updated_at', { ascending: false }) as any);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => hydrateNoteRecord(row));
+}
+
+export async function insertNote(note: any): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('notes').insert({
+    id: note.id,
+    user_id: userId,
+    title: note.title,
+    content: note.content,
+    category_id: note.category_id,
+    mission_id: note.mission_id,
+    pinned: note.pinned,
+    sort_order: note.sort_order,
+    created_at: note.created_at,
+    updated_at: note.updated_at,
+  }) as any);
+
+  if (error) throw error;
+}
+
+export async function updateNoteRow(note: any): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client
+    .from('notes')
+    .update({
+      title: note.title,
+      content: note.content,
+      category_id: note.category_id,
+      mission_id: note.mission_id,
+      pinned: note.pinned,
+      sort_order: note.sort_order,
+      updated_at: note.updated_at,
+    })
+    .eq('id', note.id)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
+export async function deleteNoteRow(noteId: string): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client
+    .from('notes')
+    .delete()
+    .eq('id', noteId)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
+export async function upsertNote(note: any): Promise<void> {
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('notes').upsert({
+    id: note.id,
+    user_id: note.user_id,
+    title: note.title,
+    content: note.content,
+    category_id: note.category_id,
+    mission_id: note.mission_id,
+    pinned: note.pinned,
+    sort_order: note.sort_order,
+    created_at: note.created_at,
+    updated_at: note.updated_at,
+  }, { onConflict: 'id' }) as any);
+
+  if (error) throw error;
+}

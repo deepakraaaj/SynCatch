@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { ToastViewport } from '../components/ui/toast-viewport';
 import { useMissionStore } from '../features/missions/mission-store';
 import { useJournalStore } from '../features/journal/journal-store';
+import { useNoteStore } from '../features/notes/note-store';
 import type { FocusSyncState } from '../features/focus/focus-store';
 import { useFocusStore } from '../features/focus/focus-store';
 import {
@@ -36,6 +37,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
   const hydrateTasks = useTaskStore((state) => state.hydrate);
   const hydrateMissions = useMissionStore((state) => state.hydrate);
   const hydrateJournal = useJournalStore((state) => state.hydrate);
+  const hydrateNotes = useNoteStore((state) => state.hydrate);
 
   useEffect(() => {
     if (
@@ -58,6 +60,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
       hydrateTasks(),
       hydrateMissions(),
       hydrateJournal(),
+      hydrateNotes(),
     ]);
 
     syncEngine.start();
@@ -89,7 +92,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
       unsubscribeSettings();
       unsubscribeHudTransparency();
     };
-  }, [hydrateFocus, hydrateMissions, hydrateSessions, hydrateSettings, hydrateTasks, hydrateTheme, hydrateJournal]);
+  }, [hydrateFocus, hydrateMissions, hydrateSessions, hydrateSettings, hydrateTasks, hydrateTheme, hydrateJournal, hydrateNotes]);
 
   return (
     <>
