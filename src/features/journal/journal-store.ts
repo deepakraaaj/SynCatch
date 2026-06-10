@@ -13,7 +13,7 @@ interface JournalStore {
   error: string | null;
 
   hydrate: () => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: (silent?: boolean) => Promise<void>;
   createEntry: (draft: JournalEntryDraft) => Promise<JournalEntry>;
   updateEntry: (entry: JournalEntry) => Promise<void>;
   deleteEntry: (entryId: string) => Promise<void>;
@@ -51,8 +51,8 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
     }
   },
 
-  refresh: async () => {
-    set({ loading: true, error: null });
+  refresh: async (silent = false) => {
+    if (!silent) set({ loading: true, error: null });
     try {
       const repo = await getJournalRepository();
       const entries = sortJournalEntries(await repo.listEntries());

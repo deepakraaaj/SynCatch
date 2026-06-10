@@ -516,6 +516,7 @@ export function JournalView() {
   const saveDay = useJournalStore((state) => state.saveDay);
   const loading = useJournalStore((state) => state.loading);
   const error = useJournalStore((state) => state.error);
+  const refresh = useJournalStore((state) => state.refresh);
 
   const [gratitudeInput, setGratitudeInput] = useState('');
   const [operationError, setOperationError] = useState<string | null>(null);
@@ -539,6 +540,24 @@ export function JournalView() {
   useEffect(() => {
     setGratitudeInput(todayDay?.gratitude ?? '');
   }, [todayDay?.entry_date]);
+
+  // Re-fetch from the cloud whenever the journal is opened or the app regains
+  // focus, so entries created on another device (web <-> mobile) show up without
+  // needing an app restart. Silent refresh avoids flashing the loading overlay.
+  useEffect(() => {
+    void refresh(true);
+
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible') void refresh(true);
+    };
+    document.addEventListener('visibilitychange', handleVisible);
+    window.addEventListener('focus', handleVisible);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisible);
+      window.removeEventListener('focus', handleVisible);
+    };
+  }, [refresh]);
 
   const handleAddEntry = async (kind: JournalEntryKind, content: string) => {
     try {
