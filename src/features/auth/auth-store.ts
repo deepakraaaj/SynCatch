@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
-import { getSupabaseClient } from '../../lib/auth';
+import { getCachedSession, getSupabaseClient } from '../../lib/auth';
 import {
   showErrorToast,
   showInfoToast,
@@ -55,7 +55,21 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         return;
       }
 
-      const { data, error } = await client.auth.getSession();
+      // client.auth.getSession() can hang indefinitely if supabase-js's init
+      // lock never resolves (e.g. a stuck token-refresh fetch with no
+      // network). Fall back to the locally cached session so the UI never
+      // gets stuck on "Checking session...".
+      const timeout = new Promise<'timeout'>((resolve) =>
+        setTimeout(() => resolve('timeout'), 4000),
+      );
+      const result = await Promise.race([client.auth.getSession(), timeout]);
+
+      if (result === 'timeout') {
+        set({ session: getCachedSession(), loading: false, error: null });
+        return;
+      }
+
+      const { data, error } = result;
 
       if (error) {
         set({ error: error.message, loading: false });

@@ -909,9 +909,9 @@ function SettingChoice({
   return (
     <button
       className={cn(
-        'rounded-full border px-3 py-2 text-xs font-medium tracking-[0.02em] transition-colors duration-150',
+        'rounded-full border px-3 py-2 text-xs font-semibold tracking-[0.02em] transition-colors duration-150',
         active
-          ? 'border-accent/28 bg-accent/12 text-text-primary'
+          ? 'border-accent bg-accent text-[rgb(var(--accent-contrast))] shadow-glow'
           : 'border-borderSoft/35 bg-panel/30 text-text-secondary hover:border-borderStrong/35 hover:bg-panel/50',
       )}
       disabled={disabled}
@@ -1925,7 +1925,7 @@ export function MainApp() {
     () => findActiveSession(sessions, activeSessionId),
     [activeSessionId, sessions],
   );
-  const analyticsNow = Date.now();
+  const analyticsNow = useTickingNow(60000);
   const tasksById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
   const recentCaptures = activeSession ? activeSession.captures.slice(-4).reverse() : [];
   const {

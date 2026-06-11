@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Send, MessageCircle, Trash2, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from '../../components/ui/button';
@@ -63,47 +62,39 @@ export function ChatPanel({ compact = false }: { compact?: boolean }) {
           </div>
         )}
 
-        <AnimatePresence initial={false}>
-          {messages.map((m) => (
-            <motion.div
-              key={m.id}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}
+        {messages.map((m) => (
+          <div key={m.id} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+            <div
+              className={cn(
+                'max-w-[85%] rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed',
+                m.role === 'user'
+                  ? 'bg-accent text-accent-contrast rounded-br-md'
+                  : 'bg-panel/60 border border-borderSoft/25 text-text-primary rounded-bl-md',
+              )}
             >
-              <div
-                className={cn(
-                  'max-w-[85%] rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed',
-                  m.role === 'user'
-                    ? 'bg-accent text-accent-contrast rounded-br-md'
-                    : 'bg-panel/60 border border-borderSoft/25 text-text-primary rounded-bl-md',
-                )}
-              >
-                <p className="whitespace-pre-wrap">{m.content}</p>
-                {m.actions && m.actions.length > 0 && (
-                  <div className="mt-2 space-y-1 border-t border-borderSoft/20 pt-2">
-                    {m.actions.map((a, i) => (
-                      <div key={i} className="flex items-center gap-1.5 text-[12px] text-text-secondary/80">
-                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
-                        <span>{a}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+              <p className="whitespace-pre-wrap">{m.content}</p>
+              {m.actions && m.actions.length > 0 && (
+                <div className="mt-2 space-y-1 border-t border-borderSoft/20 pt-2">
+                  {m.actions.map((a, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-[12px] text-text-secondary/80">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+                      <span>{a}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
 
         {sending && (
           <div className="flex justify-start">
             <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-borderSoft/25 bg-panel/60 px-4 py-3">
               {[0, 1, 2].map((i) => (
-                <motion.span
+                <span
                   key={i}
-                  className="h-1.5 w-1.5 rounded-full bg-text-muted/70"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-text-muted/70"
+                  style={{ animationDelay: `${i * 0.2}s` }}
                 />
               ))}
             </div>

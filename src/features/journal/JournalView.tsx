@@ -125,8 +125,6 @@ function JournalEntryItem({
 
         <div className="flex shrink-0 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity delay-100">
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
             className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-sky-500/12 text-text-muted/60 hover:text-sky-600/70 transition-colors"
             onClick={() => setIsExpanded(!isExpanded)}
             title="View full entry"
@@ -135,8 +133,6 @@ function JournalEntryItem({
             <Eye className="h-3.5 w-3.5" />
           </motion.button>
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
             className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-emerald-500/12 text-text-muted/60 hover:text-emerald-600/70 transition-colors"
             onClick={() => onEdit(entry)}
             title="Edit entry"
@@ -146,8 +142,6 @@ function JournalEntryItem({
           </motion.button>
           {entry.kind === 'regret' && (
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/12 hover:bg-amber-500/20 text-amber-700/70 dark:text-amber-300/70 transition-colors"
               onClick={() => onTurnIntoLesson(entry)}
               title="Turn this into a lesson"
@@ -157,8 +151,6 @@ function JournalEntryItem({
             </motion.button>
           )}
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
             disabled={isDeleting}
             className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-red-500/12 text-text-muted/60 hover:text-red-600/70 transition-colors disabled:opacity-50"
             onClick={async () => {
@@ -232,19 +224,11 @@ function JournalEntryModal({
     meta.tone === 'accent' ? 'text-sky-500' : 'text-text-secondary';
 
   return createPortal(
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
-      <motion.div
-        initial={{ scale: 0.96, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.96, opacity: 0, y: 20 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+      <div
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-lg overflow-hidden rounded-t-[28px] border border-borderSoft/40 bg-panel shadow-panel sm:rounded-[28px] pb-[env(safe-area-inset-bottom)] sm:pb-0"
       >
@@ -302,8 +286,8 @@ function JournalEntryModal({
             )}
           </Button>
         </div>
-      </motion.div>
-    </motion.div>,
+      </div>
+    </div>,
     document.body,
   );
 }
@@ -336,7 +320,7 @@ function JournalEntrySection({
   const sectionEntries = entries.filter((e) => e.kind === kind && e.entry_date === selectedDate);
 
   return (
-    <motion.div layout>
+    <div>
       <Card className="rounded-[28px] border-borderSoft/15 bg-gradient-to-br from-panel/60 via-panel/50 to-panel/60 p-5 sm:p-6 backdrop-blur-sm overflow-hidden">
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -356,7 +340,7 @@ function JournalEntrySection({
         </div>
 
         <div className="space-y-3">
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence>
             {sectionEntries.map((entry) => {
               const linkedRegret = entry.linked_entry_id ? entriesById.get(entry.linked_entry_id) : null;
               const missionTitle = entry.mission_id ? missions[entry.mission_id] : null;
@@ -375,8 +359,6 @@ function JournalEntrySection({
           </AnimatePresence>
 
           <motion.button
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
             className="w-full rounded-[18px] border border-dashed border-borderSoft/30 bg-panel/20 py-4 text-[13px] font-medium text-text-secondary/70 hover:border-text-secondary/40 hover:bg-panel/35 hover:text-text-secondary transition-all duration-200"
             onClick={() => setIsAdding(true)}
             type="button"
@@ -417,7 +399,7 @@ function JournalEntrySection({
           )}
         </AnimatePresence>
       </Card>
-    </motion.div>
+    </div>
   );
 }
 
@@ -428,8 +410,6 @@ function MoodSelector({ mood, onChange }: { mood: number; onChange: (m: number) 
         {[1, 2, 3, 4, 5].map((m) => (
           <motion.button
             key={m}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.95 }}
             className={cn('h-12 w-12 rounded-full flex items-center justify-center transition-all duration-200 border-2', mood === m ? `border-text-primary/40 bg-gradient-to-br ${getMoodGradient(m)} ring-2 ring-text-primary/20` : 'border-borderSoft/30 bg-panel/30 hover:border-borderSoft/50 hover:bg-panel/50')}
             onClick={() => onChange(m)}
             type="button"
@@ -478,11 +458,9 @@ function DateStepper({ selectedDate, onDateChange }: { selectedDate: string; onD
 
   return (
     <div className="flex items-center justify-between gap-4">
-      <motion.div whileHover={{ x: -2 }} whileTap={{ scale: 0.95 }}>
-        <Button onClick={goToPreviousDay} size="sm" type="button" variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-text-primary/8">
-          <ChevronLeft className="h-5 w-5 text-text-secondary" />
-        </Button>
-      </motion.div>
+      <Button onClick={goToPreviousDay} size="sm" type="button" variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-text-primary/8">
+        <ChevronLeft className="h-5 w-5 text-text-secondary" />
+      </Button>
 
       <div className="flex-1 flex flex-col items-center gap-3 min-w-0">
         <div>
@@ -497,11 +475,9 @@ function DateStepper({ selectedDate, onDateChange }: { selectedDate: string; onD
         )}
       </div>
 
-      <motion.div whileHover={{ x: 2 }} whileTap={{ scale: 0.95 }}>
-        <Button onClick={goToNextDay} size="sm" type="button" variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-text-primary/8">
-          <ChevronRight className="h-5 w-5 text-text-secondary" />
-        </Button>
-      </motion.div>
+      <Button onClick={goToNextDay} size="sm" type="button" variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-text-primary/8">
+        <ChevronRight className="h-5 w-5 text-text-secondary" />
+      </Button>
     </div>
   );
 }
@@ -631,8 +607,6 @@ export function JournalView() {
             )}
           </div>
           <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
             onClick={() => setOperationError(null)}
             className="flex-shrink-0 text-red-600 hover:text-red-700 transition-colors"
             type="button"

@@ -42,8 +42,6 @@ function CategoryChip({
 
   return (
     <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
       type="button"
       onClick={onClick}
       className={cn(
@@ -87,7 +85,6 @@ function NoteCard({
 
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
@@ -104,8 +101,6 @@ function NoteCard({
           </Badge>
           <div className="flex shrink-0 items-center gap-1">
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               type="button"
               onClick={() => onTogglePin(note.id)}
               title={note.pinned ? 'Unpin note' : 'Pin note'}
@@ -119,8 +114,6 @@ function NoteCard({
               <Pin className={cn('h-3.5 w-3.5', note.pinned && 'fill-current')} />
             </motion.button>
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               type="button"
               onClick={() => onEdit(note)}
               title="Edit note"
@@ -129,8 +122,6 @@ function NoteCard({
               <Edit2 className="h-3.5 w-3.5" />
             </motion.button>
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               type="button"
               disabled={isDeleting}
               onClick={async () => {
@@ -330,19 +321,11 @@ function NoteEditorModal({
   }, [onClose, handleSubmit]);
 
   return createPortal(
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
-      <motion.div
-        initial={{ scale: 0.96, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.96, opacity: 0, y: 20 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+      <div
         onClick={(e) => e.stopPropagation()}
         className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-[28px] border border-borderSoft/40 bg-panel pb-[env(safe-area-inset-bottom)] shadow-panel sm:rounded-[28px] sm:pb-0"
       >
@@ -445,8 +428,8 @@ function NoteEditorModal({
             )}
           </Button>
         </div>
-      </motion.div>
-    </motion.div>,
+      </div>
+    </div>,
     document.body,
   );
 }
@@ -510,19 +493,11 @@ function CategoryManagerModal({
   }, [onClose]);
 
   return createPortal(
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
-      <motion.div
-        initial={{ scale: 0.96, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.96, opacity: 0, y: 20 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+      <div
         onClick={(e) => e.stopPropagation()}
         className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] border border-borderSoft/40 bg-panel pb-[env(safe-area-inset-bottom)] shadow-panel sm:rounded-[28px] sm:pb-0"
       >
@@ -638,8 +613,8 @@ function CategoryManagerModal({
             </div>
           </div>
         </div>
-      </motion.div>
-    </motion.div>,
+      </div>
+    </div>,
     document.body,
   );
 }
@@ -798,8 +773,6 @@ export function NotesView() {
             )}
           </div>
           <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
             onClick={() => setOperationError(null)}
             className="flex-shrink-0 text-red-600 transition-colors hover:text-red-700"
             type="button"
@@ -854,8 +827,6 @@ export function NotesView() {
           />
         ))}
         <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
           type="button"
           onClick={() => setManagingCategories(true)}
           className="flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-borderSoft/40 px-3 py-1.5 text-[12px] font-medium text-text-muted/60 transition-colors hover:border-text-secondary/40 hover:text-text-secondary"
@@ -888,7 +859,7 @@ export function NotesView() {
           </div>
         ) : (
           <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 2xl:columns-4">
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence>
               {filteredNotes.map((note) => (
                 <NoteCard
                   key={note.id}

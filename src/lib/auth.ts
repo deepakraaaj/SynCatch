@@ -50,6 +50,22 @@ export function getSupabaseClient(): SupabaseClient {
   return supabaseClient;
 }
 
+// Synchronous read of the locally cached session, used as a fallback when
+// client.auth.getSession() can't resolve quickly (e.g. no network and a
+// hung token-refresh request inside supabase-js's init lock).
+export function getCachedSession(): Session | null {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(stored) as Session;
+  } catch {
+    return null;
+  }
+}
+
 export async function getCurrentSupabaseSession(): Promise<Session | null> {
   const client = supabaseClient ?? await initSupabaseAuth();
   const { data, error } = await client.auth.getSession();

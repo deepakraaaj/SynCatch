@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect } from 'react';
+import { MotionConfig } from 'framer-motion';
 import { ToastViewport } from '../components/ui/toast-viewport';
 import { useMissionStore } from '../features/missions/mission-store';
 import { useJournalStore } from '../features/journal/journal-store';
@@ -38,6 +39,11 @@ export function AppBootstrap({ children }: PropsWithChildren) {
   const hydrateMissions = useMissionStore((state) => state.hydrate);
   const hydrateJournal = useJournalStore((state) => state.hydrate);
   const hydrateNotes = useNoteStore((state) => state.hydrate);
+  const reduceMotion = useSettingsStore((state) => state.reduceMotion);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('reduce-motion', reduceMotion);
+  }, [reduceMotion]);
 
   useEffect(() => {
     if (
@@ -95,9 +101,9 @@ export function AppBootstrap({ children }: PropsWithChildren) {
   }, [hydrateFocus, hydrateMissions, hydrateSessions, hydrateSettings, hydrateTasks, hydrateTheme, hydrateJournal, hydrateNotes]);
 
   return (
-    <>
+    <MotionConfig reducedMotion={reduceMotion ? 'always' : 'never'}>
       {children}
       <ToastViewport />
-    </>
+    </MotionConfig>
   );
 }
