@@ -262,6 +262,8 @@ fn show_hud_task_composer(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("hud") {
         window.show()?;
         window.unminimize()?;
+        window.set_always_on_top(true)?;
+        window.set_visible_on_all_workspaces(true)?;
         window.set_focus()?;
         app.emit_to("hud", SHOW_HUD_TASK_COMPOSER_EVENT, ())?;
     }
@@ -279,6 +281,8 @@ fn prepare_autostart_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()>
     if let Some(window) = app.get_webview_window("hud") {
         window.show()?;
         window.unminimize()?;
+        window.set_always_on_top(true)?;
+        window.set_visible_on_all_workspaces(true)?;
     }
 
     if let Some(window) = app.get_webview_window("quick-add") {
@@ -305,6 +309,8 @@ fn prepare_manual_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("hud") {
         window.show()?;
         window.unminimize()?;
+        window.set_always_on_top(true)?;
+        window.set_visible_on_all_workspaces(true)?;
         window.set_focus()?;
         app.emit_to("hud", SHOW_COMPACT_HUD_EVENT, ())?;
     }
@@ -314,6 +320,16 @@ fn prepare_manual_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // On GNOME under Wayland, native Wayland windows can't be kept "always on top" -
+    // GTK silently ignores the request, so the HUD gets buried behind whichever app
+    // is focused and looks like it vanished. Running the GTK windows through XWayland
+    // (where _NET_WM_STATE_ABOVE is honored) keeps the HUD visible. Respect an
+    // existing GDK_BACKEND so users who rely on native Wayland can opt back out.
+    #[cfg(all(desktop, target_os = "linux"))]
+    if std::env::var_os("GDK_BACKEND").is_none() {
+        std::env::set_var("GDK_BACKEND", "x11");
+    }
+
     #[cfg(desktop)]
     let builder =
         tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -346,17 +362,29 @@ pub fn run() {
                 };
 
                 // Create desktop-only windows dynamically (kept out of tauri.conf.json so Android never sees them)
-                WebviewWindowBuilder::new(app, "hud", WebviewUrl::App("hud.html".into()))
+                let hud_window = WebviewWindowBuilder::new(app, "hud", WebviewUrl::App("hud.html".into()))
                     .title("MissionControl HUD")
                     .inner_size(360.0, 78.0)
                     .resizable(false)
                     .decorations(false)
                     .transparent(true)
                     .always_on_top(true)
+                    .visible_on_all_workspaces(true)
                     .skip_taskbar(false)
                     .focused(false)
                     .visible(false)
                     .build()?;
+
+                // Some Linux window managers drop the always-on-top hint when another
+                // window is activated, letting the HUD fall behind it. Re-assert the
+                // hint whenever the HUD loses focus so it stays on top.
+                let hud_window_for_focus = hud_window.clone();
+                hud_window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(false) = event {
+                        let _ = hud_window_for_focus.set_always_on_top(true);
+                        let _ = hud_window_for_focus.set_visible_on_all_workspaces(true);
+                    }
+                });
 
                 WebviewWindowBuilder::new(app, "quick-add", WebviewUrl::App("quick-add.html".into()))
                     .title("MissionControl Quick Add")
