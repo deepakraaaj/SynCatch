@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Crosshair, Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, StickyNote, Wifi, WifiOff, MessageCircle, type LucideIcon } from 'lucide-react';
+import { Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Zap, Rocket, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, StickyNote, Wifi, WifiOff, MessageCircle, type LucideIcon } from 'lucide-react';
 import { MissionIcon } from '../../components/ui/mission-icon';
 import { DatePicker } from '../../components/ui/date-picker';
 import { Badge } from '../../components/ui/badge';
@@ -50,6 +50,7 @@ import { JournalView } from '../../features/journal/JournalView';
 import { NotesView } from '../../features/notes/NotesView';
 import { AssistantView } from '../../features/assistant/AssistantView';
 import { AssistantWidget } from '../../features/assistant/AssistantWidget';
+import { SynCatchWordmark } from '../../components/SynCatchLogo';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
 import { TaskDetailPanel } from '../../features/tasks/TaskDetailPanel';
 import { getRootTasks, humanizePriority } from '../../features/tasks/task-helpers';
@@ -60,7 +61,7 @@ import type { Mission } from '../../features/missions/mission-types';
 import type { Task, TaskEnergy, TaskLane } from '../../features/tasks/task-types';
 import { cn } from '../../lib/cn';
 import { formatRelativeTime } from '../../lib/date';
-import { showHudWindow, showQuickAddWindow, subscribeAppEvent } from '../../lib/tauri';
+import { isTauriApp, showHudWindow, showQuickAddWindow, subscribeAppEvent } from '../../lib/tauri';
 import { useIsMobile } from '../../hooks/use-mobile';
 
 type MainView = 'focus' | 'missions' | 'roadmap' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'journal' | 'notes' | 'assistant' | 'settings' | 'apps';
@@ -171,6 +172,21 @@ const launcherViews: Array<{
     description: 'Tune the workspace',
     gradient: 'from-slate-500 via-zinc-500 to-stone-600',
   },
+];
+
+// Core apps that are always available in the mobile slide-out drawer, even when
+// the user hasn't pinned them. Keeps Notes (and Focus, which has no bottom-bar
+// tab) reachable on mobile regardless of pinned state.
+const mobileDrawerCoreApps: SidebarPinnedAppId[] = [
+  'focus',
+  'today',
+  'tasks',
+  'missions',
+  'roadmap',
+  'journal',
+  'notes',
+  'assistant',
+  'settings',
 ];
 
 const captureOptions: Array<{
@@ -549,17 +565,20 @@ function NavButton({
   icon: Icon,
   caption,
   onClick,
+  compact = false,
 }: {
   active: boolean;
   label: string;
   icon: LucideIcon;
   caption?: string;
   onClick: () => void;
+  compact?: boolean;
 }) {
   return (
     <button
       className={cn(
-        'w-full flex items-center gap-3 rounded-[20px] border px-4 py-2.5 text-left transition-all duration-150',
+        'w-full flex items-center gap-3 rounded-[16px] border text-left transition-all duration-150',
+        compact ? 'px-3.5 py-3' : 'rounded-[20px] px-4 py-2.5',
         active
           ? 'border-accent/35 bg-accent/12 shadow-[0_4px_16px_rgba(var(--accent),0.08)]'
           : 'border-transparent bg-panel/38 hover:border-borderSoft/40 hover:bg-panel/56',
@@ -567,9 +586,22 @@ function NavButton({
       onClick={onClick}
       type="button"
     >
-      <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent' : 'text-text-muted')} />
+      <Icon
+        className={cn(
+          'shrink-0',
+          compact ? 'h-[18px] w-[18px]' : 'h-4 w-4',
+          active ? 'text-accent' : compact ? 'text-text-secondary' : 'text-text-muted',
+        )}
+      />
       <div className="min-w-0">
-        <p className={cn('text-[15px] font-semibold tracking-tight', active ? 'text-text-primary' : 'text-text-secondary')}>{label}</p>
+        <p
+          className={cn(
+            'text-[15px] font-semibold tracking-tight',
+            active ? 'text-text-primary' : compact ? 'text-text-primary/85' : 'text-text-secondary',
+          )}
+        >
+          {label}
+        </p>
         {caption ? <p className="mt-0.5 hidden text-[11px] text-text-muted sm:block">{caption}</p> : null}
       </div>
     </button>
@@ -658,52 +690,61 @@ function SidebarContent({
   onOpenApps,
   onViewSelect,
   activeView,
+  ensureIds,
+  compact = false,
 }: {
   activeSession: WorkSession | null;
   pinnedAppIds: SidebarPinnedAppId[];
   onOpenApps: () => void;
   onViewSelect: (view: MainView) => void;
   activeView: MainView;
+  ensureIds?: SidebarPinnedAppId[];
+  compact?: boolean;
 }) {
+  const visibleIds = ensureIds
+    ? Array.from(new Set([...pinnedAppIds, ...ensureIds]))
+    : pinnedAppIds;
+
+  const appsButton = (
+    <button
+      type="button"
+      className="flex w-full items-center gap-3 rounded-[16px] border border-borderSoft/30 bg-panel/40 px-3.5 py-3 text-left transition-all duration-150 hover:border-borderSoft/50 hover:bg-panel/60"
+      onClick={onOpenApps}
+    >
+      <div className="grid h-[18px] w-[18px] shrink-0 grid-cols-2 gap-0.5">
+        <span className="rounded-[2px] bg-cyan-400" />
+        <span className="rounded-[2px] bg-fuchsia-400" />
+        <span className="rounded-[2px] bg-amber-400" />
+        <span className="rounded-[2px] bg-emerald-400" />
+      </div>
+      <p className="text-[15px] font-semibold tracking-tight text-text-primary/85">Apps</p>
+    </button>
+  );
+
   return (
     <div className="flex h-full flex-col">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted">MissionControl</p>
-        <h1 className="mt-3 text-2xl font-semibold text-text-primary">Focus</h1>
-      </div>
+      {!compact ? (
+        <SynCatchWordmark themed logoClassName="h-12 w-12" textClassName="text-2xl font-bold tracking-tight" />
+      ) : null}
 
-      <div className="mt-8 space-y-2">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-[20px] border border-borderSoft/25 bg-panel/20 px-4 py-3 text-left transition-all duration-150 hover:border-borderSoft/35 hover:bg-panel/30"
-            onClick={onOpenApps}
-          >
-            <div className="grid h-11 w-11 shrink-0 grid-cols-2 gap-1 rounded-[16px] bg-panel/70 p-1 ring-1 ring-borderSoft/30">
-              <span className="rounded-[4px] bg-cyan-400" />
-              <span className="rounded-[4px] bg-fuchsia-400" />
-              <span className="rounded-[4px] bg-amber-400" />
-              <span className="rounded-[4px] bg-emerald-400" />
-            </div>
+      <div className={cn('space-y-2', compact ? '' : 'mt-8')}>
+        {/* Mobile drawer keeps Apps at the top; desktop pins it to the bottom-left corner. */}
+        {compact ? appsButton : null}
 
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-text-muted">Apps</p>
-              <p className="mt-1 text-xs text-text-secondary">Open the launcher in workspace</p>
-            </div>
-          </button>
-        </div>
-
-        {pinnedAppIds.length > 0 ? (
-          <div className="space-y-2 pt-1">
-            <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-text-muted">
-              Pinned apps
-            </p>
+        {visibleIds.length > 0 ? (
+          <div className={cn('pt-1', compact ? 'space-y-1' : 'space-y-2')}>
+            {!compact ? (
+              <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-text-muted">
+                
+              </p>
+            ) : null}
             {launcherViews
-              .filter((view) => pinnedAppIds.includes(view.id))
+              .filter((view) => view.id !== 'settings' && visibleIds.includes(view.id))
               .map((view) => (
                 <NavButton
                   active={activeView === view.id}
                   caption={view.description}
+                  compact={compact}
                   icon={view.icon}
                   key={view.id}
                   label={view.label}
@@ -716,9 +757,14 @@ function SidebarContent({
         )}
       </div>
 
-      <div className="mt-auto">
-        <SidebarLiveStatus activeSession={activeSession} />
-      </div>
+      {compact ? (
+        <div className="mt-6">
+          <SidebarLiveStatus activeSession={activeSession} />
+        </div>
+      ) : (
+        /* Start-button style: Apps anchored to the bottom-left corner of the sidebar. */
+        <div className="mt-auto pt-4">{appsButton}</div>
+      )}
     </div>
   );
 }
@@ -1898,7 +1944,7 @@ export function MainApp() {
   const addCapture = useSessionStore((state) => state.addCapture);
   const dismissRecovery = useSessionStore((state) => state.dismissRecovery);
 
-  const [activeView, setActiveView] = useState<MainView>('today');
+  const [activeView, setActiveView] = useState<MainView>('missions');
   const [minutes, setMinutes] = useState(25);
   const [presetId, setPresetId] = useState<SessionPresetId>('focus');
   const [captureState, setCaptureState] = useState<CaptureState>(null);
@@ -3744,40 +3790,71 @@ export function MainApp() {
         <Card className="rounded-[34px] p-6">
           <SectionHeading action={<Badge tone="accent">Theme</Badge>} title="Appearance" />
 
-          <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
             {THEMES.map((theme) => {
               const active = theme.id === themeId;
 
               return (
                 <button
                   className={cn(
-                    'rounded-[28px] border p-4 text-left transition-[transform,border-color,background-color,box-shadow] duration-150',
+                    'group rounded-[28px] border p-3 text-left transition-[transform,border-color,background-color,box-shadow] duration-200',
                     active
-                      ? 'border-accent/30 bg-accent/10 shadow-[0_12px_30px_rgb(var(--accent)/0.10)]'
-                      : 'border-borderSoft/30 bg-panel/34 hover:border-borderStrong/34 hover:bg-panel/50',
+                      ? 'border-accent/45 bg-accent/8 shadow-[0_16px_38px_rgb(var(--accent)/0.16)]'
+                      : 'border-borderSoft/30 bg-panel/30 hover:-translate-y-0.5 hover:border-borderStrong/40 hover:bg-panel/50 hover:shadow-[0_14px_32px_rgb(var(--shadow-color)/0.18)]',
                   )}
                   key={theme.id}
                   onClick={() => setTheme(theme.id)}
                   type="button"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  {/* Live mini-mockup rendered from the theme's real tokens — framed like
+                      a window thumbnail so light-theme previews read as intentional, not stray boxes. */}
+                  <div
+                    className="relative flex h-[84px] gap-2 overflow-hidden rounded-[16px] p-2"
+                    style={{
+                      backgroundColor: theme.tokens.bg,
+                      border: `1px solid ${theme.tokens.text}22`,
+                      boxShadow: `0 8px 20px rgb(0 0 0 / 0.22), inset 0 0 0 1px ${theme.tokens.text}10`,
+                    }}
+                  >
+                    <div
+                      className="flex w-1/3 flex-col gap-2 rounded-[14px] p-2"
+                      style={{ backgroundColor: theme.tokens.panel }}
+                    >
+                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: theme.tokens.accent }} />
+                      <span className="mt-auto h-4 w-full rounded-lg" style={{ backgroundColor: theme.tokens.accent }} />
+                      <span className="h-3 w-3/4 rounded-md" style={{ backgroundColor: theme.tokens.bg }} />
+                    </div>
+                    <div className="flex flex-1 flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="h-3 w-10 rounded-md" style={{ backgroundColor: theme.tokens.panel }} />
+                        <span className="h-5 w-10 rounded-lg" style={{ backgroundColor: theme.tokens.accent }} />
+                      </div>
+                      <div className="flex flex-1 flex-col gap-2 rounded-[12px] p-2" style={{ backgroundColor: theme.tokens.panel }}>
+                        <span className="h-3 w-full rounded-md" style={{ backgroundColor: theme.tokens.bg }} />
+                        <span className="h-3 w-2/3 rounded-md" style={{ backgroundColor: theme.tokens.bg }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-2 px-1">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-text-primary">{theme.name}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.24em] text-text-muted">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-text-primary">{theme.name}</p>
+                        <span
+                          className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider"
+                          style={{
+                            backgroundColor: theme.mode === 'dark' ? 'rgb(0 0 0 / 0.25)' : 'rgb(0 0 0 / 0.06)',
+                            color: 'rgb(var(--text-muted))',
+                          }}
+                        >
+                          {theme.mode}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.2em] text-text-muted">
                         {theme.eyebrow}
                       </p>
                     </div>
                     {active ? <Badge tone="accent">Live</Badge> : null}
-                  </div>
-
-                  <div className="mt-4 flex gap-2">
-                    {theme.preview.map((color) => (
-                      <span
-                        className="h-10 flex-1 rounded-2xl border border-white/10"
-                        key={color}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
                   </div>
                 </button>
               );
@@ -3836,7 +3913,7 @@ export function MainApp() {
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <p className="text-sm font-medium text-text-primary">Launch at login</p>
-                    <p className="mt-1 text-sm text-text-secondary">Open MissionControl when your desktop starts.</p>
+                    <p className="mt-1 text-sm text-text-secondary">Open SynCatch when your desktop starts.</p>
                   </div>
 
                   <Button
@@ -3938,28 +4015,25 @@ export function MainApp() {
   }
 
   if (!tasksHydrated || !sessionsHydrated || tasksLoading) {
-    return <AnimatedLoading autoDismiss={true} dismissAfter={1500} />;
+    // Must NOT auto-dismiss: this gate depends on async hydration (slow over Supabase
+    // after login). A self-dismissing loader would render null → blank screen.
+    return <AnimatedLoading />;
   }
 
   return (
     <div className="h-full">
       {mobileNavOpen ? (
-        <div className="fixed inset-0 z-50 flex lg:hidden">
+        <div className="fixed inset-0 z-50 flex justify-end lg:hidden">
           <button
             type="button"
-            className="absolute inset-0 backdrop-blur-md transition-opacity"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+            className="absolute inset-0 transition-opacity"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
             onClick={() => setMobileNavOpen(false)}
             aria-label="Close navigation"
           />
-          <aside className="relative z-10 flex h-full min-h-0 w-[280px] flex-col overflow-hidden border-r border-borderSoft/24 bg-surface-2 p-6 shadow-2xl transition-transform duration-300">
+          <aside className="relative z-10 flex h-full min-h-0 w-[284px] flex-col overflow-hidden bg-panel2 p-6 shadow-2xl transition-transform duration-300">
             <div className="mb-8 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-lg bg-accent/20 flex items-center justify-center">
-                  <div className="h-3 w-3 rounded-full bg-accent animate-pulse" />
-                </div>
-                <p className="text-sm font-bold tracking-tight text-text-primary uppercase">MissionControl</p>
-              </div>
+              <SynCatchWordmark themed logoClassName="h-7 w-7" textClassName="text-sm font-bold tracking-tight" />
               <Button onClick={() => setMobileNavOpen(false)} size="sm" type="button" variant="ghost" className="h-8 w-8 p-0 rounded-full">
                 <X className="h-4 w-4" />
               </Button>
@@ -3967,6 +4041,8 @@ export function MainApp() {
             
             <div className="flex-1 overflow-y-auto">
               <SidebarContent
+                compact
+                ensureIds={mobileDrawerCoreApps}
                 activeSession={activeSession}
                 activeView={activeView}
                 onOpenApps={() => {
@@ -3983,19 +4059,12 @@ export function MainApp() {
 
             <div className="mt-6 space-y-2 pt-6 border-t border-borderSoft/20">
               <p className="px-2 text-[10px] font-bold uppercase tracking-widest text-text-muted mb-2">Quick Actions</p>
-              <Button 
-                onClick={() => { setMobileNavOpen(false); setActiveView('tasks'); setTaskComposerOpen(true); }} 
-                className="w-full justify-start gap-3 rounded-2xl" 
+              <Button
+                onClick={() => { setMobileNavOpen(false); setActiveView('tasks'); setTaskComposerOpen(true); }}
+                className="w-full justify-start gap-3 rounded-2xl"
                 variant="secondary"
               >
                 <Plus className="h-4 w-4" /> New Task
-              </Button>
-              <Button 
-                onClick={() => { setMobileNavOpen(false); setActiveView('focus'); }} 
-                className="w-full justify-start gap-3 rounded-2xl" 
-                variant="ghost"
-              >
-                <Crosshair className="h-4 w-4" /> Focus Mode
               </Button>
             </div>
           </aside>
@@ -4015,22 +4084,21 @@ export function MainApp() {
 
         <div className="relative z-10 flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-between gap-3 border-b border-borderSoft/24 px-3 py-3 sm:gap-4 sm:px-6 sm:py-5">
-            <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-text-primary sm:text-2xl">{viewCopy}</h2>
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <Button
                 onClick={() => setMobileNavOpen(true)}
                 size="sm"
                 type="button"
-                variant="ghost"
-                className="lg:hidden h-9 w-9 p-0 sm:h-auto sm:w-auto sm:px-3"
+                variant="secondary"
+                aria-label="Open menu"
+                className="lg:hidden h-9 w-9 shrink-0 p-0"
               >
-                <Menu className="h-5 w-5 sm:mr-2" />
-                <span className="hidden sm:inline">Menu</span>
+                <Menu className="h-5 w-5" />
               </Button>
-              
+              <h2 className="truncate text-lg font-semibold text-text-primary sm:text-2xl">{viewCopy}</h2>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               {activeView === 'tasks' ? (
                 <Button
                   aria-label="Create task"
@@ -4055,13 +4123,29 @@ export function MainApp() {
 
               <div className="hidden items-center gap-2 sm:flex md:gap-3">
                 {activeView === 'tasks' ? null : <HeaderClock />}
-                <Button onClick={() => void showQuickAddWindow()} size="sm" type="button" variant="secondary" className="hidden md:flex">
-                  Quick Add
-                </Button>
-                <Button onClick={() => void showHudWindow()} size="sm" type="button" variant="ghost" className="hidden lg:flex">
-                  HUD
-                </Button>
+                {/* Quick Add and HUD open native windows — desktop (Tauri) only, not the web app. */}
+                {isTauriApp() ? (
+                  <>
+                    <Button onClick={() => void showQuickAddWindow()} size="sm" type="button" variant="secondary" className="hidden md:flex">
+                      Quick Add
+                    </Button>
+                    <Button onClick={() => void showHudWindow()} size="sm" type="button" variant="ghost" className="hidden lg:flex">
+                      HUD
+                    </Button>
+                  </>
+                ) : null}
               </div>
+
+              <Button
+                onClick={() => setActiveView('settings')}
+                aria-label="Settings"
+                size="sm"
+                type="button"
+                variant={activeView === 'settings' ? 'secondary' : 'ghost'}
+                className="h-12 w-12 shrink-0 p-0"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
             </div>
           </header>
 
@@ -4123,21 +4207,21 @@ export function MainApp() {
         </div>
       </div>
 
-      {/* Floating AI assistant — available on every screen */}
-      <AssistantWidget />
+      {/* Floating AI assistant — available on every screen, hidden while the mobile drawer is open */}
+      {!mobileNavOpen ? <AssistantWidget /> : null}
 
       {/* Mobile bottom navigation */}
       <nav className="mobile-bottom-nav lg:hidden">
         {([
-          { id: 'focus' as MainView, label: 'Focus', Icon: Crosshair },
           { id: 'today' as MainView, label: 'Today', Icon: Sun },
           { id: 'tasks' as MainView, label: 'Tasks', Icon: CheckSquare },
+          { id: 'notes' as MainView, label: 'Notes', Icon: StickyNote },
           { id: 'missions' as MainView, label: 'Missions', Icon: Target },
           { id: 'roadmap' as MainView, label: 'More', Icon: MoreHorizontal },
         ] as const).map((tab) => {
           const isMore = tab.label === 'More';
           const isActive = isMore
-            ? !['focus', 'today', 'tasks', 'missions'].includes(activeView)
+            ? !['today', 'tasks', 'notes', 'missions'].includes(activeView)
             : activeView === tab.id;
           return (
             <button

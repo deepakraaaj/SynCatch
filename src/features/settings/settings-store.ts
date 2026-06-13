@@ -108,8 +108,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         showSuccessToast(
           launchAtLogin ? 'Launch at login enabled' : 'Launch at login disabled',
           launchAtLogin
-            ? 'MissionControl will open automatically when your device starts.'
-            : 'MissionControl will stay closed until you launch it yourself.',
+            ? 'SynCatch will open automatically when your device starts.'
+            : 'SynCatch will stay closed until you launch it yourself.',
         );
       } catch (error) {
         console.error('Unable to update launch at login', error);

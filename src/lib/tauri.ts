@@ -223,7 +223,7 @@ export async function showMainWindow() {
     if (!mainWindow) {
       const createdWindow = new WebviewWindow('main', {
         url: 'index.html',
-        title: 'MissionControl',
+        title: 'SynCatch',
         width: MAIN_WINDOW_WIDTH,
         height: MAIN_WINDOW_HEIGHT,
         minWidth: MAIN_WINDOW_MIN_WIDTH,

@@ -48,6 +48,8 @@ interface ComposerDraft {
   energy: TaskEnergy;
   estimatedMinutes: number;
   estimateAuto: boolean;
+  dueDate: string;
+  scheduledFor: string;
 }
 
 const LANE_OPTIONS: Array<{ id: TaskLane; label: string }> = [
@@ -108,6 +110,8 @@ const INITIAL_DRAFT: ComposerDraft = {
   energy: 'shallow',
   estimatedMinutes: 25,
   estimateAuto: false,
+  dueDate: '',
+  scheduledFor: '',
 };
 
 function buildTaskDraft(
@@ -127,6 +131,8 @@ function buildTaskDraft(
     priority: draft.priority,
     energy: draft.energy,
     estimated_minutes: draft.estimatedMinutes,
+    due_date: draft.dueDate || null,
+    scheduled_for: draft.scheduledFor || null,
     status: defaults.status,
   };
 }
@@ -170,6 +176,8 @@ export function TaskCreationComposer({
   const outcomeId = `${composerId}-outcome`;
   const firstStepId = `${composerId}-first-step`;
   const notesId = `${composerId}-notes`;
+  const dueDateId = `${composerId}-due-date`;
+  const scheduledForId = `${composerId}-scheduled-for`;
   const detailsId = `${composerId}-details`;
 
   const [draft, setDraft] = useState<ComposerDraft>({ ...INITIAL_DRAFT, lane, priority });
@@ -451,6 +459,67 @@ export function TaskCreationComposer({
                 </Chip>
               ))}
             </ChipRow>
+
+            <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label
+                  className="block text-[11px] uppercase tracking-[0.28em] text-text-muted"
+                  htmlFor={scheduledForId}
+                >
+                  Scheduled for
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id={scheduledForId}
+                    type="date"
+                    value={draft.scheduledFor}
+                    onChange={(event) => update('scheduledFor', event.target.value)}
+                  />
+                  {draft.scheduledFor ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Clear scheduled date"
+                      className="h-9 w-9 shrink-0 p-0"
+                      onClick={() => update('scheduledFor', '')}
+                    >
+                      ✕
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  className="block text-[11px] uppercase tracking-[0.28em] text-text-muted"
+                  htmlFor={dueDateId}
+                >
+                  Due date
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id={dueDateId}
+                    type="date"
+                    value={draft.dueDate}
+                    min={draft.scheduledFor || undefined}
+                    onChange={(event) => update('dueDate', event.target.value)}
+                  />
+                  {draft.dueDate ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Clear due date"
+                      className="h-9 w-9 shrink-0 p-0"
+                      onClick={() => update('dueDate', '')}
+                    >
+                      ✕
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

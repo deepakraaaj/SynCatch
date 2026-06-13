@@ -30,7 +30,7 @@ const MAX_TOOL_ROUNDS = 5;
 
 function systemPrompt(): string {
   return [
-    'You are the in-app assistant for MissionControl, a personal productivity app.',
+    'You are the in-app assistant for SynCatch, a personal productivity app.',
     `Today is ${toLocalDateString(new Date())}.`,
     'The app has Missions (projects), Tasks (with lanes: inbox/now/next/later/done), Focus sessions (timers), and a Journal (best_moment, manifestation, regret, lesson + daily mood/gratitude).',
     'You can take real actions using the provided tools — create/update/complete/delete tasks, manage missions, log journal entries, set mood/gratitude, and start/stop focus sessions.',

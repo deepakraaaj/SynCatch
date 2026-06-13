@@ -63,7 +63,7 @@ export function ToastViewport() {
     <div className="pointer-events-none fixed bottom-20 left-3 right-3 z-[120] flex w-[min(360px,calc(100vw-1.5rem))] flex-col gap-3 lg:bottom-auto lg:top-5 lg:left-auto lg:right-5 lg:w-[min(360px,calc(100vw-2rem))]">
       {toasts.map((toast) => (
         <div
-          className="pointer-events-auto rounded-[18px] border border-borderSoft/40 bg-surface-2 shadow-[0_20px_48px_rgb(0_0_0/0.18)] backdrop-blur-xl"
+          className="pointer-events-auto rounded-[18px] border border-borderSoft/40 bg-panel2 shadow-[0_20px_48px_rgb(0_0_0/0.18)] backdrop-blur-xl"
           key={toast.id}
         >
           <div className="flex items-start gap-3 px-4 py-3.5">

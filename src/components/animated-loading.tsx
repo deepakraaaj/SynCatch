@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { SynCatchLogo } from './SynCatchLogo';
 
 interface AnimatedLoadingProps {
   autoDismiss?: boolean;
@@ -32,6 +33,7 @@ export function AnimatedLoading({ autoDismiss = false, dismissAfter = 2000 }: An
       }}
     >
       <div className="flex flex-col items-center gap-6">
+        {/* Old DeepZ branding — replaced by SynCatch logo
         <div className="text-center">
           <h1
             className="text-7xl font-black tracking-tighter"
@@ -50,6 +52,23 @@ export function AnimatedLoading({ autoDismiss = false, dismissAfter = 2000 }: An
           >
             Deep Focus, Zero Distractions
           </p>
+        </div>
+        */}
+
+        <div className="flex flex-col items-center gap-4 text-center">
+          <SynCatchLogo className="h-20 w-20" />
+          <div>
+            <h1 className="text-5xl font-black tracking-tighter">
+              <span className="text-text-primary">Syn</span>
+              <span style={{ color: '#3E8BFF' }}>Catch</span>
+            </h1>
+            <p
+              className="mt-3 text-base font-medium tracking-widest"
+              style={{ color: 'rgb(var(--accent) / 0.8)' }}
+            >
+              Sync aachaa?
+            </p>
+          </div>
         </div>
 
         <div className="relative w-20 h-20">
@@ -97,7 +116,7 @@ export function AnimatedLoading({ autoDismiss = false, dismissAfter = 2000 }: An
           className="text-sm uppercase tracking-widest"
           style={{ color: 'rgb(var(--text-muted) / 0.7)' }}
         >
-          Preparing your workspace
+          Aachu — caught &amp; synced ✓
         </p>
       </div>
 

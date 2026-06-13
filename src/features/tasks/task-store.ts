@@ -45,7 +45,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         selectedTaskId: get().selectedTaskId ?? tasks[0]?.id ?? null,
       });
     } catch (error) {
-      set({ loading: false, error: error instanceof Error ? error.message : 'Unable to load tasks' });
+      // Still mark hydrated so the app renders (empty + error) instead of hanging on the loader.
+      set({ hydrated: true, loading: false, error: error instanceof Error ? error.message : 'Unable to load tasks' });
     }
   },
 

@@ -42,7 +42,7 @@ export function ChatPanel({ compact = false }: { compact?: boolean }) {
               <MessageCircle className="h-7 w-7" />
             </div>
             <div>
-              <p className="text-base font-semibold text-text-primary">Talk to MissionControl</p>
+              <p className="text-base font-semibold text-text-primary">Talk to SynCatch</p>
               <p className="mt-1 text-[13px] text-text-secondary/70 max-w-xs">
                 Ask about your day, or tell me to create tasks, start a focus timer, or log your journal.
               </p>
