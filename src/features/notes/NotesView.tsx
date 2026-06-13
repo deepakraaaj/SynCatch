@@ -790,13 +790,7 @@ export function NotesView() {
         </motion.div>
       )}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-[-0.3px] text-text-primary">Notes</h1>
-          <p className="mt-0.5 text-[13px] text-text-muted/60">
-            {notes.length} note{notes.length === 1 ? '' : 's'} captured
-          </p>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
         <div className="flex items-center gap-2">
           <div className="relative flex-1 sm:w-64">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted/50" />
