@@ -5,7 +5,8 @@ import { Search, Plus, Pin, Edit2, Trash2, X, Settings, ChevronDown, Check } fro
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
-import { Input, Textarea } from '../../components/ui/input';
+import { Input } from '../../components/ui/input';
+import { RichTextEditor, RichTextContent, isHtmlContent } from '../../components/ui/rich-text-editor';
 import { cn } from '../../lib/cn';
 import { formatRelativeTime } from '../../lib/date';
 import { useNoteStore } from './note-store';
@@ -150,9 +151,13 @@ function NoteCard({
 
         {note.content.trim() && (
           <div>
-            <p className={cn('whitespace-pre-wrap text-[13px] leading-relaxed text-text-secondary', isExpanded ? '' : 'line-clamp-5')}>
-              {note.content}
-            </p>
+            <RichTextContent
+              content={note.content}
+              className={cn(
+                'text-[13px] leading-relaxed text-text-secondary',
+                isExpanded ? '' : 'line-clamp-5',
+              )}
+            />
             {note.content.length > 240 && (
               <button
                 type="button"
@@ -298,7 +303,11 @@ function NoteEditorModal({
   const [saving, setSaving] = useState(false);
 
   const trimmedContent = content.trim();
-  const canSubmit = trimmedContent.length > 0 && !saving;
+  // For HTML content, strip tags to know whether there's real text/media to save.
+  const plainText = isHtmlContent(content)
+    ? content.replace(/<(?:hr|img)[^>]*>/gi, ' x ').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+    : trimmedContent;
+  const canSubmit = plainText.length > 0 && !saving;
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) return;
@@ -382,15 +391,14 @@ function NoteEditorModal({
           </div>
 
           <div>
-            <Textarea
+            <RichTextEditor
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={setContent}
               placeholder="Write it down..."
-              className="min-h-[200px] resize-none rounded-[18px] border-borderSoft/30 bg-panel2/40 text-[14px] leading-relaxed placeholder:text-text-muted/50"
             />
             <div className="mt-1.5 flex items-center justify-between px-1">
               <p className="text-[11px] text-text-muted/50">⌘/Ctrl + Enter to save</p>
-              <p className={cn('text-[11px] tabular-nums', trimmedContent.length === 0 ? 'text-danger/70' : 'text-text-muted/50')}>{content.length} characters</p>
+              <p className={cn('text-[11px] tabular-nums', plainText.length === 0 ? 'text-danger/70' : 'text-text-muted/50')}>{plainText.length} characters</p>
             </div>
           </div>
 

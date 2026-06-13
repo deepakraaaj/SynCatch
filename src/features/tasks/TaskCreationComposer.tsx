@@ -565,7 +565,9 @@ export function TaskCreationComposer({
       <div
         className={cn(
           'flex items-center justify-between gap-3 border-t border-borderSoft/24',
-          fillHeight ? 'mt-4 pt-4' : 'mt-5 pt-4',
+          fillHeight
+            ? 'shrink-0 mt-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]'
+            : 'mt-5 pt-4',
         )}
       >
         <div className="flex items-center gap-2">
@@ -593,8 +595,8 @@ export function TaskCreationComposer({
 
       {/* Mission creation modal */}
       {showMissionComposer ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div className="w-full max-w-[500px] rounded-[24px] border border-borderSoft/30 bg-panel p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="max-h-[90vh] w-full max-w-[500px] overflow-y-auto rounded-t-[24px] border border-borderSoft/30 bg-panel p-6 pb-[calc(var(--mobile-nav-height)+1rem)] shadow-2xl sm:rounded-[24px] sm:pb-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-text-primary">Create mission</h2>
               <button

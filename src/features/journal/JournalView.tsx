@@ -230,9 +230,9 @@ function JournalEntryModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg overflow-hidden rounded-t-[28px] border border-borderSoft/40 bg-panel shadow-panel sm:rounded-[28px] pb-[env(safe-area-inset-bottom)] sm:pb-0"
+        className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] border border-borderSoft/40 bg-panel shadow-panel sm:rounded-[28px] pb-[env(safe-area-inset-bottom)] sm:pb-0"
       >
-        <div className="flex items-center justify-between gap-3 border-b border-borderSoft/25 px-6 py-5">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-borderSoft/25 px-6 py-5">
           <div className="flex min-w-0 items-center gap-3">
             <div className={cn('flex h-10 w-10 items-center justify-center rounded-2xl bg-text-primary/5', toneAccent)}>
               <Icon className="h-5 w-5" />
@@ -251,7 +251,7 @@ function JournalEntryModal({
           </button>
         </div>
 
-        <div className="space-y-2 px-6 py-5">
+        <div className="space-y-2 overflow-y-auto px-6 py-5">
           <Textarea
             autoFocus
             value={content}
@@ -267,7 +267,7 @@ function JournalEntryModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-borderSoft/25 px-6 py-4">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-borderSoft/25 px-6 py-4">
           <Button onClick={onClose} size="sm" type="button" variant="secondary" className="text-[13px] font-medium">
             Cancel
           </Button>

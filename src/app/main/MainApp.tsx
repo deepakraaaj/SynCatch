@@ -2909,7 +2909,7 @@ export function MainApp() {
     return (
       <div className="space-y-6">
         {missionComposerOpen ? (
-          <div className="fixed inset-0 z-[60] flex flex-col bg-surface-1 lg:relative lg:inset-auto lg:z-0 lg:bg-transparent">
+          <div className="fixed inset-x-0 top-0 bottom-[var(--mobile-nav-height)] z-[60] flex flex-col bg-panel lg:relative lg:inset-auto lg:bottom-auto lg:z-0 lg:bg-transparent">
             <div className="flex items-center justify-between border-b border-borderSoft/20 p-4 lg:hidden">
               <h2 className="text-lg font-bold text-text-primary">{editingMission ? 'Edit Mission' : 'New Mission'}</h2>
               <Button onClick={() => { setMissionComposerOpen(false); setEditingMission(null); }} size="sm" variant="ghost" className="h-9 w-9 p-0 rounded-full">
@@ -3074,7 +3074,7 @@ export function MainApp() {
     return (
       <div className="space-y-6">
         {taskComposerOpen ? (
-          <div className="fixed inset-0 z-[60] flex flex-col bg-surface-1 lg:relative lg:inset-auto lg:z-0 lg:bg-transparent">
+          <div className="fixed inset-x-0 top-0 bottom-[var(--mobile-nav-height)] z-[60] flex flex-col bg-panel lg:relative lg:inset-auto lg:bottom-auto lg:z-0 lg:bg-transparent">
             <div className="flex items-center justify-between border-b border-borderSoft/20 p-4 lg:hidden">
               <h2 className="text-lg font-bold text-text-primary">Add Task</h2>
               <Button onClick={() => setTaskComposerOpen(false)} size="sm" variant="ghost" className="h-9 w-9 p-0 rounded-full">
@@ -3082,21 +3082,36 @@ export function MainApp() {
               </Button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 lg:p-0">
-              <Card className="rounded-[24px] p-5 sm:rounded-[34px] sm:p-6 lg:border-none lg:bg-transparent lg:p-0">
-                {!isMobile && <SectionHeading title="Add task" />}
-                <TaskCreationComposer
-                  autoFocus
-                  fillHeight={isMobile}
-                  onCancel={() => setTaskComposerOpen(false)}
-                  onSubmitted={() => {
-                    setTaskComposerOpen(false);
-                    setActiveView('tasks');
-                  }}
-                  source="main"
-                  submitLabel="Save task"
-                />
-              </Card>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-0">
+              {isMobile ? (
+                <div className="flex h-full min-h-0 flex-col">
+                  <TaskCreationComposer
+                    autoFocus
+                    fillHeight
+                    onCancel={() => setTaskComposerOpen(false)}
+                    onSubmitted={() => {
+                      setTaskComposerOpen(false);
+                      setActiveView('tasks');
+                    }}
+                    source="main"
+                    submitLabel="Save task"
+                  />
+                </div>
+              ) : (
+                <Card className="rounded-[24px] p-5 sm:rounded-[34px] sm:p-6 lg:border-none lg:bg-transparent lg:p-0">
+                  <SectionHeading title="Add task" />
+                  <TaskCreationComposer
+                    autoFocus
+                    onCancel={() => setTaskComposerOpen(false)}
+                    onSubmitted={() => {
+                      setTaskComposerOpen(false);
+                      setActiveView('tasks');
+                    }}
+                    source="main"
+                    submitLabel="Save task"
+                  />
+                </Card>
+              )}
             </div>
           </div>
         ) : null}
