@@ -319,11 +319,15 @@
 
 @layer components {
   /* Rich-text editor + rendered note content */
-  .rte-content:empty::before,
+  /* Tiptap renders an empty <p> with this class; legacy display surfaces use
+     :empty. Both show the placeholder text. */
+  .rte-content p.is-editor-empty:first-child::before,
   .rte-content[data-placeholder]:empty::before {
     content: attr(data-placeholder);
     color: rgb(var(--text-muted) / 0.5);
     pointer-events: none;
+    float: left;
+    height: 0;
   }
 
   .rte-content h3 {
