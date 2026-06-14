@@ -98,7 +98,11 @@ npm run android:build:release   # signed Android APK
 Desktop artifacts land in `src-tauri/target/release/bundle/`; the APK in
 `src-tauri/gen/android/app/build/outputs/apk/universal/release/`.
 
-> On some Linux setups the **AppImage** step fails with `failed to run linuxdeploy` (a FUSE/tooling issue, unrelated to the app). The `.deb` and `.rpm` still build. CI only builds the `.deb`, so this doesn't affect releases.
+> **AppImage build failing** with `there is no 'libdir' variable for 'librsvg-2.0'` / `failed to run linuxdeploy`? Install the dev package the GTK plugin needs:
+> ```bash
+> sudo apt install librsvg2-dev
+> ```
+> The `.deb` and `.rpm` build fine without it, and CI (which installs `librsvg2-dev` and only builds the `.deb`) is unaffected.
 
 ---
 
