@@ -167,7 +167,7 @@ jobs:
           fi
 
           tag="${GITHUB_REF_NAME}"
-          title="MissionControl ${tag#v}"
+          title="SynCatch ${tag#v}"
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "${files[@]}" --clobber

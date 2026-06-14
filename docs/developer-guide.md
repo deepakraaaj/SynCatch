@@ -4,6 +4,32 @@ Common development workflows and troubleshooting for building, running, and test
 
 > **Note on identifiers:** SynCatch is the product name, but the underlying Tauri bundle identifier is still `com.missioncontrol.desktop` and the Linux package is `mission-control`. On-disk paths in this guide reflect that — they're correct as written.
 
+## Quick Start — Run in Debug Mode
+
+Once the [prerequisites](#0-environment-setup-prerequisites) are installed:
+
+```bash
+git clone https://github.com/deepakraaaj/SynCatch.git
+cd SynCatch
+npm install
+
+# Desktop (Tauri shell + hot reload + devtools)
+npm run tauri:dev
+
+# Web frontend only (fastest UI iteration, no native shell) → http://localhost:1420
+npm run dev
+
+# Android (device or emulator attached — see §2)
+npm run tauri android dev
+```
+
+- **Desktop debug**: `npm run tauri:dev` builds a debug Rust binary, opens the app, and hot-reloads the frontend on save. Right-click → **Inspect** (or F12) opens WebKit devtools.
+- **Android debug**: `npm run tauri android dev` deploys a debug build to the connected device/emulator with live reload. View JS logs with `adb logcat | grep "Web Console"`.
+
+Detailed setup and troubleshooting follow.
+
+---
+
 ## 0. Environment Setup (Prerequisites)
 
 ### A. General Tools

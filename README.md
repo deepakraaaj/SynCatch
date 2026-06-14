@@ -236,10 +236,12 @@ Deeper guides live in [`docs/`](docs/):
 
 | Doc | What's inside |
 |-----|---------------|
-| [Developer Guide](docs/developer-guide.md) | Environment setup, build workflows, common troubleshooting |
+| [Installation](docs/installation.md) | Installing SynCatch on Ubuntu (`.deb` / AppImage) |
+| [Developer Guide](docs/developer-guide.md) | Run in debug mode (desktop + Android), environment setup, troubleshooting |
+| [Releasing](docs/releasing.md) | How to push, tag, and publish a release via CI |
 | [Android Release](docs/android-release.md) | Building and signing Android APKs |
 | [Release Troubleshooting](docs/release-troubleshooting.md) | Fixes for issues hit during release builds |
-| [Supabase Setup](docs/supabase-setup.md) | Cloud sync auth + storage integration status |
+| [Supabase Setup](docs/supabase-setup.md) | Cloud sync auth + storage setup |
 
 ---
 
