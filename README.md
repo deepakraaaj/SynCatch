@@ -1,261 +1,164 @@
 <div align="center">
 
-# 🔄 SynCatch
+<img src="src-tauri/icons/app-icon.svg" alt="SynCatch" width="100" height="100" />
 
-### The Desktop Workspace for Deep Focus.
+# SynCatch
 
-**One mission. One clock. Total clarity.**
+**The desktop workspace for deep focus.**
 
-[![Tauri 2](https://img.shields.io/badge/Tauri_2-FFC131?style=for-the-badge&logo=tauri&logoColor=white)](https://v2.tauri.app)
-[![React 19](https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)](https://rust-lang.org)
-[![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
-[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+One mission. One clock. Total clarity.
 
-<br/>
-
-<img src="docs/screenshots/dashboard.png" alt="SynCatch Dashboard" width="820" />
-
-<br/>
-
-*A premium desktop productivity studio built with Tauri 2, React 19, and Rust.*
-*Designed for people who think in **missions**, not to-do lists.*
+<p>
+  <img src="https://img.shields.io/badge/Tauri-2-FFC131?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5" />
+  <img src="https://img.shields.io/badge/Rust-stable-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust" />
+  <img src="https://img.shields.io/badge/SQLite-local-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/Supabase-sync-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
+</p>
 
 </div>
 
 ---
 
-## 🚀 The Philosophy
+## Overview
 
-SynCatch isn't another task app. It's a **Focus Operating System** for your desktop.
+SynCatch is a focus operating system for your desktop, built with Tauri 2, React 19, and Rust.
 
-Most productivity tools optimize for *capturing everything*. SynCatch optimizes for **finishing one thing at a time**. It respects your attention with a beautiful, distraction-free interface that lives where you work — helping you move from "busy" to "impactful."
+Most productivity tools optimize for capturing everything. SynCatch optimizes for finishing one thing at a time — a fast, distraction-free workspace that lives where you work and helps you move from busy to impactful. It's designed for people who think in **missions**, not to-do lists.
 
-> **SynCatch** — *"Sync aachaa?"* Everything in sync, everything caught. The mark is two interlocking loops: your intentions and your time, locked together.
-
----
-
-## ✨ Core Features
-
-### 🎯 Missions & Tasks
-A two-tier model that mirrors how real work is structured. Every **Mission** is a project; every **Task** belongs to a mission and carries its own timers, energy, and "Definition of Done." First-class subtasks, smart capture, and a focused **What Now?** view keep you on the single next action.
-
-### 🧠 Focus-First Dashboard
-Every pixel is designed to reduce cognitive load. The dashboard shows exactly what matters: your active mission, session clock, and momentum metrics. No clutter, just flow.
-
-### 🪟 Multi-Window Architecture
-Three purpose-built surfaces for three states of mind:
-- **Main App** — Plan, prioritize, and review your high-level roadmap.
-- **HUD (Always-on-Top)** — A minimalist floating overlay that keeps your active task visible across every workspace.
-- **Quick Add** — A global popup (`Ctrl+Shift+Space`) to capture ideas without breaking your current focus.
-
-### 🤖 AI Assistant (Cerebras-Powered)
-A conversational agent that actually *operates* the app for you. Powered by [Cerebras](https://cerebras.ai) inference (default model `gpt-oss-120b`), it takes real actions through a tool-calling interface:
-
-| | |
-|---|---|
-| 📋 Tasks | list · create · update · complete · delete |
-| 🎯 Missions | list · create |
-| 📔 Journal | create entries · set mood & gratitude |
-| ⏱️ Focus | start / stop sessions |
-| 📊 Insight | today's summary at a glance |
-
-Ask *"start a deep-work session on the auth refactor"* and it just happens.
-
-### 📔 Journal & 📝 Notes
-- **Journal** — Daily reflections with mood and gratitude tracking, linkable to missions.
-- **Notes** — A full rich-text notepad built on **Tiptap/ProseMirror**: bold, italic, underline, headings, lists, links, inline images, and a distraction-free fullscreen mode. Notes are categorized, pinnable, and mission-linkable.
-
-### 📊 Distraction & Session Analytics
-Stop guessing where your time goes. SynCatch tracks:
-- **Deep Work Sessions** — Log focus periods and associate them with specific missions.
-- **Distraction Logging** — Categorize interruptions (Messages, People, Internal) and get actionable **Avoidance Tips**.
-- **Momentum Metrics** — Visualize your daily and weekly rhythm to work with your peak energy.
-
-### ☁️ Hybrid Persistence
-Choose how you work:
-- **Local Mode** — High-performance SQLite storage. Your data stays on your machine, always offline-first.
-- **Cloud Sync** — Securely sync across devices via Supabase auth + storage for a seamless multi-device experience.
-
-### 🎨 Premium Design System
-Six curated themes that match your work energy:
-
-| Theme | Mood |
-|-------|------|
-| **Dark Focus** | Deep navy + crisp cyan for intense deep work |
-| **Light Studio** | Warm paper tones for planning and brainstorming |
-| **Midnight Purple** | Velvet indigo for late-night productivity |
-| **Zen Mode** | Sage + sand for calm, steady flow |
-| **Solar Flare** | Warm amber for high-energy sprints |
-| **Rose Quartz** | Soft rose for a gentler workspace |
+> *"Sync aachaa?"* — everything in sync, everything caught. The mark is two interlocking loops: your intentions and your time, locked together.
 
 ---
 
-## 🛠️ Technical Specifications
+## Features
 
-### Frontend Stack
-- **React 19** — Latest concurrent features for a fluid UI.
-- **TypeScript 5** — Strict type safety across the entire application.
-- **Vite 5** — Ultra-fast HMR and optimized build pipelines.
-- **Zustand 5** — Lightweight, reactive state management.
-- **Framer Motion 12** — Smooth, high-performance layout transitions.
-- **TailwindCSS 3** — Utility-first styling bound to a tokenized CSS custom-property theme system.
-- **Tiptap 3 / ProseMirror** — Robust, schema-based rich-text editing for Notes.
+**Missions & Tasks.** A two-tier model that mirrors real work — every Mission is a project, every Task belongs to one and carries its own timers, energy, and Definition of Done. First-class subtasks, smart capture, and a focused *What Now?* view keep you on the single next action.
 
-### Backend & OS Integration (Tauri 2)
-- **Rust Backend** — High-performance, memory-safe desktop shell.
-- **Tauri Plugin SQL** — Reliable local persistence via SQLite.
-- **Global Shortcut Plugin** — System-wide listeners for instant task capture.
-- **Autostart Plugin** — Integrates into your OS login flow.
-- **Window Management** — Custom handling for transparent, always-on-top, taskbar-skipping windows.
-- **IPC** — Reactive state synchronization across independent Tauri windows via the Tauri event system.
+**Multi-window architecture.** Three purpose-built surfaces: the Main app for planning, an always-on-top HUD that keeps your active task visible across every workspace, and a global Quick Add popup (`Ctrl+Shift+Space`) for capturing without breaking focus.
 
-### AI & Cloud
-- **Cerebras Chat Completions** — Tool-calling agent loop (`src/lib/cerebras.ts`).
-- **Supabase** — Auth and cloud storage for cross-device sync.
+**AI assistant.** A conversational agent powered by [Cerebras](https://cerebras.ai) inference (`gpt-oss-120b`) that actually operates the app through tool calls — create and complete tasks, manage missions, log journal entries, start and stop focus sessions, and pull a daily summary.
 
-### Typography & Assets
-- **Space Grotesk** — Primary UI font, modern and architectural.
-- **JetBrains Mono** — Monospace for precision timers and data metrics.
-- **Lucide Icons** — Consistent, lightweight vector iconography.
+**Journal & notes.** Daily reflections with mood and gratitude tracking, plus a full rich-text notepad built on Tiptap/ProseMirror — headings, lists, links, inline images, and a distraction-free fullscreen mode. Notes are categorized, pinnable, and mission-linkable.
+
+**Analytics.** Deep-work session logging, categorized distraction tracking with avoidance tips, and momentum metrics that visualize your daily and weekly rhythm.
+
+**Hybrid persistence.** Offline-first local SQLite by default, with optional Supabase auth and cloud sync for a seamless multi-device experience.
+
+**Six themes.** Dark Focus, Light Studio, Midnight Purple, Zen Mode, Solar Flare, and Rose Quartz — each tuned to a different work energy.
+
+**Cross-platform.** A responsive UI that adapts from a 27" monitor to a 6" phone, with a native Android build pipeline.
 
 ---
 
-## 📱 Mobile Support (Android)
+## Tech Stack
 
-SynCatch is truly cross-platform. The current architecture supports:
-- **Mobile-Responsive UI** — Layouts that adapt from 27" monitors to 6" phone screens, with a dedicated bottom navigation.
-- **Native Android Pipeline** — Scripts for environment validation, emulator testing, and signed release APKs.
-
----
-
-## 💿 Installation
-
-### Windows
-1. Download the latest `.msi` or `.exe` from [Releases](https://github.com/deepakraaaj/SynCatch/releases).
-2. Run the installer and launch **SynCatch**.
-
-### Linux (Ubuntu/Debian)
-1. Download the latest `.deb` package from [Releases](https://github.com/deepakraaaj/SynCatch/releases).
-2. Install via terminal:
-   ```bash
-   sudo apt install ./SynCatch_<version>_amd64.deb
-   ```
-
-### Android
-- Download the `.apk` from the latest release assets, or build from source using the provided scripts.
+| Layer | Technologies |
+|-------|--------------|
+| Frontend | React 19, TypeScript 5, Vite 5, Zustand 5, Framer Motion 12, TailwindCSS 3 |
+| Editor | Tiptap 3 / ProseMirror (rich-text notes) |
+| Desktop shell | Tauri 2, Rust, plugin-sql (SQLite), global-shortcut, autostart |
+| AI & cloud | Cerebras chat completions, Supabase auth + storage |
+| Design | Space Grotesk, JetBrains Mono, Lucide icons, tokenized CSS theme system |
 
 ---
 
-## 🏗️ Developer Setup
+## Installation
 
-### Prerequisites
-- **Node.js** ≥ 18
-- **Rust** toolchain (stable)
-- **System dependencies** (Ubuntu):
-  ```bash
-  sudo apt install build-essential libssl-dev libglib2.0-dev libgtk-3-dev \
-      libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev \
-      libwebkit2gtk-4.1-dev libxdo-dev
-  ```
+Download the latest build from [Releases](https://github.com/deepakraaaj/SynCatch/releases).
 
-### Clone & Install
+```bash
+# Ubuntu / Debian
+sudo apt install ./SynCatch_<version>_amd64.deb
+
+# Or run the portable AppImage
+chmod +x SynCatch_<version>_amd64.AppImage && ./SynCatch_<version>_amd64.AppImage
+```
+
+Windows users can run the `.msi` / `.exe`; Android users can install the `.apk`. See the [Installation guide](docs/installation.md) for details and troubleshooting.
+
+---
+
+## Development
+
+**Prerequisites:** Node.js ≥ 18, the Rust toolchain, and (on Ubuntu) the system libraries below.
+
+```bash
+sudo apt install build-essential libssl-dev libglib2.0-dev libgtk-3-dev \
+    libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev \
+    libwebkit2gtk-4.1-dev libxdo-dev
+```
+
 ```bash
 git clone https://github.com/deepakraaaj/SynCatch.git
 cd SynCatch
 npm install
+
+npm run tauri:dev   # desktop app with hot reload + devtools
+npm run dev         # web frontend only → http://localhost:1420
 ```
 
-### Environment Variables
-Create a `.env.local` in the project root. All keys are optional — the app runs fully in offline/local mode without them.
+Optional `.env.local` (the app runs fully offline without it):
 
 ```bash
-# AI Assistant (optional)
-VITE_CEREBRAS_API_KEY=your_cerebras_key
-VITE_CEREBRAS_MODEL=gpt-oss-120b          # default if omitted
-
-# Cloud Sync (optional)
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_CEREBRAS_API_KEY=your_key      # AI assistant
+VITE_CEREBRAS_MODEL=gpt-oss-120b    # optional, this is the default
+VITE_SUPABASE_URL=your_url          # cloud sync
+VITE_SUPABASE_ANON_KEY=your_anon_key
 ```
 
-### Scripts
 | Command | Description |
 |---------|-------------|
-| `npm run tauri:dev` | Launch the desktop development environment |
-| `npm run dev` | Run the web frontend only (Vite) |
+| `npm run tauri:dev` | Desktop development with hot reload |
+| `npm run dev` | Web frontend only |
 | `npm run build` | Type-check and build the frontend |
-| `npm run lint` | Run ESLint across the project |
-| `npm run tauri:build` | Build production installers for the current platform |
-| `npm run android:build:release` | Generate a production Android APK |
-| `npm run android:test:emulator` | Build and validate on an Android emulator |
+| `npm run lint` | Run ESLint |
+| `npm run tauri:build` | Build production installers |
+| `npm run android:build:release` | Build a signed Android APK |
+
+Full setup, Android debugging, and release workflow are in the [docs](#documentation).
 
 ---
 
-## ⌨️ Keyboard Mastery
+## Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+Shift+Space` | Open Quick Add (global) |
 | `Ctrl+Shift+H` | Toggle HUD transparency |
-| `Ctrl+Enter` | Save task / confirm |
-| `Escape` | Close popup / dismiss |
-| `Tab` | Focus navigation |
+| `Ctrl+Enter` | Save / confirm |
+| `Escape` | Close popup |
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 src/
-├── app/              # Window entrypoints (main, hud, quick-add) + bootstrap
-├── features/
-│   ├── missions/     # Projects (Missions)
-│   ├── tasks/        # Tasks, subtasks, composer, detail panel
-│   ├── focus/        # Focus sessions + timers
-│   ├── sessions/     # Deep-work session tracking
-│   ├── activity/     # Distraction & momentum analytics
-│   ├── journal/      # Mood, gratitude, daily reflections
-│   ├── notes/        # Rich-text notepad (Tiptap)
-│   ├── assistant/    # Cerebras AI agent (chat + tools)
-│   ├── auth/ · sync/ # Supabase auth + cloud sync
-│   ├── themes/       # Theme tokens & switching
-│   └── ...
-├── components/ui/    # Shared UI primitives (incl. rich-text-editor)
-├── lib/              # cerebras, supabase, sync-engine, helpers
-└── styles/           # Global CSS + theme custom properties
-src-tauri/            # Rust backend, window config, plugins
+├── app/              Window entrypoints (main, hud, quick-add) + bootstrap
+├── features/         missions · tasks · focus · sessions · activity ·
+│                     journal · notes · assistant · auth · sync · themes
+├── components/ui/    Shared UI primitives (incl. rich-text editor)
+├── lib/              cerebras · supabase · sync-engine · helpers
+└── styles/           Global CSS + theme tokens
+src-tauri/            Rust backend, window config, plugins
 ```
 
 ---
 
-## 📚 Documentation
+## Documentation
 
-Deeper guides live in [`docs/`](docs/):
-
-| Doc | What's inside |
-|-----|---------------|
-| [Installation](docs/installation.md) | Installing SynCatch on Ubuntu (`.deb` / AppImage) |
-| [Developer Guide](docs/developer-guide.md) | Run in debug mode (desktop + Android), environment setup, troubleshooting |
-| [Releasing](docs/releasing.md) | How to push, tag, and publish a release via CI |
+| Guide | Contents |
+|-------|----------|
+| [Installation](docs/installation.md) | Installing on Ubuntu (`.deb` / AppImage) |
+| [Developer Guide](docs/developer-guide.md) | Debug mode (desktop + Android), environment, troubleshooting |
+| [Releasing](docs/releasing.md) | Pushing, tagging, and publishing a release |
 | [Android Release](docs/android-release.md) | Building and signing Android APKs |
-| [Release Troubleshooting](docs/release-troubleshooting.md) | Fixes for issues hit during release builds |
-| [Supabase Setup](docs/supabase-setup.md) | Cloud sync auth + storage setup |
+| [Release Troubleshooting](docs/release-troubleshooting.md) | Fixes for release build issues |
+| [Supabase Setup](docs/supabase-setup.md) | Cloud sync auth + storage |
 
 ---
 
-## 📄 License
+## License
 
-Released under the **MIT License**. See [LICENSE](LICENSE) for details.
-
----
-
-<div align="center">
-
-**Built with obsessive attention to detail.**
-*SynCatch — because your work deserves a premium interface.*
-
-[⬆ Back to top](#-syncatch)
-
-</div>
+Released under the [MIT License](LICENSE).
