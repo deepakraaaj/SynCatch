@@ -14,6 +14,8 @@ export interface Task {
   next_action: string;
   // Freeform context, links, scratch — replaces description + workspace_notes
   notes: string;
+  // What actually got done — captured when the task is completed
+  completion_note: string;
   status: TaskStatus;
   priority: TaskPriority;
   lane: TaskLane;
@@ -35,6 +37,7 @@ export interface TaskDraft {
   outcome?: string;
   next_action?: string;
   notes?: string;
+  completion_note?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
   lane?: TaskLane;

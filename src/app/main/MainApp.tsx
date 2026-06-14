@@ -724,7 +724,7 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       {!compact ? (
-        <SynCatchWordmark themed logoClassName="h-12 w-12" textClassName="text-2xl font-bold tracking-tight" />
+        <SynCatchWordmark themed animated logoClassName="h-12 w-12" textClassName="text-2xl font-bold tracking-tight" />
       ) : null}
 
       <div className={cn('space-y-2', compact ? '' : 'mt-8')}>
@@ -4023,7 +4023,7 @@ export function MainApp() {
   return (
     <div className="h-full">
       {mobileNavOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end lg:hidden">
+        <div className="fixed inset-0 z-50 flex justify-start lg:hidden">
           <button
             type="button"
             className="absolute inset-0 transition-opacity"
@@ -4033,7 +4033,7 @@ export function MainApp() {
           />
           <aside className="relative z-10 flex h-full min-h-0 w-[284px] flex-col overflow-hidden bg-panel2 p-6 shadow-2xl transition-transform duration-300">
             <div className="mb-8 flex items-center justify-between gap-3">
-              <SynCatchWordmark themed logoClassName="h-7 w-7" textClassName="text-sm font-bold tracking-tight" />
+              <SynCatchWordmark themed animated logoClassName="h-7 w-7" textClassName="text-sm font-bold tracking-tight" />
               <Button onClick={() => setMobileNavOpen(false)} size="sm" type="button" variant="ghost" className="h-8 w-8 p-0 rounded-full">
                 <X className="h-4 w-4" />
               </Button>
@@ -4149,8 +4149,8 @@ export function MainApp() {
             </div>
           </header>
 
-          <div className="relative min-h-0 flex-1 overflow-hidden">
-            <main className="main-scroll-region absolute inset-0 overflow-y-scroll px-3 py-4 pb-32 sm:px-6 sm:py-6 lg:pb-6" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="relative min-h-0 flex-1 overflow-hidden lg:flex">
+            <main className="main-scroll-region absolute inset-0 overflow-y-scroll px-3 py-4 pb-32 sm:px-6 sm:py-6 lg:relative lg:inset-auto lg:h-full lg:min-w-0 lg:flex-1 lg:pb-6" style={{ WebkitOverflowScrolling: 'touch' }}>
               {activeView === 'apps' ? (
                 <AppsWorkspacePage
                   activeView={previousViewBeforeApps}
@@ -4188,12 +4188,12 @@ export function MainApp() {
               <>
                 <button
                   aria-label="Close task details"
-                  className="absolute inset-0 z-30 bg-black/24 min-[1400px]:hidden"
+                  className="absolute inset-0 z-30 bg-black/24 lg:hidden"
                   onClick={() => setDetailTaskId(null)}
                   type="button"
                 />
 
-                <aside className="absolute inset-y-0 right-0 z-40 w-full max-w-[420px] overflow-hidden border-l border-borderSoft/30 bg-panel shadow-2xl min-[1400px]:relative min-[1400px]:inset-auto min-[1400px]:h-full min-[1400px]:min-h-0 min-[1400px]:w-[420px] min-[1400px]:max-w-none min-[1400px]:shrink-0 min-[1400px]:overflow-hidden min-[1400px]:shadow-none">
+                <aside className="absolute inset-y-0 right-0 z-40 w-full max-w-[420px] overflow-hidden border-l border-borderSoft/30 bg-panel shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:h-full lg:min-h-0 lg:w-[380px] lg:max-w-none lg:shrink-0 lg:shadow-none xl:w-[420px]">
                   <TaskDetailPanel
                     allTasks={tasks}
                     onClose={() => setDetailTaskId(null)}

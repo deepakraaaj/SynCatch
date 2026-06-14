@@ -24,6 +24,7 @@ interface SqlTaskRow {
   outcome: string;
   next_action: string;
   notes: string;
+  completion_note: string;
   status: Task['status'];
   priority: Task['priority'];
   lane: Task['lane'];
@@ -90,10 +91,10 @@ class BrowserTaskRepository implements TaskRepository {
 }
 
 const TASK_INSERT_SQL = `INSERT INTO tasks (
-  id, mission_id, parent_task_id, title, outcome, next_action, notes,
+  id, mission_id, parent_task_id, title, outcome, next_action, notes, completion_note,
   status, priority, lane, energy, estimated_minutes,
   due_date, scheduled_for, tags_json, completed_at, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 function taskInsertParams(task: Task) {
   return [
@@ -104,6 +105,7 @@ function taskInsertParams(task: Task) {
     task.outcome,
     task.next_action,
     task.notes,
+    task.completion_note,
     task.status,
     task.priority,
     task.lane,
@@ -119,7 +121,7 @@ function taskInsertParams(task: Task) {
 }
 
 const TASK_UPDATE_SQL = `UPDATE tasks SET
-  mission_id = ?, parent_task_id = ?, title = ?, outcome = ?, next_action = ?, notes = ?,
+  mission_id = ?, parent_task_id = ?, title = ?, outcome = ?, next_action = ?, notes = ?, completion_note = ?,
   status = ?, priority = ?, lane = ?, energy = ?, estimated_minutes = ?,
   due_date = ?, scheduled_for = ?, tags_json = ?, completed_at = ?, updated_at = ?
 WHERE id = ?`;
@@ -132,6 +134,7 @@ function taskUpdateParams(task: Task) {
     task.outcome,
     task.next_action,
     task.notes,
+    task.completion_note,
     task.status,
     task.priority,
     task.lane,

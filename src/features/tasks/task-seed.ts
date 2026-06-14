@@ -40,6 +40,7 @@ function createSeedTask({
     outcome: generated.outcome,
     next_action: generated.next_action,
     notes: notes ?? '',
+    completion_note: '',
     status: derivedStatus,
     priority: generated.priority,
     lane,

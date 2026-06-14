@@ -21,6 +21,17 @@ interface TaskDetailPanelProps {
 const LANE_OPTIONS: TaskLane[] = ['inbox', 'now', 'next', 'later', 'done'];
 const PRIORITY_OPTIONS: TaskPriority[] = ['low', 'normal', 'high', 'critical'];
 const ENERGY_OPTIONS: TaskEnergy[] = ['admin', 'shallow', 'deep'];
+const ESTIMATE_PRESETS = [15, 30, 45, 60, 90, 120, 240];
+
+/** "45m", "1h", "1h 30m" — minutes stay the stored unit; this is display-only. */
+function humanizeMinutes(total: number) {
+  if (!total || total < 60) {
+    return `${total || 0}m`;
+  }
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+}
 
 function ChipSelect<T extends string>({
   options,
@@ -314,9 +325,32 @@ export function TaskDetailPanel({ task, allTasks, onClose, onOpenTask }: TaskDet
               toneMap={(v) => v === 'deep' ? 'attention' : 'default'}
             />
           </div>
-          <div className="flex gap-4">
-            <div className="space-y-1.5">
-              <FieldLabel>Estimate</FieldLabel>
+          <div className="space-y-2">
+            <FieldLabel>Estimate</FieldLabel>
+            <div className="flex flex-wrap gap-1.5">
+              {ESTIMATE_PRESETS.map((preset) => {
+                const active = draft.estimated_minutes === preset;
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      update('estimated_minutes', preset);
+                      void handleSave();
+                    }}
+                    className={cn(
+                      'inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-medium transition-colors',
+                      active
+                        ? 'border-accent/35 bg-accent/12 text-accent'
+                        : 'border-borderSoft/40 text-text-secondary hover:border-borderStrong/40 hover:text-text-primary',
+                    )}
+                  >
+                    {humanizeMinutes(preset)}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
                 <input
                   type="number"
@@ -330,57 +364,53 @@ export function TaskDetailPanel({ task, allTasks, onClose, onOpenTask }: TaskDet
                 />
                 <span className="text-xs text-text-muted">min</span>
               </div>
+              {draft.estimated_minutes >= 60 ? (
+                <span className="text-xs text-text-muted">= {humanizeMinutes(draft.estimated_minutes)}</span>
+              ) : null}
             </div>
-            <div className="space-y-1.5">
-              <FieldLabel>Due date</FieldLabel>
-              <DatePicker
-                value={draft.due_date}
-                onChange={(date) => {
-                  update('due_date', date);
-                  void handleSave();
-                }}
-              />
-            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <FieldLabel>Due date</FieldLabel>
+            <DatePicker
+              value={draft.due_date}
+              onChange={(date) => {
+                update('due_date', date);
+                void handleSave();
+              }}
+            />
           </div>
         </div>
 
-        {/* Outcome */}
+        {/* Description */}
         <div className="space-y-1.5">
-          <FieldLabel>Outcome</FieldLabel>
-          <Textarea
-            value={draft.outcome}
-            onChange={(e) => update('outcome', e.target.value)}
-            onBlur={() => void handleSave()}
-            placeholder="What concretely exists when this is done?"
-            rows={2}
-            className="resize-none text-sm"
-          />
-        </div>
-
-        {/* Next action */}
-        <div className="space-y-1.5">
-          <FieldLabel>Next action</FieldLabel>
-          <Input
-            value={draft.next_action}
-            onChange={(e) => update('next_action', e.target.value)}
-            onBlur={() => void handleSave()}
-            placeholder="The smallest step right now"
-            className="text-sm"
-          />
-        </div>
-
-        {/* Notes */}
-        <div className="space-y-1.5">
-          <FieldLabel>Notes</FieldLabel>
+          <FieldLabel>Description</FieldLabel>
           <Textarea
             value={draft.notes}
             onChange={(e) => update('notes', e.target.value)}
             onBlur={() => void handleSave()}
-            placeholder="Links, context, anything else."
-            rows={3}
+            placeholder="What is this task about? Context, links, details…"
+            rows={4}
             className="resize-none text-sm"
           />
         </div>
+
+        {/* Completion note — appears once the task is done */}
+        {draft.lane === 'done' ? (
+          <div className="space-y-1.5 rounded-[14px] border border-success/25 bg-success/[0.06] p-3">
+            <FieldLabel>
+              <span className="text-success">Completion note</span>
+            </FieldLabel>
+            <Textarea
+              value={draft.completion_note}
+              onChange={(e) => update('completion_note', e.target.value)}
+              onBlur={() => void handleSave()}
+              placeholder="What actually got done? Outcome, blockers, follow-ups…"
+              rows={3}
+              className="resize-none text-sm"
+            />
+          </div>
+        ) : null}
 
         {/* Tags */}
         <div className="space-y-1.5">
@@ -439,7 +469,18 @@ export function TaskDetailPanel({ task, allTasks, onClose, onOpenTask }: TaskDet
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            onClick={() => void markDone(task.id)}
+            onClick={async () => {
+              if (dirty) await handleSave();
+              await markDone(task.id);
+              // Reflect completion locally (without marking dirty) so the
+              // completion-note field appears right away to capture a summary.
+              setDraft((d) => ({
+                ...d,
+                lane: 'done',
+                status: 'done',
+                completed_at: d.completed_at ?? new Date().toISOString(),
+              }));
+            }}
             disabled={task.lane === 'done'}
             variant={task.lane === 'done' ? 'ghost' : 'primary'}
           >

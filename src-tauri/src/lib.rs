@@ -250,6 +250,14 @@ fn database_migrations() -> Vec<Migration> {
             "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 13,
+            description: "add_task_completion_note",
+            sql: r#"
+              ALTER TABLE tasks ADD COLUMN completion_note TEXT NOT NULL DEFAULT '';
+            "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

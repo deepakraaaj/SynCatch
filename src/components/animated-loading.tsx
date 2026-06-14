@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { SynCatchLogo } from './SynCatchLogo';
+import { SynCatchLogoAnimated } from './SynCatchLogoAnimated';
 
 interface AnimatedLoadingProps {
   autoDismiss?: boolean;
@@ -56,7 +56,7 @@ export function AnimatedLoading({ autoDismiss = false, dismissAfter = 2000 }: An
         */}
 
         <div className="flex flex-col items-center gap-4 text-center">
-          <SynCatchLogo className="h-20 w-20" />
+          <SynCatchLogoAnimated className="h-20 w-20" loop />
           <div>
             <h1 className="text-5xl font-black tracking-tighter">
               <span className="text-text-primary">Syn</span>
@@ -71,6 +71,8 @@ export function AnimatedLoading({ autoDismiss = false, dismissAfter = 2000 }: An
           </div>
         </div>
 
+        {/* Standalone spinner ring removed — it was a second, unsynced motion
+            competing with the animated SynCatch stopwatch above.
         <div className="relative w-20 h-20">
           <div
             className="absolute inset-0 rounded-full border-2 border-transparent"
@@ -96,6 +98,7 @@ export function AnimatedLoading({ autoDismiss = false, dismissAfter = 2000 }: An
             />
           </div>
         </div>
+        */}
 
         <div className="flex gap-1.5">
           {[0, 1, 2].map((i) => (

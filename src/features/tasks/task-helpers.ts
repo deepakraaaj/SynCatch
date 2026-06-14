@@ -32,6 +32,7 @@ export function normalizeTaskDraft(draft: TaskDraft): Task {
     outcome: generated.outcome,
     next_action: generated.next_action,
     notes: draft.notes?.trim() ?? '',
+    completion_note: draft.completion_note?.trim() ?? '',
     status,
     priority: generated.priority,
     lane,
@@ -54,6 +55,7 @@ interface TaskRecordInput {
   outcome?: string | null;
   next_action?: string | null;
   notes?: string | null;
+  completion_note?: string | null;
   status?: TaskStatus;
   priority?: TaskPriority;
   lane?: TaskLane;
@@ -87,6 +89,7 @@ export function hydrateTaskRecord(record: TaskRecordInput): Task {
     outcome: generated.outcome,
     next_action: generated.next_action,
     notes: record.notes?.trim() ?? '',
+    completion_note: record.completion_note?.trim() ?? '',
     status,
     priority: generated.priority,
     lane,

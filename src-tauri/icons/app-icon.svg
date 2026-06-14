@@ -4,12 +4,8 @@
       <stop offset="0%" stop-color="#141A24"/>
       <stop offset="100%" stop-color="#0A0E12"/>
     </linearGradient>
-    <linearGradient id="syn" x1="180" y1="360" x2="500" y2="680" gradientUnits="userSpaceOnUse">
+    <linearGradient id="mark" x1="300" y1="240" x2="760" y2="800" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#8A7BFF"/>
-      <stop offset="100%" stop-color="#5B4BD6"/>
-    </linearGradient>
-    <linearGradient id="catch" x1="540" y1="360" x2="860" y2="680" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#58D7FF"/>
       <stop offset="100%" stop-color="#2F7DFF"/>
     </linearGradient>
   </defs>
@@ -17,15 +13,19 @@
   <!-- App tile background -->
   <rect x="0" y="0" width="1024" height="1024" rx="232" fill="url(#bg)"/>
 
-  <!-- SynCatch mark: two interlocking loops (Syn = purple, Catch = blue).
-       Geometry scaled ×8 from the in-app SynCatchLogo (cx 38/62, r 21, sw 12 on a 100 canvas),
-       centered on the 1024 tile. -->
+  <!-- SynCatch mark: a clean, symmetric stopwatch (crown + side buttons + sweep hand)
+       in a single purple→blue brand gradient — signals a focus / time-tracking tool.
+       Geometry on a 100 canvas, scaled ×8 and centered on the 1024 tile. -->
   <g transform="translate(112, 112) scale(8)">
-    <!-- Purple loop (Syn) -->
-    <circle cx="38" cy="50" r="21" fill="none" stroke="url(#syn)" stroke-width="12"/>
-    <!-- Blue loop (Catch) — drawn on top -->
-    <circle cx="62" cy="50" r="21" fill="none" stroke="url(#catch)" stroke-width="12"/>
-    <!-- Weave: bring a short purple arc back over the blue ring at the lower crossing -->
-    <path d="M 50 67 A 21 21 0 0 1 38 71" fill="none" stroke="url(#syn)" stroke-width="12" stroke-linecap="butt"/>
+    <!-- Side buttons (symmetric) -->
+    <line x1="30.7" y1="32" x2="26.2" y2="26.7" stroke="url(#mark)" stroke-width="5" stroke-linecap="round"/>
+    <line x1="69.3" y1="32" x2="73.8" y2="26.7" stroke="url(#mark)" stroke-width="5" stroke-linecap="round"/>
+    <!-- Crown -->
+    <rect x="45.5" y="11" width="9" height="12" rx="3" fill="url(#mark)"/>
+    <!-- Watch body -->
+    <circle cx="50" cy="55" r="28" fill="none" stroke="url(#mark)" stroke-width="9"/>
+    <!-- Sweep hand + hub -->
+    <line x1="50" y1="55" x2="57.5" y2="42" stroke="url(#mark)" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="50" cy="55" r="4.5" fill="url(#mark)"/>
   </g>
 </svg>

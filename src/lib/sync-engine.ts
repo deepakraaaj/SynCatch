@@ -148,6 +148,7 @@ class SyncEngine {
           outcome: task.outcome,
           next_action: task.next_action,
           notes: task.notes,
+          completion_note: task.completion_note,
           status: task.status,
           priority: task.priority,
           lane: task.lane,
@@ -165,10 +166,10 @@ class SyncEngine {
           database: 'sqlite:mission-control.db',
           query: `
             INSERT OR REPLACE INTO tasks (
-              id, mission_id, parent_task_id, title, outcome, next_action, notes,
+              id, mission_id, parent_task_id, title, outcome, next_action, notes, completion_note,
               status, priority, lane, energy, estimated_minutes, due_date,
               scheduled_for, tags_json, completed_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           values: [
             payload.id,
@@ -178,6 +179,7 @@ class SyncEngine {
             payload.outcome,
             payload.next_action,
             payload.notes,
+            payload.completion_note,
             payload.status,
             payload.priority,
             payload.lane,
