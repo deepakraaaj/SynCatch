@@ -1,58 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none">
   <defs>
-    <linearGradient id="ring" x1="120" y1="108" x2="386" y2="404" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#141A24"/>
+      <stop offset="100%" stop-color="#0A0E12"/>
+    </linearGradient>
+    <linearGradient id="syn" x1="180" y1="360" x2="500" y2="680" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8A7BFF"/>
+      <stop offset="100%" stop-color="#5B4BD6"/>
+    </linearGradient>
+    <linearGradient id="catch" x1="540" y1="360" x2="860" y2="680" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#58D7FF"/>
-      <stop offset="55%" stop-color="#1B9FFF"/>
-      <stop offset="100%" stop-color="#0A6DFF"/>
-    </linearGradient>
-    <linearGradient id="left-leg" x1="128" y1="344" x2="194" y2="154" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#47C7FF"/>
       <stop offset="100%" stop-color="#2F7DFF"/>
-    </linearGradient>
-    <linearGradient id="left-peak" x1="192" y1="154" x2="256" y2="252" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#7A7BFF"/>
-      <stop offset="100%" stop-color="#C16DFF"/>
-    </linearGradient>
-    <linearGradient id="right-peak" x1="256" y1="252" x2="320" y2="154" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#FF73C9"/>
-      <stop offset="100%" stop-color="#FF8B44"/>
-    </linearGradient>
-    <linearGradient id="right-leg" x1="320" y1="154" x2="384" y2="344" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#FF9B3D"/>
-      <stop offset="100%" stop-color="#FFD65A"/>
     </linearGradient>
   </defs>
 
-  <circle cx="256" cy="248" r="156" stroke="url(#ring)" stroke-width="56"/>
+  <!-- App tile background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="232" fill="url(#bg)"/>
 
-  <path
-    d="M138 340L192 154"
-    stroke="url(#left-leg)"
-    stroke-linecap="round"
-    stroke-width="70"
-  />
-  <path
-    d="M192 154L256 252"
-    stroke="url(#left-peak)"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    stroke-opacity="0.9"
-    stroke-width="70"
-  />
-  <path
-    d="M256 252L320 154"
-    stroke="url(#right-peak)"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    stroke-opacity="0.9"
-    stroke-width="70"
-  />
-  <path
-    d="M320 154L374 340"
-    stroke="url(#right-leg)"
-    stroke-linecap="round"
-    stroke-width="70"
-  />
-
-  <circle cx="256" cy="354" r="24" fill="#FFD164"/>
+  <!-- SynCatch mark: two interlocking loops (Syn = purple, Catch = blue).
+       Geometry scaled ×8 from the in-app SynCatchLogo (cx 38/62, r 21, sw 12 on a 100 canvas),
+       centered on the 1024 tile. -->
+  <g transform="translate(112, 112) scale(8)">
+    <!-- Purple loop (Syn) -->
+    <circle cx="38" cy="50" r="21" fill="none" stroke="url(#syn)" stroke-width="12"/>
+    <!-- Blue loop (Catch) — drawn on top -->
+    <circle cx="62" cy="50" r="21" fill="none" stroke="url(#catch)" stroke-width="12"/>
+    <!-- Weave: bring a short purple arc back over the blue ring at the lower crossing -->
+    <path d="M 50 67 A 21 21 0 0 1 38 71" fill="none" stroke="url(#syn)" stroke-width="12" stroke-linecap="butt"/>
+  </g>
 </svg>

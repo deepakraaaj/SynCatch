@@ -1,6 +1,8 @@
 # Android Release
 
-MissionControl uses Tauri's Android signing flow with a private Java keystore.
+SynCatch uses Tauri's Android signing flow with a private Java keystore.
+
+> The keystore path `~/.config/missioncontrol/` reflects the current build identifier and is correct as written.
 
 ## Local setup
 
