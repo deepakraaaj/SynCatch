@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { Plus, Quote, Rocket, Zap } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
 import { useAuthStore } from '../auth/auth-store';
 import { useSettingsStore } from '../settings/settings-store';
 
@@ -41,11 +40,6 @@ export function DashboardView({ onNavigate, onNewTask, onNewMission }: Dashboard
 
   const now = new Date(nowMs);
   const name = getDisplayName(session?.user?.user_metadata, session?.user?.email);
-  const dateLabel = now.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
 
   const fade = reduceMotion
     ? {}
@@ -58,56 +52,55 @@ export function DashboardView({ onNavigate, onNewTask, onNewMission }: Dashboard
   return (
     <div className="space-y-4 sm:space-y-6">
       <motion.div {...fade}>
-        <Card className="relative min-h-[calc(100vh-180px)] overflow-hidden rounded-[34px] border border-borderSoft/30 p-6 shadow-panel sm:p-8">
+        <Card className="relative overflow-hidden rounded-[34px] border border-borderSoft/30 p-5 shadow-panel sm:p-6 lg:p-7">
           <div
             aria-hidden
-            className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-accent/15 via-accent/70 to-accent/15"
+            className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-accent/10 via-accent/75 to-accent/10"
           />
 
           <div
             aria-hidden
-            className="absolute right-0 top-0 h-40 w-40 translate-x-10 -translate-y-10 rounded-full border border-accent/15 bg-accent/5"
+            className="absolute right-0 top-0 h-28 w-28 translate-x-10 -translate-y-10 rounded-full border border-accent/15 bg-accent/5"
           />
 
-          <div className="relative flex min-h-[calc(100vh-240px)] flex-col justify-between gap-8">
-            <div className="space-y-4">
-              <div className="max-w-3xl space-y-4">
-                <h1 className="text-4xl font-bold tracking-tight text-text-primary sm:text-6xl">
-                  {greeting(now.getHours())}, {name}
-                </h1>
-              </div>
-            </div>
+          <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
+            <div className="min-w-0 space-y-5">
+              <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
+                {greeting(now.getHours())}, {name}
+              </h1>
 
-            <div className="relative overflow-hidden rounded-[30px] border border-borderSoft/30 bg-panel/18 p-6 sm:p-8">
-              <div aria-hidden className="absolute inset-y-0 left-0 w-px bg-accent/65" />
-              <div className="flex items-start gap-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-accent/20 bg-accent/10 text-accent">
-                  <Quote className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <blockquote className="mt-4">
-                    <p className="max-w-3xl text-2xl leading-10 text-text-primary sm:text-[1.9rem] sm:leading-[3rem]">
+              <div className="relative overflow-hidden rounded-[26px] border border-borderSoft/30 bg-panel/20 p-5 sm:p-6">
+                <div aria-hidden className="absolute inset-y-0 left-0 w-px bg-accent/65" />
+                <div className="flex items-start gap-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-accent/20 bg-accent/10 text-accent">
+                    <Quote className="h-4.5 w-4.5" />
+                  </span>
+                  <blockquote className="min-w-0 flex-1">
+                    <p className="max-w-3xl text-xl leading-9 text-text-primary sm:text-[1.65rem] sm:leading-[2.7rem]">
                       “Well begun is half done.”
                     </p>
-                    <footer className="mt-4 text-sm text-text-secondary">Aristotle</footer>
+                    <footer className="mt-3 text-sm text-text-secondary">Aristotle</footer>
                   </blockquote>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Button onClick={() => onNavigate('focus')} type="button">
-                <Zap className="h-4 w-4" />
-                Start focus
-              </Button>
-              <Button onClick={onNewTask} type="button" variant="secondary">
-                <Plus className="h-4 w-4" />
-                New task
-              </Button>
-              <Button onClick={onNewMission} type="button" variant="secondary">
-                <Rocket className="h-4 w-4" />
-                New mission
-              </Button>
+            <div className="flex min-w-0 flex-col justify-between gap-4 rounded-[26px] border border-borderSoft/30 bg-panel/20 p-5 sm:p-6">
+              <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted">Actions</p>
+              <div className="space-y-2.5">
+                <Button onClick={() => onNavigate('focus')} type="button" className="w-full justify-start">
+                  <Zap className="h-4 w-4" />
+                  Start focus
+                </Button>
+                <Button onClick={onNewTask} type="button" variant="secondary" className="w-full justify-start">
+                  <Plus className="h-4 w-4" />
+                  New task
+                </Button>
+                <Button onClick={onNewMission} type="button" variant="secondary" className="w-full justify-start">
+                  <Rocket className="h-4 w-4" />
+                  New mission
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
