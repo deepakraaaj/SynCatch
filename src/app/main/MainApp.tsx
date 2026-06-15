@@ -42,6 +42,7 @@ import {
   type WorkSession,
 } from '../../features/sessions/session-types';
 import { useSettingsStore } from '../../features/settings/settings-store';
+import { DownloadsCard } from '../../features/settings/DownloadsCard';
 import type { SidebarPinnedAppId } from '../../features/preferences/preferences-types';
 import { MissionComposer } from '../../features/missions/MissionComposer';
 import { useMissionStore } from '../../features/missions/mission-store';
@@ -49,6 +50,7 @@ import { RoadmapView } from '../../features/roadmap/RoadmapView';
 import { JournalView } from '../../features/journal/JournalView';
 import { NotesView } from '../../features/notes/NotesView';
 import { AssistantView } from '../../features/assistant/AssistantView';
+import { DashboardView } from '../../features/dashboard/DashboardView';
 import { AssistantWidget } from '../../features/assistant/AssistantWidget';
 import { SynCatchWordmark } from '../../components/SynCatchLogo';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
@@ -64,7 +66,7 @@ import { formatRelativeTime } from '../../lib/date';
 import { isTauriApp, showHudWindow, showQuickAddWindow, subscribeAppEvent } from '../../lib/tauri';
 import { useIsMobile } from '../../hooks/use-mobile';
 
-type MainView = 'focus' | 'missions' | 'roadmap' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'journal' | 'notes' | 'assistant' | 'settings' | 'apps';
+type MainView = 'dashboard' | 'focus' | 'missions' | 'roadmap' | 'today' | 'tasks' | 'history' | 'insights' | 'review' | 'journal' | 'notes' | 'assistant' | 'settings' | 'apps';
 
 type CaptureState = {
   kind: SessionCaptureKind;
@@ -88,6 +90,13 @@ const launcherViews: Array<{
   description: string;
   gradient: string;
 }> = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: BarChart3,
+    description: 'See the control surface',
+    gradient: 'from-cyan-500 via-sky-500 to-indigo-600',
+  },
   {
     id: 'focus',
     label: 'What Now',
@@ -542,6 +551,7 @@ function getSuggestedTask(tasks: Task[], blockedTaskIds: Set<string>, currentTas
 
 function getViewCopy(view: MainView) {
   const labels: Record<MainView, string> = {
+    dashboard: 'Dashboard',
     focus: 'What Now',
     missions: 'Missions',
     roadmap: 'Roadmap',
@@ -724,7 +734,14 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       {!compact ? (
-        <SynCatchWordmark themed animated logoClassName="h-12 w-12" textClassName="text-2xl font-bold tracking-tight" />
+        <button
+          type="button"
+          onClick={() => onViewSelect('dashboard')}
+          aria-label="Go to dashboard"
+          className="-mx-1 flex items-center rounded-2xl px-1 py-1 transition-opacity hover:opacity-80"
+        >
+          <SynCatchWordmark themed animated logoClassName="h-12 w-12" textClassName="text-2xl font-bold tracking-tight" />
+        </button>
       ) : null}
 
       <div className={cn('space-y-2', compact ? '' : 'mt-8')}>
@@ -1944,7 +1961,7 @@ export function MainApp() {
   const addCapture = useSessionStore((state) => state.addCapture);
   const dismissRecovery = useSessionStore((state) => state.dismissRecovery);
 
-  const [activeView, setActiveView] = useState<MainView>('missions');
+  const [activeView, setActiveView] = useState<MainView>('dashboard');
   const [minutes, setMinutes] = useState(25);
   const [presetId, setPresetId] = useState<SessionPresetId>('focus');
   const [captureState, setCaptureState] = useState<CaptureState>(null);
@@ -3787,6 +3804,8 @@ export function MainApp() {
           syncModeLabel={syncMode === 'cloud' ? 'Cloud sync' : 'Local only'}
         />
 
+        <DownloadsCard />
+
         <Card className="rounded-[34px] p-6">
           <SectionHeading action={<Badge tone="accent">Theme</Badge>} title="Appearance" />
 
@@ -4033,7 +4052,14 @@ export function MainApp() {
           />
           <aside className="relative z-10 flex h-full min-h-0 w-[284px] flex-col overflow-hidden bg-panel2 p-6 shadow-2xl transition-transform duration-300">
             <div className="mb-8 flex items-center justify-between gap-3">
-              <SynCatchWordmark themed animated logoClassName="h-7 w-7" textClassName="text-sm font-bold tracking-tight" />
+              <button
+                type="button"
+                onClick={() => { setActiveView('dashboard'); setMobileNavOpen(false); }}
+                aria-label="Go to dashboard"
+                className="flex items-center rounded-xl transition-opacity hover:opacity-80"
+              >
+                <SynCatchWordmark themed animated logoClassName="h-7 w-7" textClassName="text-sm font-bold tracking-tight" />
+              </button>
               <Button onClick={() => setMobileNavOpen(false)} size="sm" type="button" variant="ghost" className="h-8 w-8 p-0 rounded-full">
                 <X className="h-4 w-4" />
               </Button>
@@ -4158,6 +4184,13 @@ export function MainApp() {
                   onTogglePinnedApp={toggleSidebarPinnedApp}
                   onViewSelect={(view) => setActiveView(view)}
                   pinnedAppIds={sidebarPinnedApps}
+                />
+              ) : null}
+              {activeView === 'dashboard' ? (
+                <DashboardView
+                  onNavigate={(view) => setActiveView(view)}
+                  onNewTask={() => { setActiveView('tasks'); setTaskComposerOpen(true); }}
+                  onNewMission={() => { setActiveView('missions'); setMissionComposerOpen(true); }}
                 />
               ) : null}
               {activeView === 'focus' ? renderFocus() : null}

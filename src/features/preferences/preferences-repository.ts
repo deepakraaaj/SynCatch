@@ -45,6 +45,17 @@ function mergeParsedState<T extends object>(raw: string | null, defaults: T): T 
   }
 }
 
+function shouldSeedDefaultSidebarPins(snapshot: SettingsSnapshot) {
+  return (
+    snapshot.sidebarPinnedApps.length === 0 &&
+    snapshot.reduceMotion === DEFAULT_SETTINGS_SNAPSHOT.reduceMotion &&
+    snapshot.quickAddShortcut === DEFAULT_SETTINGS_SNAPSHOT.quickAddShortcut &&
+    snapshot.focusPromptStyle === DEFAULT_SETTINGS_SNAPSHOT.focusPromptStyle &&
+    snapshot.syncMode === DEFAULT_SETTINGS_SNAPSHOT.syncMode &&
+    snapshot.launchAtLogin === DEFAULT_SETTINGS_SNAPSHOT.launchAtLogin
+  );
+}
+
 class BrowserPreferencesRepository implements PreferencesRepository {
   async loadTheme(): Promise<ThemeSnapshot | null> {
     const raw = localStorage.getItem(THEME_STORAGE_KEY);
@@ -61,7 +72,10 @@ class BrowserPreferencesRepository implements PreferencesRepository {
   }
 
   async loadSettings(): Promise<SettingsSnapshot> {
-    return mergeParsedState(localStorage.getItem(SETTINGS_STORAGE_KEY), DEFAULT_SETTINGS_SNAPSHOT);
+    const snapshot = mergeParsedState(localStorage.getItem(SETTINGS_STORAGE_KEY), DEFAULT_SETTINGS_SNAPSHOT);
+    return shouldSeedDefaultSidebarPins(snapshot)
+      ? { ...snapshot, sidebarPinnedApps: DEFAULT_SETTINGS_SNAPSHOT.sidebarPinnedApps }
+      : snapshot;
   }
 
   async saveSettings(snapshot: SettingsSnapshot) {
@@ -142,7 +156,10 @@ class SupabasePreferencesRepository implements PreferencesRepository {
     const { selectPreference } = await import('../../lib/supabase');
     const value = await selectPreference('settings');
     if (!value) return DEFAULT_SETTINGS_SNAPSHOT;
-    return JSON.parse(value) as SettingsSnapshot;
+    const snapshot = JSON.parse(value) as SettingsSnapshot;
+    return shouldSeedDefaultSidebarPins(snapshot)
+      ? { ...snapshot, sidebarPinnedApps: DEFAULT_SETTINGS_SNAPSHOT.sidebarPinnedApps }
+      : snapshot;
   }
 
   async saveSettings(snapshot: SettingsSnapshot) {

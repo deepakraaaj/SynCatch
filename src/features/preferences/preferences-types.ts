@@ -6,6 +6,7 @@ export interface ThemeSnapshot {
 
 export type SyncMode = 'local' | 'cloud';
 export type SidebarPinnedAppId =
+  | 'dashboard'
   | 'focus'
   | 'missions'
   | 'roadmap'
@@ -38,5 +39,5 @@ export const DEFAULT_SETTINGS_SNAPSHOT: SettingsSnapshot = {
   focusPromptStyle: 'gentle',
   syncMode: 'local',
   launchAtLogin: false,
-  sidebarPinnedApps: [],
+  sidebarPinnedApps: ['dashboard', 'tasks', 'missions', 'journal', 'notes'],
 };
