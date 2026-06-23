@@ -9,6 +9,7 @@ import { useMissionStore } from '../missions/mission-store';
 import { getSubtasks, humanizeEnergy, humanizeLane, humanizePriority } from './task-helpers';
 import { useTaskStore } from './task-store';
 import type { Task, TaskEnergy, TaskLane, TaskPriority } from './task-types';
+import { AssigneeSelect } from '../collaborators/AssigneeSelect';
 import { Trash2 } from 'lucide-react';
 
 interface TaskDetailPanelProps {
@@ -380,6 +381,20 @@ export function TaskDetailPanel({ task, allTasks, onClose, onOpenTask }: TaskDet
               }}
             />
           </div>
+        </div>
+
+        {/* Assignees */}
+        <div className="space-y-1.5">
+          <FieldLabel>Assignees</FieldLabel>
+          <AssigneeSelect
+            value={draft.assignee_ids}
+            onChange={(ids) => {
+              const next = { ...draft, assignee_ids: ids, updated_at: new Date().toISOString() };
+              setDraft(next);
+              setDirty(false);
+              void saveTask(next);
+            }}
+          />
         </div>
 
         {/* Description */}

@@ -49,6 +49,7 @@ function createSeedTask({
     due_date: null,
     scheduled_for: null,
     tags: [],
+    assignee_ids: [],
     completed_at: derivedStatus === 'done' ? updatedAt : null,
     created_at: createdAt,
     updated_at: updatedAt,

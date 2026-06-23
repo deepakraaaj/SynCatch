@@ -25,6 +25,8 @@ export interface Task {
   due_date: string | null;       // ISO date YYYY-MM-DD
   scheduled_for: string | null;  // ISO date YYYY-MM-DD
   tags: string[];
+  // Collaborator user IDs this task is shared with / assigned to
+  assignee_ids: string[];
   completed_at: string | null;   // ISO timestamp; set when moved to done
   created_at: string;
   updated_at: string;
@@ -46,4 +48,5 @@ export interface TaskDraft {
   due_date?: string | null;
   scheduled_for?: string | null;
   tags?: string[];
+  assignee_ids?: string[];
 }

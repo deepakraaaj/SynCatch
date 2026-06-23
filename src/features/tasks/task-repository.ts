@@ -33,12 +33,13 @@ interface SqlTaskRow {
   due_date: string | null;
   scheduled_for: string | null;
   tags_json: string | null;
+  assignee_ids_json: string | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
-function parseTagsJson(value: string | null | undefined): string[] {
+function parseStringArrayJson(value: string | null | undefined): string[] {
   if (!value) return [];
   try {
     const parsed = JSON.parse(value) as unknown;
@@ -51,7 +52,8 @@ function parseTagsJson(value: string | null | undefined): string[] {
 function fromSqlRow(row: SqlTaskRow): Task {
   return hydrateTaskRecord({
     ...row,
-    tags: parseTagsJson(row.tags_json),
+    tags: parseStringArrayJson(row.tags_json),
+    assignee_ids: parseStringArrayJson(row.assignee_ids_json),
   });
 }
 
@@ -93,8 +95,8 @@ class BrowserTaskRepository implements TaskRepository {
 const TASK_INSERT_SQL = `INSERT INTO tasks (
   id, mission_id, parent_task_id, title, outcome, next_action, notes, completion_note,
   status, priority, lane, energy, estimated_minutes,
-  due_date, scheduled_for, tags_json, completed_at, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  due_date, scheduled_for, tags_json, assignee_ids_json, completed_at, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 function taskInsertParams(task: Task) {
   return [
@@ -114,6 +116,7 @@ function taskInsertParams(task: Task) {
     task.due_date,
     task.scheduled_for,
     JSON.stringify(task.tags),
+    JSON.stringify(task.assignee_ids),
     task.completed_at,
     task.created_at,
     task.updated_at,
@@ -123,7 +126,7 @@ function taskInsertParams(task: Task) {
 const TASK_UPDATE_SQL = `UPDATE tasks SET
   mission_id = ?, parent_task_id = ?, title = ?, outcome = ?, next_action = ?, notes = ?, completion_note = ?,
   status = ?, priority = ?, lane = ?, energy = ?, estimated_minutes = ?,
-  due_date = ?, scheduled_for = ?, tags_json = ?, completed_at = ?, updated_at = ?
+  due_date = ?, scheduled_for = ?, tags_json = ?, assignee_ids_json = ?, completed_at = ?, updated_at = ?
 WHERE id = ?`;
 
 function taskUpdateParams(task: Task) {
@@ -143,6 +146,7 @@ function taskUpdateParams(task: Task) {
     task.due_date,
     task.scheduled_for,
     JSON.stringify(task.tags),
+    JSON.stringify(task.assignee_ids),
     task.completed_at,
     task.updated_at,
     task.id,
@@ -179,6 +183,7 @@ class SqlTaskRepository implements TaskRepository {
     void enqueueSync('tasks', task.id, 'upsert', {
       ...task,
       tags_json: JSON.stringify(task.tags),
+      assignee_ids_json: JSON.stringify(task.assignee_ids),
     });
     return task;
   }
@@ -189,6 +194,7 @@ class SqlTaskRepository implements TaskRepository {
     void enqueueSync('tasks', task.id, 'upsert', {
       ...task,
       tags_json: JSON.stringify(task.tags),
+      assignee_ids_json: JSON.stringify(task.assignee_ids),
     });
   }
 

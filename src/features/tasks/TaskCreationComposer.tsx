@@ -16,6 +16,7 @@ import type { ActivitySource } from '../activity/activity-repository';
 import type { TaskClarification } from '../ai/ai-types';
 import { getTaskAiAssistant } from '../ai/mock-ai-provider';
 import { MissionComposer } from '../missions/MissionComposer';
+import { AssigneeSelect } from '../collaborators/AssigneeSelect';
 import type { MissionDraft } from '../missions/mission-types';
 import { useMissionStore } from '../missions/mission-store';
 import { useTaskStore } from './task-store';
@@ -34,6 +35,7 @@ interface TaskCreationComposerProps {
   priority?: TaskDraft['priority'];
   status?: TaskDraft['status'];
   parentTaskId?: string | null;
+  defaultMissionId?: string | null;
 }
 
 interface ComposerDraft {
@@ -43,6 +45,7 @@ interface ComposerDraft {
   notes: string;
   checklist: string;
   missionId: string | null;
+  assigneeIds: string[];
   lane: TaskLane;
   priority: TaskPriority;
   energy: TaskEnergy;
@@ -105,6 +108,7 @@ const INITIAL_DRAFT: ComposerDraft = {
   notes: '',
   checklist: '',
   missionId: null,
+  assigneeIds: [],
   lane: 'inbox',
   priority: 'normal',
   energy: 'shallow',
@@ -123,6 +127,7 @@ function buildTaskDraft(
   return {
     title: draft.title.trim() || clarification?.suggestedTitle || '',
     mission_id: draft.missionId,
+    assignee_ids: draft.assigneeIds,
     parent_task_id: parentTaskId ?? null,
     outcome: draft.outcome.trim() || clarification?.outcome || '',
     next_action: draft.firstStep.trim() || clarification?.nextAction || '',
@@ -163,6 +168,7 @@ export function TaskCreationComposer({
   priority = 'normal',
   status = 'captured',
   parentTaskId = null,
+  defaultMissionId = null,
 }: TaskCreationComposerProps) {
   const createTask = useTaskStore((state) => state.createTask);
   const createSubtask = useTaskStore((state) => state.createSubtask);
@@ -393,6 +399,14 @@ export function TaskCreationComposer({
                 onAddMission={() => setShowMissionComposer(true)}
               />
             ) : null}
+
+            <ChipRow label="Assignees">
+              <AssigneeSelect
+                value={draft.assigneeIds}
+                onChange={(ids) => update('assigneeIds', ids)}
+                className="w-full sm:w-[280px]"
+              />
+            </ChipRow>
 
             <ChipRow label="Lane">
               {LANE_OPTIONS.map((option) => (

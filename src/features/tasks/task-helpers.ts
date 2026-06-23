@@ -41,6 +41,7 @@ export function normalizeTaskDraft(draft: TaskDraft): Task {
     due_date: draft.due_date ?? null,
     scheduled_for: draft.scheduled_for ?? null,
     tags: draft.tags ?? [],
+    assignee_ids: draft.assignee_ids ?? [],
     completed_at: status === 'done' ? timestamp : null,
     created_at: timestamp,
     updated_at: timestamp,
@@ -64,6 +65,7 @@ interface TaskRecordInput {
   due_date?: string | null;
   scheduled_for?: string | null;
   tags?: string[];
+  assignee_ids?: string[];
   completed_at?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -98,6 +100,7 @@ export function hydrateTaskRecord(record: TaskRecordInput): Task {
     due_date: record.due_date ?? null,
     scheduled_for: record.scheduled_for ?? null,
     tags: Array.isArray(record.tags) ? record.tags : [],
+    assignee_ids: Array.isArray(record.assignee_ids) ? record.assignee_ids : [],
     completed_at: record.completed_at ?? (status === 'done' ? (record.updated_at ?? timestamp) : null),
     created_at: record.created_at ?? timestamp,
     updated_at: record.updated_at ?? timestamp,

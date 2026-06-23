@@ -37,7 +37,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     try {
       const repository = await getTaskRepository();
       await repository.initialize();
-      const tasks = sortTasks(await repository.listTasks());
+      let tasks = sortTasks(await repository.listTasks());
+
+      // One-time lift of legacy assignee tags into the first-class assignee_ids field.
+      const { migrateLegacyAssigneeTags } = await import('../collaborators/legacy-tag-migration');
+      const migrated = await migrateLegacyAssigneeTags(tasks, (task) => repository.updateTask(task));
+      if (migrated) {
+        tasks = sortTasks(await repository.listTasks());
+      }
+
       set({
         tasks,
         hydrated: true,
