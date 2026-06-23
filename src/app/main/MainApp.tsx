@@ -55,6 +55,7 @@ import { AssistantWidget } from '../../features/assistant/AssistantWidget';
 import { SynCatchWordmark } from '../../components/SynCatchLogo';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
 import { TaskDetailPanel } from '../../features/tasks/TaskDetailPanel';
+import { MissionDetailPanel } from '../../features/missions/MissionDetailPanel';
 import { getRootTasks, humanizePriority } from '../../features/tasks/task-helpers';
 import { useTaskStore } from '../../features/tasks/task-store';
 import { useThemeStore } from '../../features/themes/theme-store';
@@ -1979,6 +1980,7 @@ export function MainApp() {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dropLane, setDropLane] = useState<TaskLane | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const [detailMissionId, setDetailMissionId] = useState<string | null>(null);
   const [missionComposerOpen, setMissionComposerOpen] = useState(false);
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -2417,7 +2419,11 @@ export function MainApp() {
   const viewCopy = getViewCopy(activeView);
   const detailTask = detailTaskId ? tasks.find((t) => t.id === detailTaskId) ?? null : null;
   const showTaskDetailPanel =
-    detailTask !== null && (activeView === 'focus' || activeView === 'tasks');
+    detailTask !== null && (activeView === 'focus' || activeView === 'tasks' || activeView === 'missions' || activeView === 'roadmap' || activeView === 'dashboard');
+
+  const detailMission = detailMissionId ? missions.find((m) => m.id === detailMissionId) ?? null : null;
+  const showMissionDetailPanel =
+    detailMission !== null && (activeView === 'missions' || activeView === 'roadmap' || activeView === 'dashboard');
 
   function openAppsView() {
     if (activeView !== 'apps') {
@@ -2894,7 +2900,10 @@ export function MainApp() {
       const progress = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
 
       return (
-        <Card className="group relative rounded-[28px] p-5">
+        <Card 
+          className="group relative rounded-[28px] p-5 cursor-pointer hover:border-accent/40 hover:bg-panel/40 transition-all"
+          onClick={() => setDetailMissionId(mission.id)}
+        >
           <div className="flex items-start gap-4">
             <div
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] text-2xl"
@@ -2930,32 +2939,33 @@ export function MainApp() {
               )}
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => { setEditingMission(mission); setMissionComposerOpen(true); }} className="h-8 gap-1.5 px-2 text-xs sm:text-sm">
+          <div className="mt-4 flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingMission(mission); setMissionComposerOpen(true); }} className="h-8 gap-1.5 px-2 text-xs sm:text-sm">
               <Pencil className="h-3.5 w-3.5" /> Edit
             </Button>
             {mission.status === 'active' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'on_hold')} className="h-8 gap-1.5 px-2 text-xs text-warning sm:text-sm">
+              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); void setMissionStatus(mission.id, 'on_hold'); }} className="h-8 gap-1.5 px-2 text-xs text-warning sm:text-sm">
                 <Pause className="h-3.5 w-3.5" /> Pause
               </Button>
             ) : mission.status === 'on_hold' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'active')} className="h-8 gap-1.5 px-2 text-xs text-accent sm:text-sm">
+              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); void setMissionStatus(mission.id, 'active'); }} className="h-8 gap-1.5 px-2 text-xs text-accent sm:text-sm">
                 <Play className="h-3.5 w-3.5" /> Resume
               </Button>
             ) : null}
             {mission.status === 'active' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'completed')} className="h-8 gap-1.5 px-2 text-xs text-success sm:text-sm">
+              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); void setMissionStatus(mission.id, 'completed'); }} className="h-8 gap-1.5 px-2 text-xs text-success sm:text-sm">
                 <CheckCircle className="h-3.5 w-3.5" /> Done
               </Button>
             ) : mission.status === 'completed' ? (
-              <Button size="sm" variant="ghost" onClick={() => void setMissionStatus(mission.id, 'active')} className="h-8 gap-1.5 px-2 text-xs text-accent sm:text-sm">
+              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); void setMissionStatus(mission.id, 'active'); }} className="h-8 gap-1.5 px-2 text-xs text-accent sm:text-sm">
                 <RotateCcw className="h-3.5 w-3.5" /> Undo
               </Button>
             ) : null}
             <Button 
               size="sm" 
               variant="ghost" 
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (confirm('Delete this mission and all its associations?')) {
                   void deleteMission(mission.id);
                 }
@@ -4195,7 +4205,7 @@ export function MainApp() {
               ) : null}
               {activeView === 'focus' ? renderFocus() : null}
               {activeView === 'missions' ? renderMissions() : null}
-              {activeView === 'roadmap' ? <RoadmapView missions={missions} allTasks={tasks} /> : null}
+              {activeView === 'roadmap' ? <RoadmapView missions={missions} allTasks={tasks} onOpenMission={setDetailMissionId} /> : null}
               {activeView === 'today' ? renderToday() : null}
               {activeView === 'tasks' ? renderTasks() : null}
               {activeView === 'history' ? renderHistory() : null}
@@ -4232,6 +4242,28 @@ export function MainApp() {
                     onClose={() => setDetailTaskId(null)}
                     onOpenTask={setDetailTaskId}
                     task={detailTask}
+                  />
+                </aside>
+              </>
+            ) : showMissionDetailPanel && detailMission ? (
+              <>
+                <button
+                  aria-label="Close mission details"
+                  className="absolute inset-0 z-30 bg-black/24 lg:hidden"
+                  onClick={() => setDetailMissionId(null)}
+                  type="button"
+                />
+
+                <aside className="absolute inset-y-0 right-0 z-40 w-full max-w-[420px] overflow-hidden border-l border-borderSoft/30 bg-panel shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:h-full lg:min-h-0 lg:w-[380px] lg:max-w-none lg:shrink-0 lg:shadow-none xl:w-[420px]">
+                  <MissionDetailPanel
+                    mission={detailMission}
+                    allTasks={tasks}
+                    onClose={() => setDetailMissionId(null)}
+                    onOpenTask={setDetailTaskId}
+                    onEditMission={(m) => {
+                      setEditingMission(m);
+                      setMissionComposerOpen(true);
+                    }}
                   />
                 </aside>
               </>

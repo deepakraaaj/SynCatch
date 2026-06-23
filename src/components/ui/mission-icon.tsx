@@ -9,6 +9,7 @@ import {
   Lightbulb,
   Package,
   Shield,
+  Users,
   Palette,
   Microscope,
   HelpCircle
@@ -25,6 +26,7 @@ export const MISSION_ICONS = {
   Lightbulb,
   Package,
   Shield,
+  Users,
   Palette,
   Microscope,
 } as const;

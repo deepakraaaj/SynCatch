@@ -278,7 +278,7 @@ interface NoteEditorSubmit {
   pinned: boolean;
 }
 
-function NoteEditorModal({
+export function NoteEditorModal({
   mode,
   note,
   categories,

@@ -13,6 +13,7 @@ type ViewMode = 'gantt' | 'vertical' | 'grid' | 'kanban';
 interface RoadmapViewProps {
   missions: Mission[];
   allTasks: Task[];
+  onOpenMission?: (missionId: string) => void;
 }
 
 interface MissionTone {
@@ -102,7 +103,7 @@ const missionToneMap: Record<Mission['color'], MissionTone> = {
   },
 };
 
-export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
+export function RoadmapView({ missions, allTasks, onOpenMission }: RoadmapViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortMode, setSortMode] = useState<'progress' | 'load' | 'due'>('progress');
@@ -336,17 +337,17 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
           </Card>
         ) : (
           <>
-            {viewMode === 'grid' ? (
-              <GridView getTasksForMission={getTasksForMission} missions={sortedMissions} />
+             {viewMode === 'grid' ? (
+              <GridView getTasksForMission={getTasksForMission} missions={sortedMissions} onOpenMission={onOpenMission} />
             ) : null}
             {viewMode === 'vertical' ? (
-              <VerticalView getTasksForMission={getTasksForMission} missions={sortedMissions} />
+              <VerticalView getTasksForMission={getTasksForMission} missions={sortedMissions} onOpenMission={onOpenMission} />
             ) : null}
             {viewMode === 'kanban' ? (
               <KanbanView getTasksForMission={getTasksForMission} missions={sortedMissions} />
             ) : null}
             {viewMode === 'gantt' ? (
-              <GanttView getTasksForMission={getTasksForMission} missions={sortedMissions} />
+              <GanttView getTasksForMission={getTasksForMission} missions={sortedMissions} onOpenMission={onOpenMission} />
             ) : null}
           </>
         )}
@@ -383,9 +384,11 @@ export function RoadmapView({ missions, allTasks }: RoadmapViewProps) {
 function GridView({
   missions,
   getTasksForMission,
+  onOpenMission,
 }: {
   missions: Mission[];
   getTasksForMission: (id: string) => Task[];
+  onOpenMission?: (id: string) => void;
 }) {
   const [expandedMissionId, setExpandedMissionId] = useState<string | null>(null);
   const missionRows = missions.map((mission) => {
@@ -414,6 +417,7 @@ function GridView({
           }
           stats={stats}
           tasks={tasks}
+          onOpenMission={onOpenMission}
         />
       ))}
     </div>
@@ -427,6 +431,7 @@ function MissionGridCard({
   tasks,
   stats,
   maxEstimatedMinutes,
+  onOpenMission,
 }: {
   expanded: boolean;
   mission: Mission;
@@ -434,6 +439,7 @@ function MissionGridCard({
   tasks: Task[];
   stats: MissionStats;
   maxEstimatedMinutes: number;
+  onOpenMission?: (id: string) => void;
 }) {
   const tone = getMissionTone(mission.color);
   const progress = getMissionProgress(stats);
@@ -460,7 +466,13 @@ function MissionGridCard({
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="truncate text-sm font-semibold tracking-[-0.05em] text-text-primary sm:text-base lg:text-[1.35rem]">
+                  <h3 
+                    className="truncate text-sm font-semibold tracking-[-0.05em] text-text-primary sm:text-base lg:text-[1.35rem] hover:text-accent cursor-pointer transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenMission?.(mission.id);
+                    }}
+                  >
                     {mission.title}
                   </h3>
                   {mission.is_pinned ? <Badge tone="accent">Pinned</Badge> : null}
@@ -540,9 +552,11 @@ function MissionGridCard({
 function VerticalView({
   missions,
   getTasksForMission,
+  onOpenMission,
 }: {
   missions: Mission[];
   getTasksForMission: (id: string) => Task[];
+  onOpenMission?: (id: string) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -566,12 +580,20 @@ function VerticalView({
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className={cn('flex h-10 w-10 items-center justify-center rounded-[14px] border text-xl', tone.border, tone.soft)}>
+                    <span 
+                      className={cn('flex h-10 w-10 items-center justify-center rounded-[14px] border text-xl cursor-pointer hover:opacity-85 transition-opacity', tone.border, tone.soft)}
+                      onClick={() => onOpenMission?.(mission.id)}
+                    >
                       <MissionIcon icon={mission.emoji} className="h-5 w-5" />
                     </span>
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted">Mission</p>
-                      <h3 className="mt-1 text-xl font-semibold text-text-primary">{mission.title}</h3>
+                      <h3 
+                        className="mt-1 text-xl font-semibold text-text-primary hover:text-accent cursor-pointer transition-colors"
+                        onClick={() => onOpenMission?.(mission.id)}
+                      >
+                        {mission.title}
+                      </h3>
                     </div>
                     <MissionMetaPill
                       label={mission.target_date ? `Target ${formatDateLabel(mission.target_date)}` : 'No target'}
@@ -641,9 +663,11 @@ function VerticalView({
 function GanttView({
   missions,
   getTasksForMission,
+  onOpenMission,
 }: {
   missions: Mission[];
   getTasksForMission: (id: string) => Task[];
+  onOpenMission?: (id: string) => void;
 }) {
   const now = new Date();
   const weekLabels = Array.from({ length: ROADMAP_WEEKS }, (_, index) => {
@@ -692,7 +716,10 @@ function GanttView({
                 className="grid grid-cols-[220px,repeat(8,minmax(48px,1fr)),48px] items-center gap-2 rounded-[20px] border border-borderSoft/24 bg-panel/24 p-1.5"
                 key={mission.id}
               >
-                <div className="flex min-w-0 items-center gap-3 rounded-[16px] bg-panel2/44 px-3 py-2.5">
+                <div 
+                  className="flex min-w-0 items-center gap-3 rounded-[16px] bg-panel2/44 px-3 py-2.5 cursor-pointer hover:bg-panel2/60 transition-colors"
+                  onClick={() => onOpenMission?.(mission.id)}
+                >
                   <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border text-lg', tone.border, tone.soft)}>
                     <MissionIcon icon={mission.emoji} className="h-5 w-5" />
                   </div>
