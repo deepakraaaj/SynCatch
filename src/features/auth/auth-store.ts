@@ -14,7 +14,7 @@ interface AuthStore {
   error: string | null;
   profileSaving: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (displayName: string) => Promise<void>;
   hydrate: () => Promise<void>;
@@ -104,11 +104,20 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
-  signUp: async (email: string, password: string) => {
+  signUp: async (email: string, password: string, displayName?: string) => {
     set({ loading: true, error: null });
     try {
       const client = getSupabaseClient();
-      const { data, error } = await client.auth.signUp({ email, password });
+      const trimmedName = displayName?.trim();
+      const { data, error } = await client.auth.signUp({
+        email,
+        password,
+        // Persist the name into user_metadata so it's available everywhere
+        // (profile card, collaborator lookup) right from signup.
+        options: trimmedName
+          ? { data: { display_name: trimmedName, full_name: trimmedName } }
+          : undefined,
+      });
 
       if (error) {
         set({ error: error.message, loading: false });

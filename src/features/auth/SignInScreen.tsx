@@ -9,6 +9,7 @@ import { SynCatchLogo } from '../../components/SynCatchLogo';
 export function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const isDesktop = isTauriApp();
 
@@ -24,7 +25,7 @@ export function SignInScreen() {
 
     try {
       if (isSignUp) {
-        await signUp(email, password);
+        await signUp(email, password, displayName);
       } else {
         await signIn(email, password);
       }
@@ -47,6 +48,20 @@ export function SignInScreen() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {isSignUp && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Name</label>
+              <Input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Your name"
+                disabled={loading}
+                className="w-full"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
             <Input
