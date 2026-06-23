@@ -3087,7 +3087,7 @@ export function MainApp() {
               className="fixed inset-0 z-30 bg-transparent"
               onClick={() => setPageDateMenuOpen(false)}
             />
-            <div className="absolute right-0 top-full z-40 mt-3 w-[min(420px,calc(100vw-1.5rem))]">
+            <div className="fixed inset-x-3 top-[72px] z-40 w-auto sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[min(420px,calc(100vw-1.5rem))]">
               <Card
                 id="task-date-filter-popover"
                 className="max-h-[calc(100vh-6rem)] overflow-y-auto rounded-[24px] border border-borderSoft/28 bg-panel/96 p-3 shadow-[0_18px_50px_rgb(var(--shadow-color)/0.22)] backdrop-blur-md sm:max-h-none sm:p-4"
