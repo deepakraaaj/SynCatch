@@ -14,11 +14,8 @@ const BRAND_PURPLE = '#6C5CE7';
 const BRAND_BLUE = '#3E8BFF';
 
 /**
- * SynCatch brandmark — a clean, symmetric stopwatch (crown + side buttons +
- * sweep hand) in a single purple→blue brand gradient, signalling a focus /
- * time-tracking tool. Pass `themed` to make the mark track the active theme
- * accent; leave it off for brand moments (sign-in, loader, favicon) where the
- * original colors matter. Drawn on a 100×100 canvas; scale via className.
+ * SynCatch brandmark — an iconic breakout check-loop representing capture and focus.
+ * Bold, high-contrast, and extremely readable at all viewport sizes.
  */
 export function SynCatchLogo({ className, monochrome = false, themed = false, title = 'SynCatch' }: SynCatchLogoProps) {
   const gradientId = useId();
@@ -47,16 +44,23 @@ export function SynCatchLogo({ className, monochrome = false, themed = false, ti
           </linearGradient>
         </defs>
       ) : null}
-      {/* Side buttons (symmetric) */}
-      <line x1="30.7" y1="32" x2="26.2" y2="26.7" stroke={paint} strokeWidth="5" strokeLinecap="round" />
-      <line x1="69.3" y1="32" x2="73.8" y2="26.7" stroke={paint} strokeWidth="5" strokeLinecap="round" />
-      {/* Crown */}
-      <rect x="45.5" y="11" width="9" height="12" rx="3" fill={paint} />
-      {/* Watch body */}
-      <circle cx="50" cy="55" r="28" fill="none" stroke={paint} strokeWidth="9" />
-      {/* Sweep hand + hub */}
-      <line x1="50" y1="55" x2="57.5" y2="42" stroke={paint} strokeWidth="5" strokeLinecap="round" />
-      <circle cx="50" cy="55" r="4.5" fill={paint} />
+      
+      {/* Outer crescent ring with breakout gap at top-right */}
+      <path 
+        d="M 50 18 A 32 32 0 1 0 82 50" 
+        stroke={paint} 
+        strokeWidth="8.5" 
+        strokeLinecap="round" 
+      />
+      
+      {/* Bold checkmark breaking out of the gap */}
+      <path 
+        d="M 38 52 L 47 61 L 76 32" 
+        stroke={paint} 
+        strokeWidth="8.5" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+      />
     </svg>
   );
 }

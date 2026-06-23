@@ -13,19 +13,24 @@
   <!-- App tile background -->
   <rect x="0" y="0" width="1024" height="1024" rx="232" fill="url(#bg)"/>
 
-  <!-- SynCatch mark: a clean, symmetric stopwatch (crown + side buttons + sweep hand)
-       in a single purple→blue brand gradient — signals a focus / time-tracking tool.
+  <!-- SynCatch mark: a clean check-loop design.
        Geometry on a 100 canvas, scaled ×8 and centered on the 1024 tile. -->
   <g transform="translate(112, 112) scale(8)">
-    <!-- Side buttons (symmetric) -->
-    <line x1="30.7" y1="32" x2="26.2" y2="26.7" stroke="url(#mark)" stroke-width="5" stroke-linecap="round"/>
-    <line x1="69.3" y1="32" x2="73.8" y2="26.7" stroke="url(#mark)" stroke-width="5" stroke-linecap="round"/>
-    <!-- Crown -->
-    <rect x="45.5" y="11" width="9" height="12" rx="3" fill="url(#mark)"/>
-    <!-- Watch body -->
-    <circle cx="50" cy="55" r="28" fill="none" stroke="url(#mark)" stroke-width="9"/>
-    <!-- Sweep hand + hub -->
-    <line x1="50" y1="55" x2="57.5" y2="42" stroke="url(#mark)" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="50" cy="55" r="4.5" fill="url(#mark)"/>
+    <!-- Outer crescent ring with breakout gap at top-right -->
+    <path 
+      d="M 50 18 A 32 32 0 1 0 82 50" 
+      stroke="url(#mark)" 
+      stroke-width="8.5" 
+      stroke-linecap="round" 
+    />
+    
+    <!-- Bold checkmark breaking out of the gap -->
+    <path 
+      d="M 38 52 L 47 61 L 76 32" 
+      stroke="url(#mark)" 
+      stroke-width="8.5" 
+      stroke-linecap="round" 
+      stroke-linejoin="round" 
+    />
   </g>
 </svg>
