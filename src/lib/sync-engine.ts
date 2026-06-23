@@ -19,11 +19,15 @@ import {
   deleteJournalEntry as deleteJournalEntryCloud,
   deleteNoteRow as deleteNoteCloud,
   deleteNoteCategory as deleteNoteCategoryCloud,
+  selectCollaborators,
+  upsertCollaborator,
+  deleteCollaboratorCloud,
 } from './supabase';
 import { useTaskStore } from '../features/tasks/task-store';
 import { useMissionStore } from '../features/missions/mission-store';
 import { useJournalStore } from '../features/journal/journal-store';
 import { useNoteStore } from '../features/notes/note-store';
+import { useCollaboratorStore } from '../features/collaborators/collaborator-store';
 
 export interface SyncStatus {
   pendingCount: number;
@@ -157,6 +161,7 @@ class SyncEngine {
           due_date: task.due_date,
           scheduled_for: task.scheduled_for,
           tags_json: JSON.stringify(task.tags),
+          assignee_ids_json: JSON.stringify(task.assignee_ids ?? []),
           completed_at: task.completed_at,
           created_at: task.created_at,
           updated_at: task.updated_at,
@@ -168,8 +173,8 @@ class SyncEngine {
             INSERT OR REPLACE INTO tasks (
               id, mission_id, parent_task_id, title, outcome, next_action, notes, completion_note,
               status, priority, lane, energy, estimated_minutes, due_date,
-              scheduled_for, tags_json, completed_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              scheduled_for, tags_json, assignee_ids_json, completed_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           values: [
             payload.id,
@@ -188,6 +193,7 @@ class SyncEngine {
             payload.due_date,
             payload.scheduled_for,
             payload.tags_json,
+            payload.assignee_ids_json,
             payload.completed_at,
             payload.created_at,
             payload.updated_at,
@@ -343,11 +349,33 @@ class SyncEngine {
         });
       }
 
+      // Pull collaborator roster
+      const collaborators = await selectCollaborators();
+      for (const collaborator of collaborators) {
+        await invoke('plugin:sql|execute', {
+          database: 'sqlite:mission-control.db',
+          query: `
+            INSERT OR REPLACE INTO collaborators (
+              id, user_id, display_name, email, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+          `,
+          values: [
+            collaborator.id,
+            collaborator.user_id,
+            collaborator.display_name,
+            collaborator.email,
+            collaborator.created_at,
+            collaborator.updated_at,
+          ],
+        });
+      }
+
       // Reload stores from SQLite
       void useTaskStore.getState().refresh(true);
       void useMissionStore.getState().refresh();
       void useJournalStore.getState().refresh();
       void useNoteStore.getState().refresh();
+      void useCollaboratorStore.getState().refresh();
 
       localStorage.setItem('mc-last-synced-at', new Date().toISOString());
       this.updateStatus();
@@ -414,6 +442,8 @@ class SyncEngine {
         await deleteNoteCloud(row.row_id);
       } else if (row.table_name === 'note_categories') {
         await deleteNoteCategoryCloud(row.row_id);
+      } else if (row.table_name === 'collaborators') {
+        await deleteCollaboratorCloud(row.row_id);
       }
     } else {
       // Handle upserts with field transforms
@@ -422,8 +452,10 @@ class SyncEngine {
           ...payload,
           user_id: userId,
           tags: JSON.parse(payload.tags_json ?? '[]'),
+          assignee_ids: JSON.parse(payload.assignee_ids_json ?? '[]'),
         };
         delete transformed.tags_json;
+        delete transformed.assignee_ids_json;
         await upsertTask(transformed as any);
       } else if (row.table_name === 'missions') {
         const transformed = {
@@ -459,6 +491,17 @@ class SyncEngine {
           user_id: userId,
         };
         await upsertNoteCategory(transformed as any);
+      } else if (row.table_name === 'collaborators') {
+        const transformed = {
+          id: payload.id,
+          owner_user_id: userId,
+          collaborator_user_id: payload.user_id,
+          display_name: payload.display_name,
+          email: payload.email,
+          created_at: payload.created_at,
+          updated_at: payload.updated_at,
+        };
+        await upsertCollaborator(transformed as any);
       }
     }
   }

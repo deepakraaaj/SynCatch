@@ -4,6 +4,8 @@ import type { Mission } from '../features/missions/mission-types';
 import type { FocusSyncState } from '../features/focus/focus-store';
 import type { ActivityLogEntry } from '../features/activity/activity-repository';
 import type { WorkSession } from '../features/sessions/session-types';
+import type { Collaborator } from '../features/collaborators/collaborator-types';
+import { hydrateCollaboratorRecord } from '../features/collaborators/collaborator-helpers';
 
 export async function getSupabaseUser() {
   const client = getSupabaseClient();
@@ -51,6 +53,7 @@ export async function selectTasksByUser(): Promise<Task[]> {
       due_date: row.due_date ?? null,
       scheduled_for: row.scheduled_for ?? null,
       tags: row.tags ?? [],
+      assignee_ids: row.assignee_ids ?? [],
       completed_at: row.completed_at ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -80,6 +83,7 @@ export async function insertTask(task: Task): Promise<void> {
     due_date: task.due_date,
     scheduled_for: task.scheduled_for,
     tags: task.tags,
+    assignee_ids: task.assignee_ids,
     completed_at: task.completed_at,
     created_at: task.created_at,
     updated_at: task.updated_at,
@@ -110,6 +114,7 @@ export async function updateTask(task: Task): Promise<void> {
       due_date: task.due_date,
       scheduled_for: task.scheduled_for,
       tags: task.tags,
+      assignee_ids: task.assignee_ids,
       completed_at: task.completed_at,
       updated_at: task.updated_at,
     })
@@ -153,6 +158,7 @@ export async function upsertTask(task: any): Promise<void> {
     due_date: task.due_date,
     scheduled_for: task.scheduled_for,
     tags: task.tags,
+    assignee_ids: task.assignee_ids,
     completed_at: task.completed_at,
     created_at: task.created_at,
     updated_at: task.updated_at,
@@ -462,6 +468,120 @@ export async function upsertMission(mission: any): Promise<void> {
     updated_at: mission.updated_at,
   }, { onConflict: 'id' }) as any);
 
+  if (error) throw error;
+}
+
+// Collaborator discovery — resolve a person by their EXACT email only.
+// There is no directory / name browsing on purpose (see migration 008).
+export interface UserProfileResult {
+  id: string;
+  display_name: string;
+  email: string;
+}
+
+export async function findUserByEmail(email: string): Promise<UserProfileResult | null> {
+  const lookup = email.trim();
+  if (!lookup) return null;
+
+  const client = getSupabaseClient();
+  const currentUserId = await getUserId();
+
+  const { data, error } = await (client.rpc('find_user_by_email', { lookup_email: lookup }) as any);
+
+  if (error) throw error;
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || !row.id) return null;
+  // Don't let someone "invite themselves".
+  if (row.id === currentUserId) return null;
+
+  return {
+    id: row.id,
+    display_name: row.display_name ?? '',
+    email: row.email ?? '',
+  };
+}
+
+// Collaborator (roster) queries
+export async function selectCollaborators(): Promise<Collaborator[]> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { data, error } = await (client
+    .from('collaborators')
+    .select('*')
+    .eq('user_id', userId)
+    .order('display_name', { ascending: true }) as any);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) =>
+    hydrateCollaboratorRecord({
+      id: row.id,
+      user_id: row.collaborator_user_id,
+      display_name: row.display_name ?? '',
+      email: row.email ?? '',
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }),
+  );
+}
+
+export async function insertCollaborator(collaborator: Collaborator): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('collaborators').upsert(
+    {
+      id: collaborator.id,
+      user_id: userId,
+      collaborator_user_id: collaborator.user_id,
+      display_name: collaborator.display_name,
+      email: collaborator.email,
+      created_at: collaborator.created_at,
+      updated_at: collaborator.updated_at,
+    },
+    { onConflict: 'user_id,collaborator_user_id' },
+  ) as any);
+
+  if (error) throw error;
+}
+
+export async function deleteCollaborator(collaboratorId: string): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client
+    .from('collaborators')
+    .delete()
+    .eq('id', collaboratorId)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
+export async function upsertCollaborator(collaborator: any): Promise<void> {
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('collaborators').upsert(
+    {
+      id: collaborator.id,
+      user_id: collaborator.owner_user_id ?? collaborator.user_id,
+      collaborator_user_id: collaborator.collaborator_user_id ?? collaborator.user_id,
+      display_name: collaborator.display_name,
+      email: collaborator.email,
+      created_at: collaborator.created_at,
+      updated_at: collaborator.updated_at,
+    },
+    { onConflict: 'id' },
+  ) as any);
+
+  if (error) throw error;
+}
+
+export async function deleteCollaboratorCloud(collaboratorId: string): Promise<void> {
+  const client = getSupabaseClient();
+  const { error } = await (client.from('collaborators').delete().eq('id', collaboratorId) as any);
   if (error) throw error;
 }
 

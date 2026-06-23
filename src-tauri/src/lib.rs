@@ -258,6 +258,24 @@ fn database_migrations() -> Vec<Migration> {
             "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 14,
+            description: "add_collaborators_and_task_assignees",
+            sql: r#"
+              ALTER TABLE tasks ADD COLUMN assignee_ids_json TEXT NOT NULL DEFAULT '[]';
+
+              CREATE TABLE IF NOT EXISTS collaborators (
+                id TEXT PRIMARY KEY NOT NULL,
+                user_id TEXT NOT NULL,
+                display_name TEXT NOT NULL DEFAULT '',
+                email TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+              );
+              CREATE UNIQUE INDEX IF NOT EXISTS idx_collaborators_user_id ON collaborators(user_id);
+            "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
