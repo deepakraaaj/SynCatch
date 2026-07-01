@@ -1950,6 +1950,8 @@ export function MainApp() {
   const startFocusSession = useFocusStore((state) => state.startSession);
   const pauseFocusSession = useFocusStore((state) => state.pauseSession);
   const resetFocusSession = useFocusStore((state) => state.resetSession);
+  const hudTransparency = useFocusStore((state) => state.hudTransparency);
+  const toggleHudTransparency = useFocusStore((state) => state.toggleHudTransparency);
 
   const sessions = useSessionStore((state) => state.sessions);
   const sessionsHydrated = useSessionStore((state) => state.hydrated);
@@ -3908,6 +3910,40 @@ export function MainApp() {
                       Off
                     </SettingChoice>
                     <SettingChoice active={reduceMotion} onClick={() => setReduceMotion(true)}>
+                      On
+                    </SettingChoice>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-borderSoft/30 bg-panel/32 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Transparent HUD</p>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      Drop the compact HUD background so only the timer and task float on your desktop.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <SettingChoice
+                      active={hudTransparency === 'standard'}
+                      onClick={() => {
+                        if (hudTransparency !== 'standard') {
+                          toggleHudTransparency('main');
+                        }
+                      }}
+                    >
+                      Off
+                    </SettingChoice>
+                    <SettingChoice
+                      active={hudTransparency === 'ghost'}
+                      onClick={() => {
+                        if (hudTransparency !== 'ghost') {
+                          toggleHudTransparency('main');
+                        }
+                      }}
+                    >
                       On
                     </SettingChoice>
                   </div>

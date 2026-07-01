@@ -448,6 +448,21 @@
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    /* Promote to its own compositing layer so the transparent WebKitGTK
+       overlay repaints cleanly and doesn't leave ghost trails. */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* Resting compact HUD: shell chrome (background/border/shadow) is fully
+     transparent so only the timer + task name float on screen. The solid
+     shell is restored in JS (mouseenter/leave) by swapping to hud-shell--solid,
+     because CSS :hover is unreliable on the transparent WebKitGTK overlay. */
+  .hud-shell--peek {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transition: background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out;
   }
 
   .hud-focus-panel {
