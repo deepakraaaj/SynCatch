@@ -496,6 +496,17 @@ export function HudApp() {
   // backgrounds for translucent dark glass so they blend on the desktop.
   const compactFloating = compactShellToneClass === 'hud-shell--peek';
   const glassPillClass = 'border-white/12 bg-black/40';
+  // The clock ticks every second. On the transparent WebKitGTK (Linux) overlay
+  // a translucent background never clears between repaints, so old digits pile
+  // up under the new ones. An OPAQUE chip fully overwrites each tick -> no ghost.
+  const clockPillClass = compactFloating
+    ? 'border-white/10 bg-[rgb(15,17,23)]'
+    : 'border-accent/35 bg-accent/10';
+  // The play/pause button swaps its icon on click; on the transparent overlay a
+  // translucent button background ghosts the old icon under the new one (same
+  // WebKitGTK non-clearing issue as the clock). Give it an opaque backing so the
+  // icon swap fully overwrites. `!` overrides the variant's hover background too.
+  const floatingSolidButton = compactFloating ? '!border-white/10 !bg-[rgb(15,17,23)]' : '';
   const compactDividerClass = compactFloating ? 'bg-white/12' : 'bg-borderSoft/40';
   const statusDotClass = isSessionRunning
     ? 'bg-accent'
@@ -1381,8 +1392,8 @@ export function HudApp() {
                 <div className="flex items-center gap-2.5">
                   <div
                     className={cn(
-                      'rounded-[16px] border px-2.5 py-1.5 font-mono text-[1.3rem] leading-none text-accent',
-                      compactFloating ? glassPillClass : 'border-accent/35 bg-accent/10',
+                      'flex shrink-0 items-center justify-center rounded-[12px] border px-3 py-1.5 font-mono text-[1.3rem] leading-none text-accent',
+                      clockPillClass,
                     )}
                   >
                     {displayClock}
@@ -1460,7 +1471,7 @@ export function HudApp() {
 
                   <div className="flex items-center gap-0.5">
                     <HudActionButton
-                      className="h-9 w-9"
+                      className={cn('h-9 w-9', floatingSolidButton)}
                       disabled={!currentMission}
                       icon={sessionToggleIcon}
                       label={sessionToggleLabel}
@@ -1513,8 +1524,8 @@ export function HudApp() {
               <div className="flex items-center gap-2.5">
                 <div
                   className={cn(
-                    'rounded-[16px] border px-2.5 py-1.5 font-mono text-[1.15rem] leading-none text-accent',
-                    compactFloating ? glassPillClass : 'border-accent/35 bg-accent/10',
+                    'flex shrink-0 items-center justify-center rounded-[12px] border px-3 py-1.5 font-mono text-[1.15rem] leading-none text-accent',
+                    clockPillClass,
                   )}
                 >
                   {displayClock}
@@ -1544,7 +1555,7 @@ export function HudApp() {
 
                 <div className="flex shrink-0 items-center gap-0.5">
                   <HudActionButton
-                    className="h-9 w-9"
+                    className={cn('h-9 w-9', floatingSolidButton)}
                     disabled={!currentMission}
                     icon={sessionToggleIcon}
                     label={sessionToggleLabel}

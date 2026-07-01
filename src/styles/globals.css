@@ -465,6 +465,27 @@
     transition: background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out;
   }
 
+  /* WebKitGTK (Linux) leaves repaint ghosts of animated button states (the
+     box-shadow glow / hover transition) on the transparent overlay, showing up
+     as a halo around buttons. On the Linux floating HUD keep buttons static so
+     nothing smears. Scoped to hud-shell--stable (Linux-only) so Windows/macOS,
+     which repaint transparent surfaces cleanly, keep the smooth transitions.
+     Both classes live on the same shell element. */
+  .hud-shell--stable.hud-shell--peek button {
+    transition: none !important;
+    box-shadow: none !important;
+  }
+
+  /* The clock text changes every second; on the transparent WebKitGTK overlay
+     the previous digits aren't cleared and ghost on top of the new ones. Give
+     the clock its own compositing layer so it re-rasterizes cleanly each tick.
+     Harmless on Chromium/WebKit (Windows/macOS). */
+  .hud-clock {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    contain: layout paint;
+  }
+
   .hud-focus-panel {
     border: 1px solid rgb(var(--border-subtle) / 0.34);
     background: linear-gradient(180deg, rgb(var(--surface-1) / 0.94), rgb(var(--surface-1) / 0.9));

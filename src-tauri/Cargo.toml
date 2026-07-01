@@ -1,6 +1,6 @@
 [package]
 name = "missioncontrol"
-version = "0.6.3"
+version = "0.6.4"
 description = "SynCatch — the desktop workspace for deep focus"
 authors = ["Deepak Raj"]
 edition = "2021"
