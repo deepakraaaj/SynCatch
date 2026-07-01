@@ -8,6 +8,7 @@ import { SynCatchLogo } from '../../components/SynCatchLogo';
 export function HudAppWithAuth() {
   const session = useAuthStore((state) => state.session);
   const loading = useAuthStore((state) => state.loading);
+  const localMode = useAuthStore((state) => state.localMode);
   const hydrate = useAuthStore((state) => state.hydrate);
   const redirectedRef = useRef(false);
 
@@ -16,7 +17,7 @@ export function HudAppWithAuth() {
   }, [hydrate]);
 
   useEffect(() => {
-    if (loading || session || redirectedRef.current) {
+    if (loading || session || localMode || redirectedRef.current) {
       return;
     }
 
@@ -26,9 +27,9 @@ export function HudAppWithAuth() {
       await showMainWindow();
       await hideCurrentWindow();
     })();
-  }, [loading, session]);
+  }, [loading, localMode, session]);
 
-  if (loading || !session) {
+  if (loading || (!session && !localMode)) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-sm text-text-secondary">
         <SynCatchLogo className="h-8 w-8 animate-pulse" />

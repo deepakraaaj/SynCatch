@@ -6,6 +6,7 @@ const DATABASE_PATH: &str = "sqlite:mission-control.db";
 #[cfg(desktop)]
 const TOGGLE_HUD_TRANSPARENCY_EVENT: &str = "missioncontrol://toggle-hud-transparency";
 #[cfg(desktop)]
+const SHOW_COMPACT_HUD_EVENT: &str = "missioncontrol://show-compact-hud";
 #[cfg(desktop)]
 const SHOW_HUD_TASK_COMPOSER_EVENT: &str = "missioncontrol://show-hud-task-composer";
 #[cfg(desktop)]
@@ -308,6 +309,7 @@ fn prepare_autostart_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()>
         window.unminimize()?;
         window.set_always_on_top(true)?;
         window.set_visible_on_all_workspaces(true)?;
+        app.emit_to("hud", SHOW_COMPACT_HUD_EVENT, ())?;
     }
 
     if let Some(window) = app.get_webview_window("quick-add") {
@@ -330,10 +332,6 @@ fn prepare_manual_launch_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     }
 
     if let Some(window) = app.get_webview_window("quick-add") {
-        window.hide()?;
-    }
-
-    if let Some(window) = app.get_webview_window("hud") {
         window.hide()?;
     }
 
