@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { DatePicker } from '../../components/ui/date-picker';
@@ -7,6 +8,8 @@ import { MissionIcon } from '../../components/ui/mission-icon';
 import { confirmDialog } from '../../components/ui/native-dialog';
 import { cn } from '../../lib/cn';
 import { useMissionStore } from '../missions/mission-store';
+import { useSettingsStore } from '../settings/settings-store';
+import { SparkleBurst } from '../../character/effects-assets';
 import { getSubtasks, humanizeEnergy, humanizeLane, humanizePriority } from './task-helpers';
 import { useTaskStore } from './task-store';
 import type { Task, TaskEnergy, TaskLane, TaskPriority } from './task-types';
@@ -126,10 +129,20 @@ function SubtaskRow({
   onMarkDone: () => void;
   onDelete: () => void;
 }) {
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion);
+
   return (
-    <div className="group flex items-center gap-3 rounded-xl border border-borderSoft/35 bg-panel2/40 px-3.5 py-2.5 transition-colors hover:border-borderSoft/60 hover:bg-panel2/60">
-      <button
+    <motion.div
+      layout
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9, y: -6, transition: { duration: 0.18 } }}
+      className="group flex items-center gap-3 rounded-xl border border-borderSoft/35 bg-panel2/40 px-3.5 py-2.5 transition-colors hover:border-borderSoft/60 hover:bg-panel2/60"
+    >
+      <motion.button
         type="button"
+        whileHover={reduceMotion ? {} : { scale: 1.15 }}
+        whileTap={reduceMotion ? {} : { scale: 0.8 }}
         onClick={onMarkDone}
         disabled={subtask.lane === 'done'}
         className={cn(
@@ -140,8 +153,8 @@ function SubtaskRow({
         )}
       >
         {subtask.lane === 'done' ? '✓' : ''}
-      </button>
-      <span className={cn('flex-1 text-sm leading-snug', subtask.lane === 'done' ? 'text-text-muted line-through' : 'text-text-primary font-medium')}>
+      </motion.button>
+      <span className={cn('flex-1 text-sm leading-snug transition-all', subtask.lane === 'done' ? 'text-text-muted line-through opacity-70' : 'text-text-primary font-medium')}>
         {subtask.title}
       </span>
       <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
@@ -149,16 +162,18 @@ function SubtaskRow({
           <span className="rounded-md bg-panel px-1.5 py-0.5 text-[10px] text-text-muted border border-borderSoft/30">{humanizeEnergy(subtask.energy)}</span>
         ) : null}
         <span className="rounded-md bg-panel px-1.5 py-0.5 text-[10px] text-text-muted border border-borderSoft/30">{subtask.estimated_minutes}m</span>
-        <button
+        <motion.button
           type="button"
+          whileHover={reduceMotion ? {} : { scale: 1.15 }}
+          whileTap={reduceMotion ? {} : { scale: 0.85 }}
           onClick={onDelete}
           className="ml-1 rounded-md p-1 text-text-muted hover:bg-warning/10 hover:text-warning transition-colors"
           title="Delete subtask"
         >
           <Trash2 size={13} />
-        </button>
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -551,14 +566,16 @@ export function TaskDetailPanel({ task, allTasks, onClose, onOpenTask }: TaskDet
             </div>
           ) : null}
           <div className="space-y-2">
-            {subtasks.map((sub) => (
-              <SubtaskRow
-                key={sub.id}
-                subtask={sub}
-                onMarkDone={() => void markDone(sub.id)}
-                onDelete={() => { void confirmDialog(`Delete subtask “${sub.title}”?`, { title: 'Delete subtask', confirmLabel: 'Delete', danger: true }).then((ok) => { if (ok) void deleteTask(sub.id); }); }}
-              />
-            ))}
+            <AnimatePresence mode="popLayout" initial={false}>
+              {subtasks.map((sub) => (
+                <SubtaskRow
+                  key={sub.id}
+                  subtask={sub}
+                  onMarkDone={() => void markDone(sub.id)}
+                  onDelete={() => { void confirmDialog(`Delete subtask “${sub.title}”?`, { title: 'Delete subtask', confirmLabel: 'Delete', danger: true }).then((ok) => { if (ok) void deleteTask(sub.id); }); }}
+                />
+              ))}
+            </AnimatePresence>
             <AddSubtaskRow onAdd={handleAddSubtask} />
           </div>
         </div>
@@ -581,8 +598,9 @@ export function TaskDetailPanel({ task, allTasks, onClose, onOpenTask }: TaskDet
             }}
             disabled={task.lane === 'done'}
             variant={task.lane === 'done' ? 'secondary' : 'primary'}
-            className="min-w-[116px] rounded-xl font-semibold"
+            className="relative min-w-[116px] rounded-xl font-semibold overflow-hidden"
           >
+            {task.lane === 'done' && <SparkleBurst className="-top-2 -right-2" />}
             <Check size={16} />
             {task.lane === 'done' ? 'Completed' : 'Mark done'}
           </Button>

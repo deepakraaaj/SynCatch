@@ -601,6 +601,21 @@ html:not([data-theme]) .mission-card,
     box-shadow: 0 0 30px rgb(var(--accent) / 0.18);
   }
 
+  /* Lumi's glow intensity multiplier — 1 on dark themes (glow reads strongly
+     against dark surfaces), boosted on the three light-mode themes where the
+     same alpha is too faint against light panels. Read via a CSS custom
+     property so IntentSprite.tsx's inline box-shadow can react to theme
+     without any JS theme-detection logic. */
+  :root {
+    --lumi-glow-multiplier: 1;
+  }
+
+  [data-theme='light-studio'],
+  [data-theme='zen-mode'],
+  [data-theme='rose-quartz'] {
+    --lumi-glow-multiplier: 1.6;
+  }
+
   .accent-avatar {
     background: linear-gradient(135deg, rgb(var(--accent) / 0.42), rgb(var(--accent-soft) / 0.82));
     color: rgb(var(--accent-contrast));

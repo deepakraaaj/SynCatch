@@ -281,7 +281,7 @@ export function TeamNotesView({ filterMissionId }: TeamNotesViewProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-          <AnimatePresence>
+          <AnimatePresence mode="popLayout" initial={false}>
             {filteredNotes.map((note) => (
               <NoteCard
                 key={note.id}
@@ -319,21 +319,23 @@ export function TeamNotesView({ filterMissionId }: TeamNotesViewProps) {
         )}
       </AnimatePresence>
 
-      {(isCreating || editing) && (
-        <NoteEditorModal
-          mode={editing ? 'edit' : 'create'}
-          note={editing ?? undefined}
-          categories={TEAM_CATEGORIES}
-          missions={filterMissionId ? [] : teamMissions.map((m) => ({ id: m.id, title: m.title }))}
-          defaultCategoryId="General"
-          defaultMissionId={activeMissionId !== 'all' && activeMissionId !== 'none' ? activeMissionId : undefined}
-          onClose={() => {
-            setIsCreating(false);
-            setEditingId(null);
-          }}
-          onSubmit={submitNote}
-        />
-      )}
+      <AnimatePresence>
+        {(isCreating || editing) && (
+          <NoteEditorModal
+            mode={editing ? 'edit' : 'create'}
+            note={editing ?? undefined}
+            categories={TEAM_CATEGORIES}
+            missions={filterMissionId ? [] : teamMissions.map((m) => ({ id: m.id, title: m.title }))}
+            defaultCategoryId="General"
+            defaultMissionId={activeMissionId !== 'all' && activeMissionId !== 'none' ? activeMissionId : undefined}
+            onClose={() => {
+              setIsCreating(false);
+              setEditingId(null);
+            }}
+            onSubmit={submitNote}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

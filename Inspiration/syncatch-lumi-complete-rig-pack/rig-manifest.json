@@ -1,0 +1,2108 @@
+{
+  "01_character_parts/head.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.6
+    },
+    "source_box": [
+      25,
+      65,
+      230,
+      250
+    ],
+    "note": ""
+  },
+  "01_character_parts/ear_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.92
+    },
+    "source_box": [
+      170,
+      25,
+      280,
+      190
+    ],
+    "note": ""
+  },
+  "01_character_parts/ear_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.92
+    },
+    "source_box": [
+      245,
+      145,
+      355,
+      300
+    ],
+    "note": ""
+  },
+  "01_character_parts/body.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.75
+    },
+    "source_box": [
+      45,
+      205,
+      210,
+      430
+    ],
+    "note": ""
+  },
+  "01_character_parts/arm_left.webp": {
+    "pivot": {
+      "x": 0.8,
+      "y": 0.5
+    },
+    "source_box": [
+      185,
+      230,
+      260,
+      310
+    ],
+    "note": ""
+  },
+  "01_character_parts/arm_right.webp": {
+    "pivot": {
+      "x": 0.2,
+      "y": 0.5
+    },
+    "source_box": [
+      265,
+      230,
+      340,
+      310
+    ],
+    "note": ""
+  },
+  "01_character_parts/foot_left.webp": {
+    "pivot": {
+      "x": 0.55,
+      "y": 0.3
+    },
+    "source_box": [
+      260,
+      300,
+      325,
+      365
+    ],
+    "note": ""
+  },
+  "01_character_parts/foot_right.webp": {
+    "pivot": {
+      "x": 0.55,
+      "y": 0.3
+    },
+    "source_box": [
+      260,
+      345,
+      325,
+      410
+    ],
+    "note": ""
+  },
+  "01_character_parts/tail.webp": {
+    "pivot": {
+      "x": 0.8,
+      "y": 0.55
+    },
+    "source_box": [
+      0,
+      300,
+      145,
+      455
+    ],
+    "note": ""
+  },
+  "01_character_parts/chest_gem.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      185,
+      345,
+      240,
+      420
+    ],
+    "note": ""
+  },
+  "01_character_parts/shadow.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      230,
+      405,
+      340,
+      455
+    ],
+    "note": ""
+  },
+  "02_eyes/open_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      27,
+      430,
+      63
+    ],
+    "note": ""
+  },
+  "02_eyes/open_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      27,
+      495,
+      63
+    ],
+    "note": ""
+  },
+  "02_eyes/half_open_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      72,
+      430,
+      108
+    ],
+    "note": ""
+  },
+  "02_eyes/half_open_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      72,
+      495,
+      108
+    ],
+    "note": ""
+  },
+  "02_eyes/closed_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      117,
+      430,
+      153
+    ],
+    "note": ""
+  },
+  "02_eyes/closed_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      117,
+      495,
+      153
+    ],
+    "note": ""
+  },
+  "02_eyes/wink_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      162,
+      430,
+      198
+    ],
+    "note": ""
+  },
+  "02_eyes/wink_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      162,
+      495,
+      198
+    ],
+    "note": ""
+  },
+  "02_eyes/squint_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      207,
+      430,
+      243
+    ],
+    "note": ""
+  },
+  "02_eyes/squint_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      207,
+      495,
+      243
+    ],
+    "note": ""
+  },
+  "02_eyes/sad_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      252,
+      430,
+      288
+    ],
+    "note": ""
+  },
+  "02_eyes/sad_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      252,
+      495,
+      288
+    ],
+    "note": ""
+  },
+  "02_eyes/surprised_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      297,
+      430,
+      333
+    ],
+    "note": ""
+  },
+  "02_eyes/surprised_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      297,
+      495,
+      333
+    ],
+    "note": ""
+  },
+  "02_eyes/angry_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      342,
+      430,
+      378
+    ],
+    "note": ""
+  },
+  "02_eyes/angry_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      342,
+      495,
+      378
+    ],
+    "note": ""
+  },
+  "02_eyes/concerned_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      387,
+      430,
+      423
+    ],
+    "note": ""
+  },
+  "02_eyes/concerned_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      387,
+      495,
+      423
+    ],
+    "note": ""
+  },
+  "02_eyes/heart_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      427,
+      430,
+      463
+    ],
+    "note": ""
+  },
+  "02_eyes/heart_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      427,
+      495,
+      463
+    ],
+    "note": ""
+  },
+  "02_eyes/star_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      365,
+      462,
+      430,
+      498
+    ],
+    "note": ""
+  },
+  "02_eyes/star_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      430,
+      462,
+      495,
+      498
+    ],
+    "note": ""
+  },
+  "03_mouths/neutral_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      31,
+      700,
+      61
+    ],
+    "note": ""
+  },
+  "03_mouths/neutral_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      31,
+      765,
+      61
+    ],
+    "note": ""
+  },
+  "03_mouths/smile_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      64,
+      700,
+      94
+    ],
+    "note": ""
+  },
+  "03_mouths/smile_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      64,
+      765,
+      94
+    ],
+    "note": ""
+  },
+  "03_mouths/small_smile_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      96,
+      700,
+      126
+    ],
+    "note": ""
+  },
+  "03_mouths/small_smile_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      96,
+      765,
+      126
+    ],
+    "note": ""
+  },
+  "03_mouths/open_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      131,
+      700,
+      161
+    ],
+    "note": ""
+  },
+  "03_mouths/open_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      131,
+      765,
+      161
+    ],
+    "note": ""
+  },
+  "03_mouths/happy_open_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      166,
+      700,
+      196
+    ],
+    "note": ""
+  },
+  "03_mouths/happy_open_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      166,
+      765,
+      196
+    ],
+    "note": ""
+  },
+  "03_mouths/laugh_1_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      201,
+      700,
+      231
+    ],
+    "note": ""
+  },
+  "03_mouths/laugh_1_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      201,
+      765,
+      231
+    ],
+    "note": ""
+  },
+  "03_mouths/laugh_2_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      236,
+      700,
+      266
+    ],
+    "note": ""
+  },
+  "03_mouths/laugh_2_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      236,
+      765,
+      266
+    ],
+    "note": ""
+  },
+  "03_mouths/excited_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      271,
+      700,
+      301
+    ],
+    "note": ""
+  },
+  "03_mouths/excited_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      271,
+      765,
+      301
+    ],
+    "note": ""
+  },
+  "03_mouths/o_shape_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      306,
+      700,
+      336
+    ],
+    "note": ""
+  },
+  "03_mouths/o_shape_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      306,
+      765,
+      336
+    ],
+    "note": ""
+  },
+  "03_mouths/sad_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      341,
+      700,
+      371
+    ],
+    "note": ""
+  },
+  "03_mouths/sad_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      341,
+      765,
+      371
+    ],
+    "note": ""
+  },
+  "03_mouths/pout_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      376,
+      700,
+      406
+    ],
+    "note": ""
+  },
+  "03_mouths/pout_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      376,
+      765,
+      406
+    ],
+    "note": ""
+  },
+  "03_mouths/angry_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      409,
+      700,
+      439
+    ],
+    "note": ""
+  },
+  "03_mouths/angry_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      409,
+      765,
+      439
+    ],
+    "note": ""
+  },
+  "03_mouths/tongue_out_a.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      635,
+      442,
+      700,
+      472
+    ],
+    "note": ""
+  },
+  "03_mouths/tongue_out_b.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      700,
+      442,
+      765,
+      472
+    ],
+    "note": ""
+  },
+  "04_facial_extras/blush_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      815,
+      45,
+      880,
+      90
+    ],
+    "note": ""
+  },
+  "04_facial_extras/blush_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      905,
+      45,
+      970,
+      90
+    ],
+    "note": ""
+  },
+  "04_facial_extras/eyebrows.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      815,
+      90,
+      970,
+      135
+    ],
+    "note": ""
+  },
+  "04_facial_extras/tears.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      820,
+      145,
+      970,
+      205
+    ],
+    "note": ""
+  },
+  "04_facial_extras/sweat.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      820,
+      205,
+      970,
+      270
+    ],
+    "note": ""
+  },
+  "04_facial_extras/sparkles.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      810,
+      260,
+      975,
+      330
+    ],
+    "note": ""
+  },
+  "04_facial_extras/hearts.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      815,
+      330,
+      975,
+      390
+    ],
+    "note": ""
+  },
+  "04_facial_extras/stars.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      815,
+      390,
+      975,
+      445
+    ],
+    "note": ""
+  },
+  "04_facial_extras/shout_marks.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      825,
+      445,
+      925,
+      500
+    ],
+    "note": ""
+  },
+  "04_facial_extras/question_mark.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      900,
+      445,
+      955,
+      520
+    ],
+    "note": ""
+  },
+  "04_facial_extras/exclamation_marks.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      945,
+      445,
+      1010,
+      520
+    ],
+    "note": ""
+  },
+  "05_ears/idle_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1030,
+      35,
+      1120,
+      105
+    ],
+    "note": ""
+  },
+  "05_ears/idle_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1120,
+      35,
+      1210,
+      105
+    ],
+    "note": ""
+  },
+  "05_ears/up_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1030,
+      95,
+      1120,
+      165
+    ],
+    "note": ""
+  },
+  "05_ears/up_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1120,
+      95,
+      1210,
+      165
+    ],
+    "note": ""
+  },
+  "05_ears/down_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1030,
+      160,
+      1120,
+      230
+    ],
+    "note": ""
+  },
+  "05_ears/down_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1120,
+      160,
+      1210,
+      230
+    ],
+    "note": ""
+  },
+  "05_ears/back_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1030,
+      225,
+      1120,
+      295
+    ],
+    "note": ""
+  },
+  "05_ears/back_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1120,
+      225,
+      1210,
+      295
+    ],
+    "note": ""
+  },
+  "05_ears/wiggle_1_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1030,
+      295,
+      1120,
+      365
+    ],
+    "note": ""
+  },
+  "05_ears/wiggle_1_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1120,
+      295,
+      1210,
+      365
+    ],
+    "note": ""
+  },
+  "05_ears/wiggle_2_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1030,
+      365,
+      1120,
+      435
+    ],
+    "note": ""
+  },
+  "05_ears/wiggle_2_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.95
+    },
+    "source_box": [
+      1120,
+      365,
+      1210,
+      435
+    ],
+    "note": ""
+  },
+  "06_tails/idle.webp": {
+    "pivot": {
+      "x": 0.15,
+      "y": 0.55
+    },
+    "source_box": [
+      1240,
+      40,
+      1365,
+      150
+    ],
+    "note": ""
+  },
+  "06_tails/right.webp": {
+    "pivot": {
+      "x": 0.15,
+      "y": 0.55
+    },
+    "source_box": [
+      1365,
+      40,
+      1510,
+      150
+    ],
+    "note": ""
+  },
+  "06_tails/up.webp": {
+    "pivot": {
+      "x": 0.15,
+      "y": 0.55
+    },
+    "source_box": [
+      1240,
+      150,
+      1365,
+      255
+    ],
+    "note": ""
+  },
+  "06_tails/down.webp": {
+    "pivot": {
+      "x": 0.15,
+      "y": 0.55
+    },
+    "source_box": [
+      1365,
+      150,
+      1515,
+      255
+    ],
+    "note": ""
+  },
+  "06_tails/wag_1.webp": {
+    "pivot": {
+      "x": 0.15,
+      "y": 0.55
+    },
+    "source_box": [
+      1240,
+      255,
+      1365,
+      365
+    ],
+    "note": ""
+  },
+  "06_tails/wag_2.webp": {
+    "pivot": {
+      "x": 0.15,
+      "y": 0.55
+    },
+    "source_box": [
+      1365,
+      255,
+      1515,
+      365
+    ],
+    "note": ""
+  },
+  "06_tails/wag_fast_1.webp": {
+    "pivot": {
+      "x": 0.15,
+      "y": 0.55
+    },
+    "source_box": [
+      1240,
+      365,
+      1365,
+      465
+    ],
+    "note": ""
+  },
+  "06_tails/wag_fast_2.webp": {
+    "pivot": {
+      "x": 0.15,
+      "y": 0.55
+    },
+    "source_box": [
+      1365,
+      365,
+      1515,
+      465
+    ],
+    "note": ""
+  },
+  "07_hands/idle.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1080,
+      470,
+      1150,
+      535
+    ],
+    "note": ""
+  },
+  "07_hands/wave.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1150,
+      470,
+      1220,
+      535
+    ],
+    "note": ""
+  },
+  "07_hands/point.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1220,
+      470,
+      1290,
+      535
+    ],
+    "note": ""
+  },
+  "07_hands/heart.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1290,
+      470,
+      1370,
+      535
+    ],
+    "note": ""
+  },
+  "07_hands/fist.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1370,
+      470,
+      1440,
+      535
+    ],
+    "note": ""
+  },
+  "07_hands/open.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1440,
+      470,
+      1525,
+      535
+    ],
+    "note": ""
+  },
+  "07_hands/hold.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1080,
+      535,
+      1150,
+      610
+    ],
+    "note": ""
+  },
+  "07_hands/clap.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1150,
+      535,
+      1220,
+      610
+    ],
+    "note": ""
+  },
+  "07_hands/cheer.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1220,
+      535,
+      1290,
+      610
+    ],
+    "note": ""
+  },
+  "07_hands/sleep.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1290,
+      535,
+      1370,
+      610
+    ],
+    "note": ""
+  },
+  "08_body_poses/front_idle.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      10,
+      485,
+      100,
+      625
+    ],
+    "note": ""
+  },
+  "08_body_poses/front_happy.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      100,
+      485,
+      190,
+      625
+    ],
+    "note": ""
+  },
+  "08_body_poses/front_wave.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      190,
+      485,
+      285,
+      625
+    ],
+    "note": ""
+  },
+  "08_body_poses/front_jump.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      285,
+      485,
+      380,
+      625
+    ],
+    "note": ""
+  },
+  "08_body_poses/side_left.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      380,
+      485,
+      475,
+      625
+    ],
+    "note": ""
+  },
+  "08_body_poses/side_right.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      475,
+      485,
+      570,
+      625
+    ],
+    "note": ""
+  },
+  "08_body_poses/back.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      570,
+      485,
+      665,
+      625
+    ],
+    "note": ""
+  },
+  "08_body_poses/sitting.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      665,
+      485,
+      760,
+      625
+    ],
+    "note": ""
+  },
+  "08_body_poses/sitting_front.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      760,
+      485,
+      855,
+      625
+    ],
+    "note": ""
+  },
+  "08_body_poses/lying_down.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      855,
+      485,
+      950,
+      625
+    ],
+    "note": ""
+  },
+  "08_body_poses/sleeping.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      950,
+      485,
+      1045,
+      625
+    ],
+    "note": ""
+  },
+  "09_expressions/neutral.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      10,
+      640,
+      105,
+      785
+    ],
+    "note": ""
+  },
+  "09_expressions/happy.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      105,
+      640,
+      200,
+      785
+    ],
+    "note": ""
+  },
+  "09_expressions/laughing.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      200,
+      640,
+      295,
+      785
+    ],
+    "note": ""
+  },
+  "09_expressions/excited.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      295,
+      640,
+      390,
+      785
+    ],
+    "note": ""
+  },
+  "09_expressions/wink.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      390,
+      640,
+      485,
+      785
+    ],
+    "note": ""
+  },
+  "09_expressions/thinking.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      485,
+      640,
+      580,
+      785
+    ],
+    "note": ""
+  },
+  "09_expressions/sad.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      580,
+      640,
+      675,
+      785
+    ],
+    "note": ""
+  },
+  "09_expressions/concerned.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      675,
+      640,
+      770,
+      785
+    ],
+    "note": ""
+  },
+  "09_expressions/surprised.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      770,
+      640,
+      865,
+      785
+    ],
+    "note": ""
+  },
+  "09_expressions/angry.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      865,
+      640,
+      960,
+      785
+    ],
+    "note": ""
+  },
+  "09_expressions/in_love.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      960,
+      640,
+      1055,
+      785
+    ],
+    "note": ""
+  },
+  "10_actions/idle.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1030,
+      640,
+      1110,
+      760
+    ],
+    "note": ""
+  },
+  "10_actions/wave.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1110,
+      640,
+      1190,
+      760
+    ],
+    "note": ""
+  },
+  "10_actions/cheer.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1190,
+      640,
+      1270,
+      760
+    ],
+    "note": ""
+  },
+  "10_actions/jump.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1270,
+      640,
+      1350,
+      760
+    ],
+    "note": ""
+  },
+  "10_actions/spin.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1350,
+      640,
+      1430,
+      760
+    ],
+    "note": ""
+  },
+  "10_actions/tail_wag.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1430,
+      640,
+      1515,
+      760
+    ],
+    "note": ""
+  },
+  "10_actions/think.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1030,
+      760,
+      1115,
+      825
+    ],
+    "note": ""
+  },
+  "10_actions/sad.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1115,
+      760,
+      1200,
+      825
+    ],
+    "note": ""
+  },
+  "10_actions/sleep.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1200,
+      760,
+      1290,
+      825
+    ],
+    "note": ""
+  },
+  "10_actions/love.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1290,
+      760,
+      1385,
+      825
+    ],
+    "note": ""
+  },
+  "11_effects/chest_glow_idle.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      15,
+      800,
+      95,
+      875
+    ],
+    "note": ""
+  },
+  "11_effects/chest_glow_strong.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      95,
+      800,
+      175,
+      875
+    ],
+    "note": ""
+  },
+  "11_effects/sparkle_1.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      175,
+      800,
+      235,
+      875
+    ],
+    "note": ""
+  },
+  "11_effects/sparkle_2.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      235,
+      800,
+      295,
+      875
+    ],
+    "note": ""
+  },
+  "11_effects/sparkle_3.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      295,
+      800,
+      355,
+      875
+    ],
+    "note": ""
+  },
+  "11_effects/magic_trail_gold.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      15,
+      875,
+      120,
+      990
+    ],
+    "note": ""
+  },
+  "11_effects/magic_trail_teal.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      115,
+      875,
+      220,
+      990
+    ],
+    "note": ""
+  },
+  "11_effects/heart_particles.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      210,
+      875,
+      285,
+      990
+    ],
+    "note": ""
+  },
+  "11_effects/leaf_particles.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      275,
+      875,
+      350,
+      990
+    ],
+    "note": ""
+  },
+  "11_effects/confetti.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      340,
+      875,
+      420,
+      990
+    ],
+    "note": ""
+  },
+  "12_butterfly_lifecycle/egg.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      390,
+      830,
+      475,
+      1000
+    ],
+    "note": ""
+  },
+  "12_butterfly_lifecycle/egg_hatching.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      390,
+      930,
+      475,
+      1020
+    ],
+    "note": ""
+  },
+  "12_butterfly_lifecycle/caterpillar.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      485,
+      830,
+      575,
+      1000
+    ],
+    "note": ""
+  },
+  "12_butterfly_lifecycle/cocoon_small.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      565,
+      825,
+      655,
+      1005
+    ],
+    "note": ""
+  },
+  "12_butterfly_lifecycle/cocoon_large.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      640,
+      810,
+      760,
+      1005
+    ],
+    "note": ""
+  },
+  "12_butterfly_lifecycle/emerging.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      755,
+      805,
+      875,
+      1005
+    ],
+    "note": ""
+  },
+  "12_butterfly_lifecycle/butterfly.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      870,
+      795,
+      1000,
+      1000
+    ],
+    "note": ""
+  },
+  "13_butterfly_states/idle.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.55
+    },
+    "source_box": [
+      1010,
+      825,
+      1110,
+      905
+    ],
+    "note": ""
+  },
+  "13_butterfly_states/fly_1.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.55
+    },
+    "source_box": [
+      1110,
+      825,
+      1210,
+      905
+    ],
+    "note": ""
+  },
+  "13_butterfly_states/fly_2.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.55
+    },
+    "source_box": [
+      1210,
+      825,
+      1310,
+      905
+    ],
+    "note": ""
+  },
+  "13_butterfly_states/wings_closed.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.55
+    },
+    "source_box": [
+      1010,
+      905,
+      1110,
+      1000
+    ],
+    "note": ""
+  },
+  "13_butterfly_states/wings_open.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.55
+    },
+    "source_box": [
+      1110,
+      905,
+      1210,
+      1000
+    ],
+    "note": ""
+  },
+  "13_butterfly_states/wings_up.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.55
+    },
+    "source_box": [
+      1210,
+      905,
+      1310,
+      1000
+    ],
+    "note": ""
+  },
+  "14_props/leaf.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1320,
+      815,
+      1390,
+      890
+    ],
+    "note": ""
+  },
+  "14_props/branch.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1385,
+      815,
+      1485,
+      890
+    ],
+    "note": ""
+  },
+  "14_props/stone.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1480,
+      815,
+      1535,
+      890
+    ],
+    "note": ""
+  },
+  "14_props/flower.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1470,
+      815,
+      1536,
+      905
+    ],
+    "note": ""
+  },
+  "14_props/grass.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1320,
+      885,
+      1385,
+      950
+    ],
+    "note": ""
+  },
+  "14_props/petal.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1385,
+      890,
+      1445,
+      950
+    ],
+    "note": ""
+  },
+  "14_props/star_trail.webp": {
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "source_box": [
+      1440,
+      900,
+      1535,
+      1015
+    ],
+    "note": ""
+  }
+}

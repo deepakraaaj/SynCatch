@@ -1,17 +1,20 @@
 import { create } from 'zustand';
 
 export type ToastTone = 'info' | 'success' | 'error';
+export type ToastActionType = 'save' | 'delete' | 'create' | 'update' | 'info' | 'error';
 
 export interface ToastInput {
   title: string;
   description?: string;
   tone?: ToastTone;
+  action?: ToastActionType;
   durationMs?: number;
 }
 
 export interface ToastItem extends ToastInput {
   id: string;
   tone: ToastTone;
+  action: ToastActionType;
   durationMs: number;
 }
 
@@ -48,18 +51,33 @@ function scheduleToastRemoval(id: string, durationMs: number) {
   toastTimers.set(id, timer);
 }
 
+function inferAction(input: ToastInput): ToastActionType {
+  if (input.action) return input.action;
+  const lower = input.title.toLowerCase();
+  if (lower.includes('delet') || lower.includes('remov')) return 'delete';
+  if (lower.includes('sav') || lower.includes('done')) return 'save';
+  if (lower.includes('creat') || lower.includes('add') || lower.includes('new')) return 'create';
+  if (lower.includes('updat') || lower.includes('edit')) return 'update';
+  if (input.tone === 'error') return 'error';
+  return 'info';
+}
+
 export const useToastStore = create<ToastState>((set) => ({
   toasts: [],
 
   push: (toast) => {
+    const action = inferAction(toast);
     const item: ToastItem = {
       id: getToastId(),
       title: toast.title,
       description: toast.description,
-      tone: toast.tone ?? 'info',
+      tone:
+        toast.tone
+        ?? (action === 'create' || action === 'save' ? 'success' : action === 'error' ? 'error' : 'info'),
+      action,
       durationMs:
         toast.durationMs
-        ?? (toast.tone === 'error' ? 5200 : toast.tone === 'success' ? 3200 : 3800),
+        ?? (toast.tone === 'error' ? 5200 : toast.tone === 'success' ? 3400 : 3800),
     };
 
     set((state) => ({
@@ -99,3 +117,8 @@ export function showInfoToast(title: string, description?: string) {
 export function showErrorToast(title: string, description?: string) {
   return showToast({ title, description, tone: 'error' });
 }
+
+export function showDeleteToast(title: string, description?: string) {
+  return showToast({ title, description, tone: 'info', action: 'delete' });
+}
+

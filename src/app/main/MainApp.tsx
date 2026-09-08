@@ -2354,6 +2354,9 @@ export function MainApp() {
   }
 
   function navigateToView(view: MainView) {
+    if (view !== 'tasks') {
+      setTaskComposerOpen(false);
+    }
     if (view === 'settings') {
       openSettingsModal();
       return;
@@ -4842,6 +4845,16 @@ export function MainApp() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
+
+            {!mobileChatPickerOpen ? (
+              <div className="relative mb-4 flex items-center justify-between rounded-2xl border border-borderSoft/20 bg-panel/35 p-2">
+                <span className="pl-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Workspace</span>
+                <TeamHeaderSwitcher onSwitchMode={(mode) => {
+                  setActiveView(mode === 'team' ? 'missions' : 'dashboard');
+                  setMobileNavOpen(false);
+                }} />
+              </div>
+            ) : null}
             
             <div className="relative flex-1 overflow-y-auto">
               {mobileChatPickerOpen ? (

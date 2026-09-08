@@ -1,3 +1,8 @@
+/** Local calendar-day key (YYYY-MM-DD), used everywhere streaks/consistency are computed by day. */
+export function getLocalDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 export function getElapsedSeconds(sessionStart: string | null, baseElapsedSeconds = 0) {
   if (!sessionStart) {
     return baseElapsedSeconds;

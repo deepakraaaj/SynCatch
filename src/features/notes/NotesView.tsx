@@ -16,6 +16,8 @@ import { cn } from '../../lib/cn';
 import { formatDayDateWithRelative } from '../../lib/date';
 import { useNoteStore } from './note-store';
 import { useMissionStore } from '../missions/mission-store';
+import { useSettingsStore } from '../settings/settings-store';
+import { SparkleBurst } from '../../character/effects-assets';
 import {
   NOTE_COLORS,
   NOTE_CATEGORY_ICON_OPTIONS,
@@ -45,17 +47,20 @@ export function CategoryChip({
   onClick: () => void;
 }) {
   const style = color ? getNoteColorStyle(color) : null;
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion);
 
   return (
     <motion.button
       type="button"
+      whileHover={reduceMotion ? {} : { y: -1, scale: 1.02 }}
+      whileTap={reduceMotion ? {} : { scale: 0.96 }}
       onClick={onClick}
       className={cn(
         'flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
         active
           ? style
-            ? cn(style.bg, style.border, style.text)
-            : 'border-accent/40 bg-accent/12 text-accent'
+            ? cn(style.bg, style.border, style.text, 'shadow-sm')
+            : 'border-accent/40 bg-accent/12 text-accent shadow-sm'
           : 'border-borderSoft/30 bg-panel/30 text-text-secondary hover:border-borderSoft/50 hover:bg-panel/50',
       )}
     >
@@ -88,20 +93,27 @@ export function NoteCard({
   onFilterMission?: (missionId: string) => void;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion);
   const style = getNoteColorStyle(category.color);
   const title = getNoteDisplayTitle(note);
   const showTitleSeparately = note.title.trim().length > 0;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.15 }}
+      layout
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.97 }}
+      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.86, y: -12, transition: { duration: 0.22 } }}
+      transition={{ duration: 0.2 }}
       className="min-w-0"
     >
       <Card
         onClick={() => onView(note)}
-        className={cn('group relative flex h-[292px] cursor-pointer flex-col overflow-hidden rounded-[22px] border bg-panel/90 p-4 shadow-[inset_0_1px_0_rgb(var(--text-primary)/0.025)] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgb(var(--shadow-color)/0.11)] sm:p-5', style.border)}
+        className={cn(
+          'group relative flex h-[292px] cursor-pointer flex-col overflow-hidden rounded-[22px] border bg-panel/90 p-4 shadow-[inset_0_1px_0_rgb(var(--text-primary)/0.025)] transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgb(var(--shadow-color)/0.11)] sm:p-5',
+          style.border,
+          isDeleting && 'pointer-events-none opacity-50 scale-[0.98]',
+        )}
       >
         <div className={cn('absolute inset-x-0 top-0 h-1', style.solid)} />
 
@@ -113,6 +125,8 @@ export function NoteCard({
           <div className="flex shrink-0 items-center gap-1">
             <motion.button
               type="button"
+              whileHover={reduceMotion ? {} : { scale: 1.15 }}
+              whileTap={reduceMotion ? {} : { scale: 0.75, rotate: -25 }}
               onClick={(e) => {
                 e.stopPropagation();
                 onTogglePin(note.id);
@@ -125,10 +139,12 @@ export function NoteCard({
                   : 'text-text-muted/50 opacity-0 hover:text-text-secondary group-hover:opacity-100',
               )}
             >
-              <Pin className={cn('h-3.5 w-3.5', note.pinned && 'fill-current')} />
+              <Pin className={cn('h-3.5 w-3.5 transition-transform', note.pinned && 'fill-current scale-110')} />
             </motion.button>
             <motion.button
               type="button"
+              whileHover={reduceMotion ? {} : { scale: 1.15 }}
+              whileTap={reduceMotion ? {} : { scale: 0.85 }}
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(note);
@@ -140,6 +156,8 @@ export function NoteCard({
             </motion.button>
             <motion.button
               type="button"
+              whileHover={reduceMotion ? {} : { scale: 1.15 }}
+              whileTap={reduceMotion ? {} : { scale: 0.85 }}
               disabled={isDeleting}
               onClick={async (e) => {
                 e.stopPropagation();
@@ -154,7 +172,7 @@ export function NoteCard({
               className="flex h-7 w-7 items-center justify-center rounded-full text-text-muted/50 opacity-0 transition-colors hover:bg-red-500/12 hover:text-red-600/70 group-hover:opacity-100 disabled:opacity-50"
             >
               {isDeleting ? (
-                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity }} className="h-3.5 w-3.5 rounded-full border border-text-muted/40 border-t-text-muted/70" />
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="h-3.5 w-3.5 rounded-full border-2 border-red-500/40 border-t-red-500" />
               ) : (
                 <Trash2 className="h-3.5 w-3.5" />
               )}
@@ -523,6 +541,7 @@ export function NoteViewerModal({
 }) {
   const style = getNoteColorStyle(category.color);
   const title = getNoteDisplayTitle(note);
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -533,13 +552,22 @@ export function NoteViewerModal({
   }, [onClose]);
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
-      <div
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-[3px]" />
+      <motion.div
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 16 }}
+        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 12 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 28 }}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-[28px] border border-borderStrong/25 bg-panel2 pb-[env(safe-area-inset-bottom)] shadow-[0_28px_80px_rgba(3,5,7,0.28)] sm:rounded-[28px] sm:pb-0"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-[28px] border border-borderStrong/25 bg-panel2 pb-[env(safe-area-inset-bottom)] shadow-[0_28px_80px_rgba(3,5,7,0.28)] sm:rounded-[28px] sm:pb-0"
       >
         <div className={cn('h-1 shrink-0', style.solid)} />
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-borderSoft/25 px-6 py-5">
@@ -551,8 +579,10 @@ export function NoteViewerModal({
             <h2 className="text-lg font-semibold leading-snug tracking-[-0.2px] text-text-primary">{title}</h2>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <button
+            <motion.button
               type="button"
+              whileHover={reduceMotion ? {} : { scale: 1.15 }}
+              whileTap={reduceMotion ? {} : { scale: 0.75, rotate: -25 }}
               onClick={() => onTogglePin(note.id)}
               title={note.pinned ? 'Unpin note' : 'Pin note'}
               className={cn(
@@ -560,10 +590,12 @@ export function NoteViewerModal({
                 note.pinned ? 'text-accent' : 'text-text-muted/70 hover:bg-text-primary/8 hover:text-text-primary',
               )}
             >
-              <Pin className={cn('h-4 w-4', note.pinned && 'fill-current')} />
-            </button>
-            <button
+              <Pin className={cn('h-4 w-4 transition-transform', note.pinned && 'fill-current scale-110')} />
+            </motion.button>
+            <motion.button
               type="button"
+              whileHover={reduceMotion ? {} : { scale: 1.15 }}
+              whileTap={reduceMotion ? {} : { scale: 0.85 }}
               onClick={() => {
                 onClose();
                 onEdit(note);
@@ -572,14 +604,16 @@ export function NoteViewerModal({
               className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted/70 transition-colors hover:bg-text-primary/8 hover:text-text-primary"
             >
               <Edit2 className="h-4 w-4" />
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={reduceMotion ? {} : { scale: 1.15 }}
+              whileTap={reduceMotion ? {} : { scale: 0.85 }}
               onClick={onClose}
               type="button"
               className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted/70 transition-colors hover:bg-text-primary/8 hover:text-text-primary"
             >
               <X className="h-4 w-4" />
-            </button>
+            </motion.button>
           </div>
         </div>
 
@@ -617,8 +651,8 @@ export function NoteViewerModal({
             {formatDayDateWithRelative(note.updated_at)}
           </span>
         </div>
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body,
   );
 }
@@ -657,6 +691,9 @@ export function NoteEditorModal({
   const [pinned, setPinned] = useState(note?.pinned ?? false);
   const [saving, setSaving] = useState(false);
 
+  const [savedFlash, setSavedFlash] = useState(false);
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion);
+
   const trimmedContent = content.trim();
   // For HTML content, strip tags to know whether there's real text/media to save.
   const plainText = isHtmlContent(content)
@@ -676,7 +713,7 @@ export function NoteEditorModal({
   });
 
   const handleSubmit = useCallback(async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || savedFlash) return;
     setSaving(true);
     try {
       if (mode === 'edit') {
@@ -684,11 +721,15 @@ export function NoteEditorModal({
       } else {
         await onSubmit(draft);
       }
-      onClose();
-    } finally {
+      setSavedFlash(true);
+      setTimeout(() => {
+        onClose();
+      }, 450);
+    } catch (err) {
       setSaving(false);
+      throw err;
     }
-  }, [canSubmit, mode, flush, draft, onSubmit, onClose]);
+  }, [canSubmit, savedFlash, mode, flush, draft, onSubmit, onClose]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -700,26 +741,37 @@ export function NoteEditorModal({
   }, [onClose, handleSubmit]);
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
-      <div
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[3px]" />
+      <motion.div
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 16 }}
+        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 12 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 28 }}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-[28px] border border-borderSoft/40 bg-panel pb-[env(safe-area-inset-bottom)] shadow-panel sm:rounded-[28px] sm:pb-0"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-[28px] border border-borderSoft/40 bg-panel pb-[env(safe-area-inset-bottom)] shadow-panel sm:rounded-[28px] sm:pb-0"
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-borderSoft/25 px-6 py-5">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.4px] text-text-muted/60">{mode === 'create' ? 'New note' : 'Editing'}</p>
             <h2 className="truncate text-base font-semibold text-text-primary">{mode === 'create' ? 'Capture something' : 'Edit note'}</h2>
           </div>
-          <button
+          <motion.button
+            whileHover={reduceMotion ? {} : { scale: 1.1 }}
+            whileTap={reduceMotion ? {} : { scale: 0.9 }}
             onClick={onClose}
             type="button"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted/70 transition-colors hover:bg-text-primary/8 hover:text-text-primary"
           >
             <X className="h-4 w-4" />
-          </button>
+          </motion.button>
         </div>
 
         <div className="space-y-4 overflow-y-auto px-6 py-5">
@@ -738,18 +790,20 @@ export function NoteEditorModal({
                 const style = getNoteColorStyle(category.color);
                 const active = category.id === categoryId;
                 return (
-                  <button
+                  <motion.button
                     key={category.id}
                     type="button"
+                    whileHover={reduceMotion ? {} : { scale: 1.04 }}
+                    whileTap={reduceMotion ? {} : { scale: 0.96 }}
                     onClick={() => setCategoryId(category.id)}
                     className={cn(
                       'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
-                      active ? cn(style.bg, style.border, style.text) : 'border-borderSoft/30 bg-panel/30 text-text-secondary hover:border-borderSoft/50',
+                      active ? cn(style.bg, style.border, style.text, 'shadow-sm') : 'border-borderSoft/30 bg-panel/30 text-text-secondary hover:border-borderSoft/50',
                     )}
                   >
                     <NoteCategoryIcon icon={category.icon} className="h-3 w-3" />
                     {category.label}
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -772,17 +826,19 @@ export function NoteEditorModal({
             </div>
           </div>
 
-          <button
+          <motion.button
             type="button"
+            whileHover={reduceMotion ? {} : { scale: 1.02 }}
+            whileTap={reduceMotion ? {} : { scale: 0.97 }}
             onClick={() => setPinned((v) => !v)}
             className={cn(
               'flex items-center gap-2 rounded-[14px] border px-3 py-2 text-[13px] font-medium transition-colors',
-              pinned ? 'border-accent/40 bg-accent/12 text-accent' : 'border-borderSoft/30 bg-panel/30 text-text-secondary hover:border-borderSoft/50',
+              pinned ? 'border-accent/40 bg-accent/12 text-accent shadow-sm' : 'border-borderSoft/30 bg-panel/30 text-text-secondary hover:border-borderSoft/50',
             )}
           >
-            <Pin className={cn('h-3.5 w-3.5', pinned && 'fill-current')} />
+            <Pin className={cn('h-3.5 w-3.5 transition-transform', pinned && 'fill-current scale-110')} />
             {pinned ? 'Pinned' : 'Pin this note'}
-          </button>
+          </motion.button>
         </div>
 
         <div className="flex shrink-0 items-center justify-between gap-2 border-t border-borderSoft/25 px-6 py-4">
@@ -791,15 +847,30 @@ export function NoteEditorModal({
             <Button onClick={onClose} size="sm" type="button" variant="secondary" className="text-[13px] font-medium">
               Cancel
             </Button>
-            <Button disabled={!canSubmit} onClick={handleSubmit} size="sm" type="button" className="min-w-[120px] text-[13px] font-medium">
-              {saving ? (
+            <Button
+              disabled={!canSubmit || savedFlash}
+              onClick={handleSubmit}
+              size="sm"
+              type="button"
+              className={cn(
+                'relative min-w-[124px] text-[13px] font-semibold transition-all overflow-hidden',
+                savedFlash && 'bg-emerald-600 text-white shadow-[0_0_16px_rgba(16,185,129,0.35)]',
+              )}
+            >
+              {savedFlash && <SparkleBurst className="-top-1 -right-1" size={22} reduceMotion={reduceMotion} />}
+              {savedFlash ? (
+                <span className="flex items-center justify-center gap-1.5 font-bold">
+                  <Check className="h-4 w-4 stroke-[2.5]" />
+                  Saved!
+                </span>
+              ) : saving ? (
                 <span className="flex items-center justify-center gap-2">
                   <motion.span
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                     className="h-3.5 w-3.5 rounded-full border-2 border-current/40 border-t-current"
                   />
-                  {mode === 'create' ? 'Adding' : 'Saving'}
+                  {mode === 'create' ? 'Adding…' : 'Saving…'}
                 </span>
               ) : mode === 'create' ? (
                 'Add note'
@@ -809,8 +880,8 @@ export function NoteEditorModal({
             </Button>
           </div>
         </div>
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body,
   );
 }
@@ -873,64 +944,90 @@ function CategoryManagerModal({
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion);
+
   return createPortal(
-    <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
-      <div
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[3px]" />
+      <motion.div
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 16 }}
+        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 12 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 28 }}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] border border-borderSoft/40 bg-panel pb-[env(safe-area-inset-bottom)] shadow-panel sm:rounded-[28px] sm:pb-0"
+        className="relative z-10 flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] border border-borderSoft/40 bg-panel pb-[env(safe-area-inset-bottom)] shadow-panel sm:rounded-[28px] sm:pb-0"
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-borderSoft/25 px-6 py-5">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.4px] text-text-muted/60">Notes</p>
             <h2 className="truncate text-base font-semibold text-text-primary">Manage categories</h2>
           </div>
-          <button
+          <motion.button
+            whileHover={reduceMotion ? {} : { scale: 1.1 }}
+            whileTap={reduceMotion ? {} : { scale: 0.9 }}
             onClick={onClose}
             type="button"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted/70 transition-colors hover:bg-text-primary/8 hover:text-text-primary"
           >
             <X className="h-4 w-4" />
-          </button>
+          </motion.button>
         </div>
 
         <div className="space-y-4 overflow-y-auto px-6 py-5">
           {categories.length > 0 ? (
             <div className="space-y-2">
-              {categories.map((category) => {
-                const style = getNoteColorStyle(category.color);
-                return (
-                  <div key={category.id} className="flex items-center gap-3 rounded-[14px] border border-borderSoft/25 bg-panel/30 px-3 py-2.5">
-                    <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', style.bg, style.text)}>
-                      <NoteCategoryIcon icon={category.icon} className="h-4 w-4" />
-                    </div>
-                    <span className="flex-1 truncate text-sm font-medium text-text-primary">{category.label}</span>
-                    <button
-                      type="button"
-                      onClick={() => startEdit(category)}
-                      title="Edit category"
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-text-muted/60 transition-colors hover:bg-emerald-500/12 hover:text-emerald-600/70"
+              <AnimatePresence mode="popLayout" initial={false}>
+                {categories.map((category) => {
+                  const style = getNoteColorStyle(category.color);
+                  return (
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: -6, transition: { duration: 0.18 } }}
+                      key={category.id}
+                      className="flex items-center gap-3 rounded-[14px] border border-borderSoft/25 bg-panel/30 px-3 py-2.5"
                     >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (await confirmDialog(`Notes in “${category.label}” will move to General.`, { title: `Delete ${category.label}?`, confirmLabel: 'Delete', danger: true })) {
-                          await onDelete(category.id);
-                          if (editingId === category.id) resetForm();
-                        }
-                      }}
-                      title="Delete category"
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-text-muted/60 transition-colors hover:bg-red-500/12 hover:text-red-600/70"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                );
-              })}
+                      <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', style.bg, style.text)}>
+                        <NoteCategoryIcon icon={category.icon} className="h-4 w-4" />
+                      </div>
+                      <span className="flex-1 truncate text-sm font-medium text-text-primary">{category.label}</span>
+                      <motion.button
+                        type="button"
+                        whileHover={reduceMotion ? {} : { scale: 1.15 }}
+                        whileTap={reduceMotion ? {} : { scale: 0.85 }}
+                        onClick={() => startEdit(category)}
+                        title="Edit category"
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-text-muted/60 transition-colors hover:bg-emerald-500/12 hover:text-emerald-600/70"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        whileHover={reduceMotion ? {} : { scale: 1.15 }}
+                        whileTap={reduceMotion ? {} : { scale: 0.85 }}
+                        onClick={async () => {
+                          if (await confirmDialog(`Notes in “${category.label}” will move to General.`, { title: `Delete ${category.label}?`, confirmLabel: 'Delete', danger: true })) {
+                            await onDelete(category.id);
+                            if (editingId === category.id) resetForm();
+                          }
+                        }}
+                        title="Delete category"
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-text-muted/60 transition-colors hover:bg-red-500/12 hover:text-red-600/70"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </motion.button>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
           ) : (
             <p className="text-[13px] text-text-muted/60">No custom categories yet. Create one below.</p>
@@ -994,8 +1091,8 @@ function CategoryManagerModal({
             </div>
           </div>
         </div>
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body,
   );
 }
@@ -1309,19 +1406,21 @@ export function NotesView({ openNoteId = null }: { openNoteId?: string | null })
           </div>
         ) : (
           <div key={`${activeCategoryId}-${activeMissionId}`} className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 min-[1500px]:grid-cols-4">
-            {filteredNotes.map((note) => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                category={getCategoryById(note.category_id, categories)}
-                missionTitle={note.mission_id ? missionTitles[note.mission_id] ?? null : null}
-                onView={(n) => setViewingNoteId(n.id)}
-                onEdit={setEditingNote}
-                onDelete={handleDelete}
-                onTogglePin={handleTogglePin}
-                onFilterMission={setActiveMissionId}
-              />
-            ))}
+            <AnimatePresence mode="popLayout" initial={false}>
+              {filteredNotes.map((note) => (
+                <NoteCard
+                  key={note.id}
+                  note={note}
+                  category={getCategoryById(note.category_id, categories)}
+                  missionTitle={note.mission_id ? missionTitles[note.mission_id] ?? null : null}
+                  onView={(n) => setViewingNoteId(n.id)}
+                  onEdit={setEditingNote}
+                  onDelete={handleDelete}
+                  onTogglePin={handleTogglePin}
+                  onFilterMission={setActiveMissionId}
+                />
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>

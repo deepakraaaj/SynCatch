@@ -1,0 +1,69 @@
+{
+  "blink": {
+    "eyes": [
+      "open",
+      "half_open",
+      "closed",
+      "half_open",
+      "open"
+    ],
+    "duration_ms": 180,
+    "random_interval_ms": [
+      2500,
+      5000
+    ]
+  },
+  "smile": {
+    "eyes": "open",
+    "mouth": "smile_a",
+    "extras": [
+      "blush_optional"
+    ]
+  },
+  "laugh": {
+    "eyes": "closed",
+    "mouth": [
+      "laugh_1_a",
+      "laugh_2_a"
+    ],
+    "ears": [
+      "wiggle_1",
+      "wiggle_2"
+    ],
+    "tail": [
+      "wag_1",
+      "wag_2"
+    ]
+  },
+  "sad": {
+    "eyes": "sad",
+    "mouth": "sad_a",
+    "ears": "down",
+    "extras": [
+      "tears_optional"
+    ]
+  },
+  "concerned": {
+    "eyes": "concerned",
+    "mouth": "small_smile_a",
+    "ears": "down"
+  },
+  "excited": {
+    "eyes": "surprised",
+    "mouth": "excited_a",
+    "tail": [
+      "wag_fast_1",
+      "wag_fast_2"
+    ],
+    "effects": [
+      "sparkles",
+      "shout_marks"
+    ]
+  },
+  "sleep": {
+    "eyes": "closed",
+    "mouth": "neutral_a",
+    "ears": "down",
+    "body_motion": "slow_breathe"
+  }
+}

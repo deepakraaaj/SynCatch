@@ -4,6 +4,8 @@ import { deriveStatusFromLane, sortTasks } from './task-helpers';
 import { getTaskRepository } from './task-repository';
 import type { Task, TaskDraft, TaskLane } from './task-types';
 import { showSuccessToast } from '../toasts/toast-store';
+import { resolveCharacterState } from '../../character/characterState';
+import { pushCharacterCompletionToast } from '../../character/characterToast';
 
 interface TaskStore {
   tasks: Task[];
@@ -125,7 +127,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       await repository.updateTask(nextTask);
       await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'moved', taskId, lane });
       if (lane === 'done') {
-        showSuccessToast('Task completed', task.title);
+        const state = resolveCharacterState({ tasks: get().tasks, now: new Date() });
+        pushCharacterCompletionToast(task.title, task.id, state);
       }
     } catch (error) {
       set((state) => ({
@@ -157,7 +160,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const repository = await getTaskRepository();
       await repository.updateTask(nextTask);
       await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'done', taskId });
-      showSuccessToast('Task completed', task.title);
+      const state = resolveCharacterState({ tasks: get().tasks, now: new Date() });
+      pushCharacterCompletionToast(task.title, task.id, state);
     } catch (error) {
       set({ tasks: previousTasks, error: error instanceof Error ? error.message : 'Unable to complete task' });
     }
