@@ -22,7 +22,7 @@ import {
   Globe,
   Folder,
   FileText,
-  Sparkles,
+  Star,
   Smartphone,
   Zap,
   type LucideIcon
@@ -51,7 +51,7 @@ export const MISSION_ICONS = {
   Globe,
   Folder,
   FileText,
-  Sparkles,
+  Sparkles: Star,
   Smartphone,
   HelpCircle,
 } as const;

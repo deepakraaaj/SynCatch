@@ -14,7 +14,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Timer, Flag, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowLeft, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Check, CircleDashed, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, Heart, StickyNote, Wifi, WifiOff, MessageCircle, MessageSquare, Trophy, Users, UserRound, Bot, Palette, SlidersHorizontal, Download, Eye, Keyboard, Sparkles, AlertOctagon, PanelLeftClose, PanelLeftOpen, FolderKanban, type LucideIcon } from 'lucide-react';
+import { Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Timer, Flag, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowLeft, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Check, CircleDashed, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, Heart, StickyNote, Wifi, WifiOff, MessageCircle, MessageSquare, Trophy, Users, UserRound, Bot, Palette, SlidersHorizontal, Download, Eye, Keyboard, AlertOctagon, PanelLeftClose, PanelLeftOpen, FolderKanban, type LucideIcon } from 'lucide-react';
 import { MissionIcon } from '../../components/ui/mission-icon';
 import { DatePicker } from '../../components/ui/date-picker';
 import { Badge } from '../../components/ui/badge';
@@ -1217,16 +1217,54 @@ function SettingChoice({
   return (
     <button
       className={cn(
-        'rounded-full border px-3 py-2 text-xs font-semibold tracking-[0.02em] transition-colors duration-150',
+        'rounded-full border px-3 py-1.5 text-[11px] font-semibold tracking-[0.01em] transition-colors duration-150',
         active
-          ? 'border-accent bg-accent text-[rgb(var(--accent-contrast))] shadow-glow'
-          : 'border-borderSoft/35 bg-panel/30 text-text-secondary hover:border-borderStrong/35 hover:bg-panel/50',
+          ? 'border-accent/45 bg-accent/90 text-[rgb(var(--accent-contrast))] shadow-sm'
+          : 'border-transparent bg-transparent text-text-secondary hover:bg-panel/60 hover:text-text-primary',
       )}
       disabled={disabled}
       onClick={onClick}
       type="button"
     >
       {children}
+    </button>
+  );
+}
+
+function SettingSwitch({
+  checked,
+  disabled,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      aria-checked={checked}
+      aria-label={label}
+      className={cn(
+        'relative h-7 w-12 shrink-0 rounded-full border transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 disabled:cursor-wait disabled:opacity-50',
+        checked
+          ? 'border-accent/55 bg-accent shadow-[0_0_18px_rgb(var(--accent)/0.18)]'
+          : 'border-borderSoft/40 bg-panel2/75',
+      )}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      role="switch"
+      type="button"
+    >
+      <span
+        className={cn(
+          'absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full shadow-sm transition-all duration-200',
+          checked
+            ? 'left-[1.55rem] bg-[rgb(var(--accent-contrast))]'
+            : 'left-1 bg-text-muted',
+        )}
+      />
     </button>
   );
 }
@@ -3404,7 +3442,7 @@ export function MainApp() {
       <div className="space-y-6">
         {missionComposerOpen ? (
           <div className="fixed inset-x-0 top-0 bottom-[var(--mobile-nav-height)] z-[60] flex flex-col bg-panel lg:relative lg:inset-auto lg:bottom-auto lg:z-0 lg:bg-transparent">
-            <div className="flex items-center justify-between border-b border-borderSoft/20 p-4 lg:hidden">
+            <div className="flex min-h-[64px] items-center justify-between border-b border-borderSoft/20 px-3 py-2.5 lg:hidden">
               <h2 className="text-lg font-bold text-text-primary">{editingMission ? 'Edit Mission' : 'New Mission'}</h2>
               <Button onClick={() => { setMissionComposerOpen(false); setEditingMission(null); }} size="sm" variant="ghost" className="h-9 w-9 p-0 rounded-full">
                 <X className="h-5 w-5" />
@@ -3789,7 +3827,19 @@ export function MainApp() {
         {taskComposerOpen ? (
           <div className="fixed inset-x-0 top-0 bottom-[var(--mobile-nav-height)] z-[60] flex flex-col bg-panel lg:relative lg:inset-auto lg:bottom-auto lg:z-0 lg:bg-transparent">
             <div className="flex items-center justify-between border-b border-borderSoft/20 p-4 lg:hidden">
-              <h2 className="text-lg font-bold text-text-primary">Add Task</h2>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Button
+                  aria-label="Open sidebar"
+                  className="h-12 w-12 shrink-0 rounded-[16px] p-0"
+                  onClick={() => setMobileNavOpen(true)}
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+                <h2 className="truncate text-lg font-bold text-text-primary">Add Task</h2>
+              </div>
               <Button onClick={() => setTaskComposerOpen(false)} size="sm" variant="ghost" className="h-9 w-9 p-0 rounded-full">
                 <X className="h-5 w-5" />
               </Button>
@@ -3829,11 +3879,19 @@ export function MainApp() {
           </div>
         ) : null}
 
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none sm:hidden">
+          {renderTaskMissionFilterControl()}
+          <Button className="h-9 shrink-0 rounded-full px-4" onClick={() => setTaskComposerOpen(true)} size="sm" type="button">
+            <Plus className="h-4 w-4" /> Add
+          </Button>
+          {renderTaskDateFilterControl()}
+        </div>
+
         <div className="md:hidden">
           {renderTaskScopeControl()}
         </div>
 
-        <div className="task-board-shell flex gap-4 overflow-x-auto rounded-[26px] border border-borderSoft/35 bg-panel2/30 p-3 pb-4 sm:p-4 2xl:grid 2xl:grid-cols-[repeat(4,minmax(240px,1fr))_minmax(280px,340px)] 2xl:overflow-visible">
+        <div className="task-board-shell scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain rounded-[22px] border border-borderSoft/35 bg-panel2/30 p-2.5 pb-3 sm:gap-4 sm:rounded-[26px] sm:p-4 2xl:grid 2xl:grid-cols-[repeat(4,minmax(240px,1fr))_minmax(280px,340px)] 2xl:overflow-visible">
           {visibleTaskBoard.map((column) => {
             const groupedSubtasks = groupSubtasksByParent(column.subtasks, tasksById);
             const isCompletedColumn = column.lane === 'done';
@@ -3847,8 +3905,7 @@ export function MainApp() {
             return (
               <Card
                 className={cn(
-                  'task-board-panel kanban-column flex min-h-[420px] w-[300px] shrink-0 flex-col rounded-[24px] border-borderSoft/45 bg-panel/80 p-4 shadow-[inset_0_1px_0_rgb(var(--text-primary)/0.025)] sm:p-5 2xl:w-auto',
-                  'sm:w-[340px]',
+                  'task-board-panel kanban-column flex min-h-[420px] w-[calc(100vw-3.25rem)] max-w-[340px] shrink-0 snap-start flex-col rounded-[20px] border-borderSoft/45 bg-panel/80 p-4 shadow-[inset_0_1px_0_rgb(var(--text-primary)/0.025)] sm:w-[340px] sm:rounded-[24px] sm:p-5 2xl:w-auto 2xl:max-w-none',
                   dropLane === column.lane ? 'border-accent/30 bg-accent/8 shadow-[0_18px_44px_rgb(var(--accent)/0.12)]' : null,
                 )}
                 key={column.lane}
@@ -4433,17 +4490,17 @@ export function MainApp() {
 
         {section === 'all' || section === 'downloads' ? <DownloadsCard /> : null}
 
-        {section === 'all' || section === 'appearance' ? <Card className="rounded-[34px] p-6">
+        {section === 'all' || section === 'appearance' ? <Card className="rounded-[22px] p-3.5 sm:rounded-[24px] sm:p-5">
           <SectionHeading action={<Badge tone="accent">Theme</Badge>} title="Appearance" />
 
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
             {THEMES.map((theme) => {
               const active = theme.id === themeId;
 
               return (
                 <button
                   className={cn(
-                    'group rounded-[28px] border p-3 text-left transition-[transform,border-color,background-color,box-shadow] duration-200',
+                    'group min-w-0 rounded-[18px] border p-2 text-left transition-[transform,border-color,background-color,box-shadow] duration-200 sm:rounded-[20px] sm:p-3',
                     active
                       ? 'border-accent/45 bg-accent/8 shadow-[0_16px_38px_rgb(var(--accent)/0.16)]'
                       : 'border-borderSoft/30 bg-panel/30 hover:-translate-y-0.5 hover:border-borderStrong/40 hover:bg-panel/50 hover:shadow-[0_14px_32px_rgb(var(--shadow-color)/0.18)]',
@@ -4455,7 +4512,7 @@ export function MainApp() {
                   {/* Live mini-mockup rendered from the theme's real tokens — framed like
                       a window thumbnail so light-theme previews read as intentional, not stray boxes. */}
                   <div
-                    className="relative flex h-[84px] gap-2 overflow-hidden rounded-[16px] p-2"
+                    className="relative flex h-[68px] gap-1.5 overflow-hidden rounded-[13px] p-1.5 sm:h-[84px] sm:gap-2 sm:rounded-[16px] sm:p-2"
                     style={{
                       backgroundColor: theme.tokens.bg,
                       border: `1px solid ${theme.tokens.text}22`,
@@ -4482,10 +4539,10 @@ export function MainApp() {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between gap-2 px-1">
+                  <div className="mt-2.5 flex items-center justify-between gap-1.5 px-0.5 sm:mt-3 sm:gap-2 sm:px-1">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-text-primary">{theme.name}</p>
+                        <p className="truncate text-xs font-semibold text-text-primary sm:text-sm">{theme.name}</p>
                         <span
                           className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider"
                           style={{
@@ -4496,11 +4553,11 @@ export function MainApp() {
                           {theme.mode}
                         </span>
                       </div>
-                      <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.2em] text-text-muted">
+                      <p className="mt-0.5 hidden truncate text-[10px] uppercase tracking-[0.2em] text-text-muted sm:block">
                         {theme.eyebrow}
                       </p>
                     </div>
-                    {active ? <Badge tone="accent">Live</Badge> : null}
+                    {active ? <span className="h-2 w-2 shrink-0 rounded-full bg-accent shadow-[0_0_10px_rgb(var(--accent)/0.65)]" title="Active theme" /> : null}
                   </div>
                 </button>
               );
@@ -4509,76 +4566,43 @@ export function MainApp() {
         </Card> : null}
 
         {section === 'all' || section === 'workspace' ? <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
-          <Card className="rounded-[24px] p-4 sm:p-5">
-            <SectionHeading action={<Badge tone="neutral">Preferences</Badge>} title="Behavior" />
+          <Card className="overflow-hidden rounded-[22px] p-0 sm:rounded-[24px]">
+            <div className="flex items-center justify-between border-b border-borderSoft/20 px-4 py-4 sm:px-5">
+              <div><p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-accent">Preferences</p><h3 className="mt-1 text-base font-semibold text-text-primary">Behavior</h3></div>
+              <SlidersHorizontal className="h-4 w-4 text-text-muted" />
+            </div>
 
-            <div className="space-y-2">
-              <div className="rounded-[15px] border border-borderSoft/30 bg-panel/32 p-3">
+            <div className="divide-y divide-borderSoft/20 px-4 sm:px-5">
+              <div className="py-4">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-violet-500/10 text-violet-500"><Sparkles className="h-4 w-4" /></span>
-                  <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400"><Pause className="h-4 w-4" /></span>
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-primary">Reduce motion</p>
-                    <p className="mt-0.5 text-xs text-text-secondary">Use calmer transitions.</p>
+                    <p className="mt-0.5 text-[11px] text-text-secondary">Use calmer transitions and effects.</p>
                   </div>
-
-                  <div className="flex gap-2">
-                    <SettingChoice active={!reduceMotion} onClick={() => setReduceMotion(false)}>
-                      Off
-                    </SettingChoice>
-                    <SettingChoice active={reduceMotion} onClick={() => setReduceMotion(true)}>
-                      On
-                    </SettingChoice>
-                  </div>
-                  </div>
+                  <SettingSwitch checked={reduceMotion} label="Reduce motion" onChange={setReduceMotion} />
                 </div>
               </div>
 
-              <div className="rounded-[15px] border border-borderSoft/30 bg-panel/32 p-3">
+              <div className="py-4">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-sky-500/10 text-sky-500"><Eye className="h-4 w-4" /></span>
-                  <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400"><Eye className="h-4 w-4" /></span>
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-primary">Transparent HUD</p>
-                    <p className="mt-0.5 text-xs text-text-secondary">Float only the timer and task.</p>
+                    <p className="mt-0.5 text-[11px] text-text-secondary">Float only the timer and current task.</p>
                   </div>
-
-                  <div className="flex gap-2">
-                    <SettingChoice
-                      active={hudTransparency === 'standard'}
-                      onClick={() => {
-                        if (hudTransparency !== 'standard') {
-                          toggleHudTransparency();
-                        }
-                      }}
-                    >
-                      Off
-                    </SettingChoice>
-                    <SettingChoice
-                      active={hudTransparency === 'ghost'}
-                      onClick={() => {
-                        if (hudTransparency !== 'ghost') {
-                          toggleHudTransparency();
-                        }
-                      }}
-                    >
-                      On
-                    </SettingChoice>
-                  </div>
-                  </div>
+                  <SettingSwitch checked={hudTransparency === 'ghost'} label="Transparent HUD" onChange={() => toggleHudTransparency()} />
                 </div>
               </div>
 
-              <div className="rounded-[15px] border border-borderSoft/30 bg-panel/32 p-3">
+              <div className="py-4">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-amber-500/10 text-amber-500"><MessageCircle className="h-4 w-4" /></span>
-                  <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400"><MessageCircle className="h-4 w-4" /></span>
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-primary">Focus prompts</p>
-                    <p className="mt-0.5 text-xs text-text-secondary">Choose the recovery tone.</p>
+                    <p className="mt-0.5 text-[11px] text-text-secondary">Choose how reminders speak to you.</p>
                   </div>
-
-                  <div className="flex gap-2">
+                  <div className="flex shrink-0 rounded-full border border-borderSoft/30 bg-panel2/55 p-1">
                     <SettingChoice
                       active={focusPromptStyle === 'gentle'}
                       onClick={() => setFocusPromptStyle('gentle')}
@@ -4592,29 +4616,22 @@ export function MainApp() {
                       Direct
                     </SettingChoice>
                   </div>
-                  </div>
                 </div>
               </div>
 
-              <div className="rounded-[15px] border border-borderSoft/30 bg-panel/32 p-3">
+              <div className="py-4">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-emerald-500/10 text-emerald-500"><Play className="h-4 w-4" /></span>
-                  <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400"><Play className="h-4 w-4" /></span>
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-primary">Launch at login</p>
-                    <p className="mt-0.5 text-xs text-text-secondary">Start SynCatch with your desktop.</p>
+                    <p className="mt-0.5 text-[11px] text-text-secondary">Open SynCatch when your computer starts.</p>
                   </div>
-
-                  <Button
+                  <SettingSwitch
+                    checked={launchAtLogin}
                     disabled={launchAtLoginPending}
-                    onClick={() => void setLaunchAtLogin(!launchAtLogin)}
-                    size="sm"
-                    type="button"
-                    variant={launchAtLogin ? 'primary' : 'secondary'}
-                  >
-                    {launchAtLoginPending ? 'Saving' : launchAtLogin ? 'On' : 'Off'}
-                  </Button>
-                  </div>
+                    label="Launch at login"
+                    onChange={(checked) => void setLaunchAtLogin(checked)}
+                  />
                 </div>
               </div>
             </div>
@@ -4721,15 +4738,15 @@ export function MainApp() {
     ];
 
     return (
-      <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/55 p-0 backdrop-blur-[3px] sm:items-center sm:p-5" onClick={() => setSettingsModalOpen(false)}>
-        <div aria-label="Settings" aria-modal="true" role="dialog" className="flex h-[92vh] max-h-[760px] w-full max-w-5xl flex-col overflow-hidden rounded-t-[28px] border border-borderSoft/45 bg-panel shadow-[0_28px_90px_rgb(var(--shadow-color)/0.35)] sm:rounded-[28px]" onClick={(event) => event.stopPropagation()}>
-          <div className="flex items-center justify-between gap-4 border-b border-borderSoft/25 px-5 py-4 sm:px-6">
+      <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/60 p-2 backdrop-blur-[5px] sm:items-center sm:p-5" onClick={() => setSettingsModalOpen(false)}>
+        <div aria-label="Settings" aria-modal="true" role="dialog" className="flex h-[calc(100dvh-0.5rem)] max-h-[780px] w-full max-w-5xl flex-col overflow-hidden rounded-[26px] border border-borderSoft/45 bg-panel shadow-[0_28px_90px_rgb(var(--shadow-color)/0.42)] sm:h-[92vh] sm:rounded-[28px]" onClick={(event) => event.stopPropagation()}>
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-borderSoft/20 px-4 py-3.5 sm:px-6 sm:py-4">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">Settings center</p>
               <h2 className="mt-0.5 text-lg font-semibold text-text-primary">Settings</h2>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={openFullSettings} size="sm" type="button" variant="secondary">
+              <Button className="px-3" onClick={openFullSettings} size="sm" type="button" variant="secondary">
                 <span className="hidden sm:inline">Full settings</span><span className="sm:hidden">Full view</span> <ArrowUpRight className="h-3.5 w-3.5" />
               </Button>
               <Button aria-label="Close settings" className="h-9 w-9 rounded-full p-0" onClick={() => setSettingsModalOpen(false)} size="sm" type="button" variant="ghost">
@@ -4739,28 +4756,28 @@ export function MainApp() {
           </div>
 
           <div className="grid min-h-0 flex-1 sm:grid-cols-[220px_minmax(0,1fr)]">
-            <nav className="flex gap-2 overflow-x-auto border-b border-borderSoft/20 bg-panel2/35 p-3 sm:flex-col sm:overflow-visible sm:border-b-0 sm:border-r sm:p-4">
+            <nav className="scrollbar-none flex shrink-0 snap-x gap-1.5 overflow-x-auto border-b border-borderSoft/20 bg-panel2/30 px-3 py-2.5 sm:flex-col sm:gap-2 sm:overflow-visible sm:border-b-0 sm:border-r sm:p-4">
               {categories.map((category) => {
                 const Icon = category.icon;
                 const active = settingsCategory === category.id;
                 return (
                 <button
                   className={cn(
-                    'flex min-w-[170px] items-center gap-3 rounded-[14px] border px-3 py-2.5 text-left transition-colors duration-100 sm:min-w-0',
+                    'flex min-w-max snap-start items-center gap-2 rounded-full border px-3 py-2 text-left transition-colors duration-100 sm:min-w-0 sm:gap-3 sm:rounded-[14px] sm:px-3 sm:py-2.5',
                     active ? 'border-accent/25 bg-accent/12 text-accent shadow-sm' : 'border-transparent text-text-secondary hover:border-borderSoft/30 hover:bg-panel/65 hover:text-text-primary',
                   )}
                   key={category.id}
                   onClick={() => setSettingsCategory(category.id)}
                   type="button"
                 >
-                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]', active ? 'bg-accent/14' : 'bg-panel/70')}><Icon className="h-4 w-4" /></span>
-                  <span className="min-w-0"><span className="block text-sm font-semibold">{category.label}</span><span className="mt-0.5 block truncate text-[10px] text-current opacity-65">{category.detail}</span></span>
+                  <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full sm:h-9 sm:w-9 sm:rounded-[11px]', active ? 'bg-accent/14' : 'bg-panel/70')}><Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></span>
+                  <span className="min-w-0"><span className="block text-xs font-semibold sm:text-sm">{category.label}</span><span className="mt-0.5 hidden truncate text-[10px] text-current opacity-65 sm:block">{category.detail}</span></span>
                 </button>
                 );
               })}
             </nav>
 
-            <div className="min-h-0 overflow-y-auto bg-panel2/10 p-4 sm:p-6">
+            <div className="min-h-0 overflow-y-auto overscroll-contain bg-panel2/10 p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
               {categories.map((category) => (
                 <div
                   aria-hidden={settingsCategory !== category.id}
@@ -4788,7 +4805,7 @@ export function MainApp() {
       {settingsModalOpen ? renderSettingsModal() : null}
       {mobileNavOpen ? (
         <div
-          className="fixed inset-0 z-50 flex justify-start p-2 lg:hidden"
+          className="fixed inset-0 z-[70] flex justify-start p-2 lg:hidden"
           style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
         >
           <button
@@ -4899,7 +4916,7 @@ export function MainApp() {
         </aside>
 
         <div className="relative z-10 flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center justify-between gap-2 border-b border-borderSoft/24 px-2.5 py-2.5 sm:gap-4 sm:px-6 sm:py-3">
+          <header className="flex min-h-[64px] items-center justify-between gap-2 border-b border-borderSoft/24 px-3 py-2 sm:gap-4 sm:px-6 sm:py-3">
             <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
               <Button
                 onClick={() => setMobileNavOpen(true)}
@@ -4908,20 +4925,20 @@ export function MainApp() {
                 variant="secondary"
                 aria-label="Open menu"
                 className={cn(
-                  "lg:hidden h-8 w-8 sm:h-9 sm:w-9 shrink-0 p-0",
+                  "h-12 w-12 shrink-0 rounded-[16px] p-0 sm:h-9 sm:w-9 sm:rounded-2xl lg:hidden",
                   workspaceMode === 'team' && "hidden sm:flex"
                 )}
               >
                 <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              {workspaceMode !== 'team' && <h2 className="truncate text-lg font-semibold text-text-primary sm:text-2xl">{viewCopy}</h2>}
+              <h2 className={cn('truncate text-lg font-bold text-text-primary sm:text-2xl sm:font-semibold', workspaceMode === 'team' && 'sm:hidden')}>{viewCopy}</h2>
               {/* Mission hub back button + tab strip portal in here (see MissionHubNavSlotContext) */}
               <div ref={setMissionHubNavSlot} className="-mt-3 -mb-[calc(0.75rem+1px)] flex min-w-0 flex-1 items-stretch self-stretch empty:hidden" />
             </div>
 
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               {activeView === 'tasks' ? <div className="hidden md:block">{renderTaskScopeControl()}</div> : null}
-              {activeView === 'tasks' ? renderTaskMissionFilterControl() : null}
+              {activeView === 'tasks' ? <div className="hidden sm:block">{renderTaskMissionFilterControl()}</div> : null}
 
               {activeView === 'tasks' ? (
                 <Button
@@ -4929,7 +4946,7 @@ export function MainApp() {
                   onClick={() => setTaskComposerOpen(true)}
                   size="sm"
                   type="button"
-                  className="px-3 sm:px-4 max-[380px]:h-9 max-[380px]:w-9 max-[380px]:justify-center max-[380px]:gap-0 max-[380px]:px-0"
+                  className="hidden px-3 sm:inline-flex sm:px-4"
                 >
                   <Plus className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline max-[380px]:hidden">Create task</span>
@@ -4943,7 +4960,7 @@ export function MainApp() {
                 </Button>
               ) : null}
 
-              {activeView === 'tasks' ? renderTaskDateFilterControl() : null}
+              {activeView === 'tasks' ? <div className="hidden sm:block">{renderTaskDateFilterControl()}</div> : null}
 
               <div className="hidden items-center gap-2 sm:flex md:gap-3">
                 {activeView === 'tasks' ? null : <HeaderClock />}
@@ -4960,7 +4977,7 @@ export function MainApp() {
                 ) : null}
               </div>
 
-              <TeamHeaderSwitcher onSwitchMode={(mode) => setActiveView(mode === 'team' ? 'missions' : 'dashboard')} />
+              <div className="hidden sm:block"><TeamHeaderSwitcher onSwitchMode={(mode) => setActiveView(mode === 'team' ? 'missions' : 'dashboard')} /></div>
             </div>
           </header>
 
@@ -5157,8 +5174,10 @@ export function MainApp() {
           const isActive = isMore
             ? isTeam
               ? !['missions', 'calendar', 'tasks', 'crm'].includes(activeView)
-              : !['today', 'tasks', 'notes', 'missions'].includes(activeView)
-            : activeView === tab.id;
+              : !['dashboard', 'today', 'tasks', 'notes', 'missions'].includes(activeView)
+            : tab.id === 'today'
+              ? activeView === 'today' || activeView === 'dashboard'
+              : activeView === tab.id;
           return (
             <button
               key={tab.id}

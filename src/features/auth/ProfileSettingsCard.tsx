@@ -138,23 +138,26 @@ export function ProfileSettingsCard({
   }
 
   return (
-    <Card className="rounded-[24px] p-4 sm:p-5">
-      <div className="flex items-center gap-3 border-b border-borderSoft/20 pb-4">
-        <div className="accent-avatar flex h-12 w-12 shrink-0 items-center justify-center rounded-[15px] text-base font-semibold uppercase">{initials}</div>
+    <Card className="rounded-[22px] p-3.5 sm:rounded-[24px] sm:p-5">
+      <div className="flex items-center gap-3 border-b border-borderSoft/20 pb-3.5 sm:pb-4">
+        <div className="accent-avatar flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-sm font-semibold uppercase sm:h-12 sm:w-12 sm:text-base">{initials}</div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-base font-semibold text-text-primary">{currentDisplayName}</h2>{user.email_confirmed_at ? <Badge tone="success">Verified</Badge> : <Badge tone="warning">Verify email</Badge>}</div>
+          <div className="flex min-w-0 items-center gap-2"><h2 className="truncate text-base font-semibold text-text-primary">{currentDisplayName}</h2>{user.email_confirmed_at ? <Badge className="shrink-0 text-[8px]" tone="success">Verified</Badge> : <Badge className="shrink-0 text-[8px]" tone="warning">Verify email</Badge>}</div>
           <p className="mt-0.5 truncate text-xs text-text-secondary">{user.email ?? 'No email'}</p>
         </div>
         <Button aria-label="Sign out" onClick={() => void signOut()} size="sm" type="button" variant="ghost"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">Sign out</span></Button>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <div className="relative min-w-0 flex-1"><UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><Input className="pl-10" onChange={(event) => setDisplayNameDraft(event.target.value)} placeholder="Display name" value={displayNameDraft} /></div>
-        <Button disabled={!canSave || profileSaving} onClick={() => void handleSaveProfile()} type="button">{profileSaving ? 'Saving…' : 'Save name'}</Button>
+      <div className="mt-3.5">
+        <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-text-muted">Display name</p>
+        <div className="flex gap-2">
+          <div className="relative min-w-0 flex-1"><UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" /><Input className="h-11 rounded-[14px] pl-10 text-base sm:text-sm" onChange={(event) => setDisplayNameDraft(event.target.value)} placeholder="Display name" value={displayNameDraft} /></div>
+          {canSave ? <Button className="shrink-0" disabled={profileSaving} onClick={() => void handleSaveProfile()} type="button">{profileSaving ? 'Saving…' : 'Save'}</Button> : null}
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <ProfileRow icon={Mail} label="Email" value={user.email ?? 'No email'} action={<button aria-label="Copy email" className="text-accent" onClick={() => void handleCopy(user.email ?? '', 'Email')} type="button"><Copy className="h-3.5 w-3.5" /></button>} />
+      <div className="mt-3.5 grid grid-cols-2 gap-2">
+        <ProfileRow className="col-span-2" icon={Mail} label="Email" value={user.email ?? 'No email'} action={<button aria-label="Copy email" className="text-accent" onClick={() => void handleCopy(user.email ?? '', 'Email')} type="button"><Copy className="h-3.5 w-3.5" /></button>} />
         <ProfileRow icon={UserRound} label="User ID" value={userIdShort} action={<button aria-label="Copy user ID" className="text-accent" onClick={() => void handleCopy(user.id, 'User ID')} type="button"><Copy className="h-3.5 w-3.5" /></button>} />
         <ProfileRow icon={CalendarDays} label="Member since" value={memberSince} />
         <ProfileRow icon={Clock3} label="Last sign in" value={lastSignIn} />
@@ -177,8 +180,8 @@ export function ProfileSettingsCard({
   );
 }
 
-function ProfileRow({ icon: Icon, label, value, action }: { icon: typeof UserRound; label: string; value: string; action?: ReactNode }) {
-  return <div className="flex min-w-0 items-center gap-3 rounded-[14px] border border-borderSoft/24 bg-panel/25 p-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-accent/8 text-accent"><Icon className="h-3.5 w-3.5" /></span><div className="min-w-0 flex-1"><p className="text-[9px] uppercase tracking-[0.16em] text-text-muted">{label}</p><p className="mt-0.5 truncate text-xs font-medium text-text-primary">{value}</p></div>{action}</div>;
+function ProfileRow({ className = '', icon: Icon, label, value, action }: { className?: string; icon: typeof UserRound; label: string; value: string; action?: ReactNode }) {
+  return <div className={`flex min-w-0 items-center gap-2.5 rounded-[13px] border border-borderSoft/24 bg-panel/25 p-2.5 sm:gap-3 sm:p-3 ${className}`}><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-accent/8 text-accent"><Icon className="h-3.5 w-3.5" /></span><div className="min-w-0 flex-1"><p className="text-[8px] uppercase tracking-[0.14em] text-text-muted sm:text-[9px]">{label}</p><p className="mt-0.5 truncate text-[11px] font-medium text-text-primary sm:text-xs" title={value}>{value}</p></div>{action}</div>;
 }
 
 function CompactStat({ icon: Icon, label, value }: { icon: typeof UserRound; label: string; value: string }) {

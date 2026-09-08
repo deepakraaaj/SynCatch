@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Bot, CheckCircle2, CircleAlert, Loader2, Sparkles } from 'lucide-react';
+import { Activity, Bot, CheckCircle2, CircleAlert, Loader2 } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -77,7 +77,7 @@ export function AiProviderCard() {
   }
 
   return (
-    <Card className="rounded-[34px] p-6">
+    <Card className="rounded-[22px] p-3.5 sm:rounded-[24px] sm:p-5">
       <SectionHeading
         action={<Badge tone="accent">{configuredCount} configured</Badge>}
         title="AI assistant"
@@ -96,7 +96,7 @@ export function AiProviderCard() {
             <div
               key={provider.id}
               className={cn(
-                'flex flex-col gap-3 rounded-[24px] border p-4 transition-colors',
+                'flex flex-col gap-3 rounded-[17px] border p-3 transition-colors sm:rounded-[20px] sm:p-4',
                 active
                   ? 'border-accent/45 bg-accent/8 shadow-[0_16px_38px_rgb(var(--accent)/0.16)]'
                   : 'border-borderSoft/30 bg-panel/32',
@@ -171,7 +171,7 @@ export function AiProviderCard() {
                     ) : result === 'fail' ? (
                       <CircleAlert className="h-3.5 w-3.5 text-danger" />
                     ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Activity className="h-3.5 w-3.5" />
                     )}
                     <span className="ml-1.5">Test</span>
                   </Button>

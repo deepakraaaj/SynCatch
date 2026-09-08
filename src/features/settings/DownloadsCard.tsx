@@ -134,7 +134,7 @@ export function DownloadsCard() {
   };
 
   return (
-    <Card className="rounded-[34px] p-6">
+    <Card className="rounded-[22px] p-3.5 sm:rounded-[24px] sm:p-5">
       <SectionHeading
         title="Get the apps"
         detail={
@@ -163,7 +163,7 @@ export function DownloadsCard() {
           return (
             <div
               key={platform.id}
-              className="flex flex-col rounded-[24px] border border-borderSoft/30 bg-panel/32 p-4"
+              className="flex flex-col rounded-[17px] border border-borderSoft/30 bg-panel/32 p-3 sm:rounded-[20px] sm:p-4"
             >
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent">

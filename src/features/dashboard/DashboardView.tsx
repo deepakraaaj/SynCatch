@@ -16,7 +16,9 @@ import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { MissionIcon } from '../../components/ui/mission-icon';
 import { cn } from '../../lib/cn';
-import { formatMinutes, formatRelativeTime } from '../../lib/date';
+import { formatMinutes, formatRelativeTime, getLocalDateKey } from '../../lib/date';
+import { stagger as sharedStagger } from '../../lib/motion';
+import { LumiHeroCard } from './LumiHeroCard';
 import { useAuthStore } from '../auth/auth-store';
 import { useSettingsStore } from '../settings/settings-store';
 import { useTaskStore } from '../tasks/task-store';
@@ -87,9 +89,7 @@ function getDisplayName(metadata: Record<string, unknown> | undefined, email: st
   return 'Operator';
 }
 
-function localDateKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
+const localDateKey = getLocalDateKey;
 
 function dayOfYear(date: Date) {
   return Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
@@ -263,17 +263,10 @@ export function DashboardView({ onNavigate, onOpenTask, onOpenMission, onNewTask
 
   const dateLine = now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 
-  const stagger = (index: number) =>
-    reduceMotion
-      ? {}
-      : {
-          initial: { opacity: 0, y: 10 },
-          animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.35, delay: index * 0.06, ease: [0.22, 1, 0.36, 1] as const },
-        };
+  const stagger = (index: number) => sharedStagger(index, reduceMotion);
 
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <div className="w-full min-w-0 space-y-4 overflow-hidden pb-4 sm:space-y-5 sm:pb-0">
       {/* Header: greeting + date + quick actions */}
       <motion.div {...stagger(0)}>
         <Card className="relative overflow-hidden rounded-[28px] border border-borderSoft/30 p-5 shadow-panel sm:p-6">
@@ -313,8 +306,11 @@ export function DashboardView({ onNavigate, onOpenTask, onOpenMission, onNewTask
         </Card>
       </motion.div>
 
+      {/* Lumi — the Intent Sprite. Where momentum stands right now, and what small action keeps it alive. */}
+      <LumiHeroCard index={1} />
+
       {/* Stat tiles */}
-      <motion.div {...stagger(1)} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <motion.div {...stagger(2)} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile
           icon={<Timer className="h-5 w-5" />}
           label="Focus today"
@@ -344,7 +340,7 @@ export function DashboardView({ onNavigate, onOpenTask, onOpenMission, onNewTask
 
       {/* Calendar discovery */}
       <motion.button
-        {...stagger(2)}
+        {...stagger(3)}
         type="button"
         onClick={() => onNavigate('calendar')}
         className="group relative w-full overflow-hidden rounded-[24px] border border-accent/20 bg-gradient-to-r from-accent/10 via-panel/45 to-panel/25 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/35 hover:shadow-[0_14px_36px_rgba(var(--accent),0.10)] sm:p-5"
@@ -381,10 +377,10 @@ export function DashboardView({ onNavigate, onOpenTask, onOpenMission, onNewTask
         </div>
       </motion.button>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] sm:gap-5">
+      <div className="grid min-w-0 gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         {/* Up next */}
-        <motion.div {...stagger(3)}>
-          <Card className="h-full rounded-[26px] border border-borderSoft/30 p-5 shadow-panel sm:p-6">
+        <motion.div className="min-w-0" {...stagger(4)}>
+          <Card className="h-full min-w-0 overflow-hidden rounded-[22px] border border-borderSoft/30 p-4 shadow-panel sm:rounded-[26px] sm:p-6">
             <SectionHeader title="Up next" actionLabel="All tasks" onAction={() => onNavigate('tasks')} />
             {upNext.length > 0 ? (
               <div className="space-y-1.5">
@@ -397,11 +393,11 @@ export function DashboardView({ onNavigate, onOpenTask, onOpenMission, onNewTask
                       key={task.id}
                       type="button"
                       onClick={() => onOpenTask(task.id)}
-                      className="group flex w-full items-center gap-3 rounded-[16px] border border-transparent px-3 py-2.5 text-left transition-colors hover:border-borderSoft/30 hover:bg-panel/40"
+                      className="group flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-[16px] border border-transparent px-2 py-2.5 text-left transition-colors hover:border-borderSoft/30 hover:bg-panel/40 sm:px-3"
                     >
                       <span className={cn('h-2 w-2 shrink-0 rounded-full', PRIORITY_DOT[task.priority])} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14px] font-medium text-text-primary">{task.title}</span>
+                        <span className="block max-w-full truncate text-[14px] font-medium text-text-primary" title={task.title}>{task.title}</span>
                         {(mission || task.next_action.trim()) && (
                           <span className="block truncate text-[12px] text-text-muted/70">
                             {mission ? `${mission.emoji} ${mission.title}` : task.next_action}
@@ -439,10 +435,10 @@ export function DashboardView({ onNavigate, onOpenTask, onOpenMission, onNewTask
           </Card>
         </motion.div>
 
-        <div className="flex flex-col gap-4 sm:gap-5">
+        <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
           {/* Missions */}
-          <motion.div {...stagger(4)}>
-            <Card className="rounded-[26px] border border-borderSoft/30 p-5 shadow-panel sm:p-6">
+          <motion.div className="min-w-0" {...stagger(5)}>
+            <Card className="min-w-0 overflow-hidden rounded-[22px] border border-borderSoft/30 p-4 shadow-panel sm:rounded-[26px] sm:p-6">
               <SectionHeader title="Missions" actionLabel="All missions" onAction={() => onNavigate('missions')} />
               {topMissions.length > 0 ? (
                 <div className="space-y-4">
@@ -451,7 +447,7 @@ export function DashboardView({ onNavigate, onOpenTask, onOpenMission, onNewTask
                       key={mission.id}
                       type="button"
                       onClick={() => onOpenMission(mission.id)}
-                      className="block w-full text-left"
+                      className="block w-full min-w-0 overflow-hidden text-left"
                     >
                       <div className="mb-1.5 flex items-center justify-between gap-2">
                         <span className="flex min-w-0 items-center gap-2">
@@ -487,7 +483,7 @@ export function DashboardView({ onNavigate, onOpenTask, onOpenMission, onNewTask
           </motion.div>
 
           {/* Recent notes */}
-          <motion.div {...stagger(5)}>
+          <motion.div {...stagger(6)}>
             <Card className="rounded-[26px] border border-borderSoft/30 p-5 shadow-panel sm:p-6">
               <SectionHeader title="Recent notes" actionLabel="All notes" onAction={() => onNavigate('notes')} />
               {recentNotes.length > 0 ? (
@@ -519,7 +515,7 @@ export function DashboardView({ onNavigate, onOpenTask, onOpenMission, onNewTask
       </div>
 
       {/* Daily quote */}
-      <motion.div {...stagger(6)}>
+      <motion.div {...stagger(7)}>
         <div className="flex items-center gap-3 px-2 py-1">
           <Quote className="h-3.5 w-3.5 shrink-0 text-accent/60" />
           <p className="text-[13px] text-text-secondary/70">
