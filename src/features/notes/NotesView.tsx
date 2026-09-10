@@ -12,6 +12,7 @@ import { RichTextContent, isHtmlContent } from '../../components/ui/rich-text-co
 import { SaveStatus } from '../../components/ui/save-status';
 import { confirmDialog } from '../../components/ui/native-dialog';
 import { useAutoSave } from '../../hooks/use-autosave';
+import { useRefreshOnFocus } from '../../hooks/use-refresh-on-focus';
 import { cn } from '../../lib/cn';
 import { formatDayDateWithRelative } from '../../lib/date';
 import { useNoteStore } from './note-store';
@@ -1129,20 +1130,7 @@ export function NotesView({ openNoteId = null }: { openNoteId?: string | null })
 
   const missions = useMissionStore((state) => state.missions);
 
-  useEffect(() => {
-    void refresh(true);
-
-    const handleVisible = () => {
-      if (document.visibilityState === 'visible') void refresh(true);
-    };
-    document.addEventListener('visibilitychange', handleVisible);
-    window.addEventListener('focus', handleVisible);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisible);
-      window.removeEventListener('focus', handleVisible);
-    };
-  }, [refresh]);
+  useRefreshOnFocus(refresh);
 
   const missionTitles = useMemo(() => {
     const map: Record<string, string> = {};

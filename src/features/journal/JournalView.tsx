@@ -29,6 +29,7 @@ import { Card } from '../../components/ui/card';
 import { Input, Textarea } from '../../components/ui/input';
 import { SaveStatus } from '../../components/ui/save-status';
 import { useAutoSave, type AutoSaveStatus } from '../../hooks/use-autosave';
+import { useRefreshOnFocus } from '../../hooks/use-refresh-on-focus';
 import { cn } from '../../lib/cn';
 import { formatRelativeTime } from '../../lib/date';
 import { useJournalStore } from './journal-store';
@@ -684,20 +685,7 @@ export function JournalView({ focusedEntryId = null }: { focusedEntryId?: string
     setGratitudeInput(todayDay?.gratitude ?? '');
   }, [todayDay?.entry_date]);
 
-  useEffect(() => {
-    void refresh(true);
-
-    const handleVisible = () => {
-      if (document.visibilityState === 'visible') void refresh(true);
-    };
-    document.addEventListener('visibilitychange', handleVisible);
-    window.addEventListener('focus', handleVisible);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisible);
-      window.removeEventListener('focus', handleVisible);
-    };
-  }, [refresh]);
+  useRefreshOnFocus(refresh);
 
   const handleAddEntry = async (kind: JournalEntryKind, content: string) => {
     try {
