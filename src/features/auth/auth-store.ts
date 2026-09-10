@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
-import { getCachedSession, getSupabaseClient } from '../../lib/auth';
+import { clearLocalSession, getCachedSession, getSupabaseClient } from '../../lib/auth';
 import {
   showErrorToast,
   showInfoToast,
@@ -145,12 +145,22 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const client = getSupabaseClient();
-      const { error } = await client.auth.signOut();
 
-      if (error) {
-        // A stale/wrong-project JWT can make the remote sign-out itself return
-        // 401. Always clear it locally so the user can recover by signing in.
-        await client.auth.signOut({ scope: 'local' });
+      // client.auth.signOut() calls the remote endpoint first; if the network
+      // or Supabase's edge is down that call can hang well past any sane
+      // wait, leaving `loading` stuck true with no way out of the app. Race
+      // it against a timeout and fall back to a pure local clear — even
+      // `signOut({ scope: 'local' })` still calls the remote endpoint before
+      // clearing local state, so it isn't a safe fallback here. Sign-out
+      // should always be able to get the user back to the sign-in screen,
+      // online or not.
+      const timeout = new Promise<'timeout'>((resolve) =>
+        setTimeout(() => resolve('timeout'), 4000),
+      );
+      const result = await Promise.race([client.auth.signOut(), timeout]);
+
+      if (result === 'timeout' || result.error) {
+        clearLocalSession();
       }
 
       set({ session: null, loading: false, error: null });

@@ -32,7 +32,13 @@ export function MainAppWithAuth() {
   }, []);
 
   if (loading) {
-    return <AnimatedLoading />;
+    return (
+      <AnimatedLoading
+        showEscapeAfter={8000}
+        onRetry={() => void useAuthStore.getState().hydrate()}
+        onSignOut={() => void useAuthStore.getState().signOut()}
+      />
+    );
   }
 
   if (showReset) {

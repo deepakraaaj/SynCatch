@@ -4,14 +4,31 @@ import { SynCatchLogoAnimated } from './SynCatchLogoAnimated';
 interface AnimatedLoadingProps {
   autoDismiss?: boolean;
   dismissAfter?: number;
+  /**
+   * Escape hatch: when set, shows Retry / Sign out actions if the loader is
+   * still on screen after this many ms. Use for gates that can otherwise
+   * spin forever with no way out (e.g. an auth session stuck on a hung
+   * token refresh during an outage) — omit for short, self-dismissing
+   * splash usage.
+   */
+  showEscapeAfter?: number;
+  onRetry?: () => void;
+  onSignOut?: () => void;
 }
 
 /**
  * Full-screen boot loader. Mirrors the pre-React splash in index.html
  * (same mark, same layout) so the handoff between the two is seamless.
  */
-export function AnimatedLoading({ autoDismiss = false, dismissAfter = 2000 }: AnimatedLoadingProps = {}) {
+export function AnimatedLoading({
+  autoDismiss = false,
+  dismissAfter = 2000,
+  showEscapeAfter,
+  onRetry,
+  onSignOut,
+}: AnimatedLoadingProps = {}) {
   const [isVisible, setIsVisible] = useState(true);
+  const [showEscape, setShowEscape] = useState(false);
 
   useEffect(() => {
     if (!autoDismiss) {
@@ -24,6 +41,15 @@ export function AnimatedLoading({ autoDismiss = false, dismissAfter = 2000 }: An
 
     return () => clearTimeout(timer);
   }, [autoDismiss, dismissAfter]);
+
+  useEffect(() => {
+    if (!showEscapeAfter) {
+      return;
+    }
+
+    const timer = setTimeout(() => setShowEscape(true), showEscapeAfter);
+    return () => clearTimeout(timer);
+  }, [showEscapeAfter]);
 
   if (!isVisible) {
     return null;
@@ -65,14 +91,42 @@ export function AnimatedLoading({ autoDismiss = false, dismissAfter = 2000 }: An
         </div>
       </div>
 
-      <div className="absolute bottom-10 text-center">
-        <p
-          className="text-sm uppercase tracking-widest"
-          style={{ color: 'rgb(var(--text-muted) / 0.7)' }}
-        >
-          Aachu — caught &amp; synced ✓
-        </p>
-      </div>
+      {showEscape ? (
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className="text-sm text-text-muted">
+            This is taking longer than expected — the connection may be down.
+          </p>
+          <div className="flex gap-2">
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="rounded-full border border-borderSoft/50 px-4 py-1.5 text-sm font-medium text-text-primary transition hover:bg-text-primary/8"
+              >
+                Retry
+              </button>
+            ) : null}
+            {onSignOut ? (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="rounded-full border border-borderSoft/50 px-4 py-1.5 text-sm font-medium text-text-secondary transition hover:bg-text-primary/8"
+              >
+                Sign out
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="absolute bottom-10 text-center">
+          <p
+            className="text-sm uppercase tracking-widest"
+            style={{ color: 'rgb(var(--text-muted) / 0.7)' }}
+          >
+            Aachu — caught &amp; synced ✓
+          </p>
+        </div>
+      )}
     </div>
   );
 }

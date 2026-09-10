@@ -4,7 +4,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-const STORAGE_KEY = 'missioncontrol-auth-session';
+export const STORAGE_KEY = 'missioncontrol-auth-session';
 
 let supabaseClient: SupabaseClient | null = null;
 let initPromise: Promise<SupabaseClient> | null = null;
@@ -63,6 +63,15 @@ export function getCachedSession(): Session | null {
   } catch {
     return null;
   }
+}
+
+// Pure local sign-out: wipes the cached session without calling the
+// network at all. Even `client.auth.signOut({ scope: 'local' })` still
+// calls the remote /logout endpoint before clearing local state, so it can
+// hang the same way a normal signOut() does when the server is unreachable.
+// This is the guaranteed-safe fallback for that case.
+export function clearLocalSession(): void {
+  localStorage.removeItem(STORAGE_KEY);
 }
 
 export async function getCurrentSupabaseSession(): Promise<Session | null> {
