@@ -1257,10 +1257,15 @@ export function NotesView({ openNoteId = null }: { openNoteId?: string | null })
         >
           <div className="flex-1">
             <p className="text-sm font-medium text-red-700 dark:text-red-200">{error || operationError}</p>
-            {error?.includes('notes') && (
-              <p className="mt-2 text-xs text-red-600 dark:text-red-300">
-                Tip: Make sure your Supabase migrations are applied. Run <code className="rounded bg-red-500/20 px-2 py-1 text-xs">supabase migration up --remote</code>
-              </p>
+            {error && (
+              <button
+                onClick={() => void refresh()}
+                disabled={loading}
+                className="mt-2 text-xs font-medium text-red-700 underline disabled:opacity-50 dark:text-red-200"
+                type="button"
+              >
+                {loading ? 'Retrying…' : 'Try again'}
+              </button>
             )}
           </div>
           <motion.button

@@ -49,6 +49,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         categories,
         hydrated: true,
         loading: false,
+        error: null,
       });
     } catch (error) {
       set({
@@ -68,6 +69,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
         categories,
         loading: false,
         hydrated: true,
+        error: null,
       });
     } catch (error) {
       set({

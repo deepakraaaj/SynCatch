@@ -1,4 +1,5 @@
 import { getSupabaseClient } from './auth';
+import { isSupabaseLockInterruption } from './supabase-lock';
 import type { Task } from '../features/tasks/task-types';
 import type { Mission } from '../features/missions/mission-types';
 import type { FocusSyncState } from '../features/focus/focus-store';
@@ -28,6 +29,9 @@ export async function getUserId(): Promise<string> {
  * migration problem, which sent people chasing the wrong fix.
  */
 export function describeSupabaseTableError(error: unknown, tableLabel: string): string {
+  if (isSupabaseLockInterruption(error)) {
+    return 'Your session was interrupted by another app window or tab. Try again, or reload if it keeps happening.';
+  }
   const code = (error as { code?: string } | undefined)?.code;
   if (code === '42P01') {
     return `${tableLabel} tables not found in Supabase. Please run migrations.`;
@@ -35,7 +39,8 @@ export function describeSupabaseTableError(error: unknown, tableLabel: string): 
   if (error instanceof Error && error.message === 'User not authenticated') {
     return 'You need to be signed in to load your data. Try signing in again.';
   }
-  const detail = error instanceof Error ? error.message : String(error);
+  const message = (error as { message?: unknown } | null)?.message;
+  const detail = typeof message === 'string' ? message : String(error);
   return `Failed to load ${tableLabel.toLowerCase()}: ${detail}`;
 }
 

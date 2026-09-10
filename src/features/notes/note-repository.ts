@@ -11,6 +11,7 @@ import {
 import type { Note, NoteDraft, NoteCategory, NoteCategoryDraft } from './note-types';
 import { useAuthStore } from '../auth/auth-store';
 import { enqueueSync } from '../../lib/sync-outbox';
+import { retrySupabaseRead } from '../../lib/supabase-lock';
 
 const NOTES_STORAGE_KEY = 'missioncontrol-notes-v1';
 const CATEGORIES_STORAGE_KEY = 'missioncontrol-note-categories-v1';
@@ -165,7 +166,7 @@ class SupabaseNotesRepository implements NotesRepository {
   async listNotes() {
     const { selectNotesByUser, describeSupabaseTableError } = await import('../../lib/supabase');
     try {
-      return await selectNotesByUser();
+      return await retrySupabaseRead(selectNotesByUser);
     } catch (error) {
       console.error('Supabase notes query failed:', error);
       throw new Error(describeSupabaseTableError(error, 'Notes'));
@@ -207,7 +208,7 @@ class SupabaseNotesRepository implements NotesRepository {
   async listCategories() {
     const { selectNoteCategoriesByUser, describeSupabaseTableError } = await import('../../lib/supabase');
     try {
-      return await selectNoteCategoriesByUser();
+      return await retrySupabaseRead(selectNoteCategoriesByUser);
     } catch (error) {
       console.error('Supabase note_categories query failed:', error);
       throw new Error(describeSupabaseTableError(error, 'Note category'));
