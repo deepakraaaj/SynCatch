@@ -767,6 +767,18 @@ html:not([data-theme]) .mission-card,
     background: rgb(var(--surface-2));
   }
 
+  @media (min-width: 1024px) {
+    body[data-surface='main'] {
+      overflow-y: auto !important;
+    }
+
+    body[data-surface='main'],
+    body[data-surface='main'] #root {
+      height: auto;
+      min-height: 100dvh;
+    }
+  }
+
   body[data-surface='main'] .surface-panel {
     background: rgb(var(--surface-1));
     box-shadow: none;
