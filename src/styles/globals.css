@@ -290,6 +290,16 @@ html:not([data-theme]) .mission-card,
   body,
   #root {
     height: 100%;
+    min-height: 100%;
+  }
+
+  @supports (height: 100dvh) {
+    html,
+    body,
+    #root {
+      height: 100dvh;
+      min-height: 100dvh;
+    }
   }
 
   html {
