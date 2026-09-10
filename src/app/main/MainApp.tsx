@@ -924,7 +924,7 @@ function SidebarContent({
         </button>
       ) : null}
 
-      <div className={cn(compact ? 'space-y-2' : 'mt-7')}>
+      <div className={cn(compact ? 'space-y-2' : 'scrollbar-hidden mt-7 min-h-0 flex-1 overflow-y-auto pr-1')}>
         {isTeam ? (
           <div className={cn('pt-1', compact ? 'space-y-1' : 'space-y-1.5')}>
             {compact && onOpenChat ? (
@@ -977,7 +977,7 @@ function SidebarContent({
 
       {!compact && !isTeam && !collapsed ? (
         /* Start-button style: Apps anchored to the bottom-left corner of the sidebar. */
-        <div className="mt-auto border-t border-borderSoft/20 pt-4">{appsButton}</div>
+        <div className="shrink-0 border-t border-borderSoft/20 pt-4">{appsButton}</div>
       ) : null}
     </div>
   );
@@ -2051,7 +2051,7 @@ function SidebarProfile({ onOpen, collapsed = false }: { onOpen: () => void; col
 
   if (collapsed) {
     return (
-      <div className="mt-auto border-t border-borderSoft/20 pt-4">
+      <div className="mt-auto shrink-0 border-t border-borderSoft/20 pt-4">
         <button
           type="button"
           onClick={onOpen}
@@ -2069,7 +2069,7 @@ function SidebarProfile({ onOpen, collapsed = false }: { onOpen: () => void; col
     <button
       type="button"
       onClick={onOpen}
-      className="relative mt-5 flex w-full items-center gap-3 rounded-2xl border border-borderSoft/25 bg-panel/55 p-3 text-left transition-colors hover:border-accent/30 hover:bg-panel"
+      className="relative mt-5 flex w-full shrink-0 items-center gap-3 rounded-2xl border border-borderSoft/25 bg-panel/55 p-3 text-left transition-colors hover:border-accent/30 hover:bg-panel"
       aria-label="Open profile settings"
     >
       {avatar}
@@ -4904,7 +4904,7 @@ export function MainApp() {
       ) : null}
 
       <div className="app-frame relative flex h-full flex-col overflow-visible lg:overflow-hidden lg:flex-row">
-        <aside className={cn('sidebar-shell relative z-10 hidden w-full flex-col border-r border-borderSoft/24 transition-[width,padding] duration-200 lg:flex', sidebarCollapsed ? 'lg:w-[84px] lg:p-3' : 'lg:w-[248px] lg:p-6')}>
+        <aside className={cn('sidebar-shell relative z-10 hidden min-h-0 w-full flex-col border-r border-borderSoft/24 transition-[width,padding] duration-200 lg:flex', sidebarCollapsed ? 'lg:w-[84px] lg:p-3' : 'lg:w-[248px] lg:p-6')}>
           <button
             type="button"
             onClick={() => setSidebarCollapsed((current) => {
