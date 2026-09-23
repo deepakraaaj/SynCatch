@@ -26,7 +26,6 @@ import {
   TOGGLE_HUD_TRANSPARENCY_EVENT,
 } from '../lib/tauri';
 import { syncEngine } from '../lib/sync-engine';
-import { useAuthStore } from '../features/auth/auth-store';
 
 export function AppBootstrap({ children }: PropsWithChildren) {
   const themeId = useThemeStore((state) => state.themeId);
@@ -72,6 +71,23 @@ export function AppBootstrap({ children }: PropsWithChildren) {
 
     syncEngine.start();
 
+    // A transient network failure (e.g. a QUIC timeout) during startup can
+    // make hydration silently fall back to a stale/empty local snapshot.
+    // Retry once the browser reports connectivity again so the dashboard
+    // doesn't stay stuck showing zeroed-out data for the rest of the session.
+    const retryOnReconnect = () => {
+      if (useSessionStore.getState().hydrationFailed) {
+        void useSessionStore.getState().retryHydration();
+      }
+      if (useFocusStore.getState().hydrationFailed) {
+        void useFocusStore.getState().retryHydration();
+      }
+      if (useSettingsStore.getState().hydrationFailed) {
+        void useSettingsStore.getState().retryHydration();
+      }
+    };
+    window.addEventListener('online', retryOnReconnect);
+
     const unsubscribe = subscribeAppEvent(TASKS_CHANGED_EVENT, () => {
       void useTaskStore.getState().refresh(true);
     });
@@ -98,6 +114,7 @@ export function AppBootstrap({ children }: PropsWithChildren) {
       unsubscribeTheme();
       unsubscribeSettings();
       unsubscribeHudTransparency();
+      window.removeEventListener('online', retryOnReconnect);
     };
   }, [hydrateFocus, hydrateMissions, hydrateSessions, hydrateSettings, hydrateTasks, hydrateTheme, hydrateJournal, hydrateNotes]);
 

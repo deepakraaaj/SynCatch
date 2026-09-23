@@ -139,7 +139,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   markDone: async (taskId) => {
-    const repository = await getTaskRepository();
     const task = get().tasks.find((item) => item.id === taskId);
     if (!task) return;
 

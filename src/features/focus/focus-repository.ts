@@ -2,6 +2,7 @@ import { getSqlDatabase } from '../../lib/database';
 import { isTauriApp } from '../../lib/tauri';
 import type { FocusSyncState } from './focus-store';
 import { useAuthStore } from '../auth/auth-store';
+import { retryTransient } from '../../lib/supabase-lock';
 
 const FOCUS_STORAGE_KEY = 'missioncontrol-focus';
 
@@ -175,7 +176,9 @@ class SqlFocusRepository implements FocusRepository {
 class SupabaseFocusRepository implements FocusRepository {
   async loadState() {
     const { selectFocusState } = await import('../../lib/supabase');
-    const state = await selectFocusState();
+    // Retries transient failures (dropped/stalled connection, stolen auth
+    // lock) instead of immediately handing back an empty/default state.
+    const state = await retryTransient(() => selectFocusState());
     return state || DEFAULT_FOCUS_STATE;
   }
 

@@ -18,8 +18,10 @@ interface SettingsState extends SettingsSnapshot {
   aiProvider: string;
   aiModel: string;
   hydrated: boolean;
+  hydrationFailed: boolean;
   launchAtLoginPending: boolean;
   hydrate: () => Promise<void>;
+  retryHydration: () => Promise<void>;
   setReduceMotion: (reduceMotion: boolean) => void;
   setFocusPromptStyle: (style: 'gentle' | 'direct') => void;
   setSyncMode: (mode: SyncMode) => void;
@@ -76,63 +78,70 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     void emitAppEvent(SETTINGS_CHANGED_EVENT, snapshot);
   }
 
+  async function runHydrate() {
+    try {
+      const repository = await getPreferencesRepository();
+      const snapshot = await repository.loadSettings();
+      const launchAtLogin = await getAutostartEnabled().catch((error) => {
+        console.error('Unable to read launch at login state', error);
+        return snapshot.launchAtLogin;
+      });
+      let nextSnapshot = {
+        ...snapshot,
+        launchAtLogin,
+      };
+
+      // Add Calendar once for existing users. The migration marker means they
+      // can still unpin it normally afterward without it returning on reload.
+      if (!localStorage.getItem(CALENDAR_DEFAULT_PIN_MIGRATION_KEY)) {
+        nextSnapshot = {
+          ...nextSnapshot,
+          sidebarPinnedApps: nextSnapshot.sidebarPinnedApps.includes('calendar')
+            ? nextSnapshot.sidebarPinnedApps
+            : [...nextSnapshot.sidebarPinnedApps, 'calendar'],
+        };
+        localStorage.setItem(CALENDAR_DEFAULT_PIN_MIGRATION_KEY, '1');
+        void persistSettings(nextSnapshot);
+        void emitAppEvent(SETTINGS_CHANGED_EVENT, nextSnapshot);
+      }
+
+      if (!localStorage.getItem(LOVED_ONES_DEFAULT_PIN_MIGRATION_KEY)) {
+        nextSnapshot = {
+          ...nextSnapshot,
+          sidebarPinnedApps: nextSnapshot.sidebarPinnedApps.includes('loved-ones')
+            ? nextSnapshot.sidebarPinnedApps
+            : [...nextSnapshot.sidebarPinnedApps, 'loved-ones'],
+        };
+        localStorage.setItem(LOVED_ONES_DEFAULT_PIN_MIGRATION_KEY, '1');
+        void persistSettings(nextSnapshot);
+        void emitAppEvent(SETTINGS_CHANGED_EVENT, nextSnapshot);
+      }
+
+      set({ ...nextSnapshot, ...loadLocalAiPreference(), hydrated: true, hydrationFailed: false });
+      if (launchAtLogin !== snapshot.launchAtLogin) {
+        void persistSettings(nextSnapshot);
+        void emitAppEvent(SETTINGS_CHANGED_EVENT, nextSnapshot);
+      }
+    } catch (error) {
+      console.error('Unable to hydrate settings', error);
+      set({ hydrated: true, hydrationFailed: true });
+    }
+  }
+
   return {
     ...DEFAULT_SETTINGS_SNAPSHOT,
     ...loadLocalAiPreference(),
     hydrated: false,
+    hydrationFailed: false,
     launchAtLoginPending: false,
     hydrate: async () => {
       if (get().hydrated) {
         return;
       }
-
-      try {
-        const repository = await getPreferencesRepository();
-        const snapshot = await repository.loadSettings();
-        const launchAtLogin = await getAutostartEnabled().catch((error) => {
-          console.error('Unable to read launch at login state', error);
-          return snapshot.launchAtLogin;
-        });
-        let nextSnapshot = {
-          ...snapshot,
-          launchAtLogin,
-        };
-
-        // Add Calendar once for existing users. The migration marker means they
-        // can still unpin it normally afterward without it returning on reload.
-        if (!localStorage.getItem(CALENDAR_DEFAULT_PIN_MIGRATION_KEY)) {
-          nextSnapshot = {
-            ...nextSnapshot,
-            sidebarPinnedApps: nextSnapshot.sidebarPinnedApps.includes('calendar')
-              ? nextSnapshot.sidebarPinnedApps
-              : [...nextSnapshot.sidebarPinnedApps, 'calendar'],
-          };
-          localStorage.setItem(CALENDAR_DEFAULT_PIN_MIGRATION_KEY, '1');
-          void persistSettings(nextSnapshot);
-          void emitAppEvent(SETTINGS_CHANGED_EVENT, nextSnapshot);
-        }
-
-        if (!localStorage.getItem(LOVED_ONES_DEFAULT_PIN_MIGRATION_KEY)) {
-          nextSnapshot = {
-            ...nextSnapshot,
-            sidebarPinnedApps: nextSnapshot.sidebarPinnedApps.includes('loved-ones')
-              ? nextSnapshot.sidebarPinnedApps
-              : [...nextSnapshot.sidebarPinnedApps, 'loved-ones'],
-          };
-          localStorage.setItem(LOVED_ONES_DEFAULT_PIN_MIGRATION_KEY, '1');
-          void persistSettings(nextSnapshot);
-          void emitAppEvent(SETTINGS_CHANGED_EVENT, nextSnapshot);
-        }
-
-        set({ ...nextSnapshot, ...loadLocalAiPreference(), hydrated: true });
-        if (launchAtLogin !== snapshot.launchAtLogin) {
-          void persistSettings(nextSnapshot);
-          void emitAppEvent(SETTINGS_CHANGED_EVENT, nextSnapshot);
-        }
-      } catch (error) {
-        console.error('Unable to hydrate settings', error);
-        set({ hydrated: true });
-      }
+      await runHydrate();
+    },
+    retryHydration: async () => {
+      await runHydrate();
     },
     setReduceMotion: (reduceMotion) => {
       set({ reduceMotion });
@@ -190,7 +199,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       persistLocalAiPreference(aiProvider, aiModel);
     },
     syncFromExternal: (state) => {
-      set({ ...state, ...loadLocalAiPreference(), hydrated: true, launchAtLoginPending: false });
+      set({ ...state, ...loadLocalAiPreference(), hydrated: true, hydrationFailed: false, launchAtLoginPending: false });
     },
   };
 });

@@ -7,6 +7,7 @@ import {
   type ThemeSnapshot,
 } from './preferences-types';
 import { useAuthStore } from '../auth/auth-store';
+import { retryTransient } from '../../lib/supabase-lock';
 
 const THEME_STORAGE_KEY = 'missioncontrol-theme';
 const SETTINGS_STORAGE_KEY = 'missioncontrol-settings';
@@ -142,7 +143,7 @@ class SqlPreferencesRepository implements PreferencesRepository {
 class SupabasePreferencesRepository implements PreferencesRepository {
   async loadTheme(): Promise<ThemeSnapshot | null> {
     const { selectPreference } = await import('../../lib/supabase');
-    const value = await selectPreference('theme');
+    const value = await retryTransient(() => selectPreference('theme'));
     if (!value) return null;
     return JSON.parse(value) as ThemeSnapshot;
   }
@@ -154,7 +155,7 @@ class SupabasePreferencesRepository implements PreferencesRepository {
 
   async loadSettings(): Promise<SettingsSnapshot> {
     const { selectPreference } = await import('../../lib/supabase');
-    const value = await selectPreference('settings');
+    const value = await retryTransient(() => selectPreference('settings'));
     if (!value) return DEFAULT_SETTINGS_SNAPSHOT;
     const snapshot = JSON.parse(value) as SettingsSnapshot;
     return shouldSeedDefaultSidebarPins(snapshot)

@@ -10,6 +10,7 @@ import {
 } from './session-helpers';
 import type { SessionCaptureKind, SessionRecoveryState, SessionSegmentType, WorkSession } from './session-types';
 import { useAuthStore } from '../auth/auth-store';
+import { retryTransient } from '../../lib/supabase-lock';
 
 const STORAGE_KEY = 'missioncontrol-smart-sessions-v1';
 const SUPABASE_CONFIGURED = Boolean(import.meta.env.VITE_SUPABASE_URL);
@@ -22,7 +23,13 @@ interface SessionStoreSnapshot {
 
 interface SessionStore extends SessionStoreSnapshot {
   hydrated: boolean;
+  // True when hydration fell back to localStorage because the Supabase read
+  // failed (e.g. a transient network/QUIC error, or a stolen auth lock).
+  // The fallback snapshot may be stale or empty, so callers can use this to
+  // retry instead of trusting it as a permanent source of truth.
+  hydrationFailed: boolean;
   hydrate: () => Promise<void>;
+  retryHydration: () => Promise<void>;
   startSession: (input: {
     taskId: string;
     taskTitle: string;
@@ -106,31 +113,44 @@ export const useSessionStore = create<SessionStore>((set, get) => {
     persistSnapshot(nextSnapshot);
   }
 
+  async function runHydrate() {
+    if (SUPABASE_CONFIGURED && !useAuthStore.getState().localMode) {
+      try {
+        const { selectWorkSessions } = await import('../../lib/supabase');
+        const sessions = await retryTransient(selectWorkSessions);
+        const activeSessionId =
+          sessions.find((s) => s.status === 'running' || s.status === 'paused')?.id ?? null;
+        set({ sessions, activeSessionId, hydrated: true, hydrationFailed: false });
+        return;
+      } catch (err) {
+        console.warn('Failed to load sessions from Supabase, falling back to localStorage:', err);
+      }
+    }
+
+    set({
+      ...parseSnapshot(),
+      hydrated: true,
+      // Only Supabase-configured, non-local-mode setups can actually fail
+      // here — otherwise localStorage is the intended store, not a fallback.
+      hydrationFailed: SUPABASE_CONFIGURED && !useAuthStore.getState().localMode,
+    });
+  }
+
   return {
     ...DEFAULT_SNAPSHOT,
     hydrated: false,
+    hydrationFailed: false,
     hydrate: async () => {
       if (get().hydrated) {
         return;
       }
-
-      if (SUPABASE_CONFIGURED && !useAuthStore.getState().localMode) {
-        try {
-          const { selectWorkSessions } = await import('../../lib/supabase');
-          const sessions = await selectWorkSessions();
-          const activeSessionId =
-            sessions.find((s) => s.status === 'running' || s.status === 'paused')?.id ?? null;
-          set({ sessions, activeSessionId, hydrated: true });
-          return;
-        } catch (err) {
-          console.warn('Failed to load sessions from Supabase, falling back to localStorage:', err);
-        }
-      }
-
-      set({
-        ...parseSnapshot(),
-        hydrated: true,
-      });
+      await runHydrate();
+    },
+    // Re-runs hydration even if a previous attempt already completed (with
+    // or without falling back), so callers can recover once the network or
+    // auth lock issue clears without requiring a full app reload.
+    retryHydration: async () => {
+      await runHydrate();
     },
     startSession: ({ taskId, taskTitle, minutes, presetId }) => {
       const timestamp = new Date().toISOString();

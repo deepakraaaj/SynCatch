@@ -33,7 +33,12 @@ const DEFAULT_FOCUS_STATE: FocusSyncState = {
 
 interface FocusState extends FocusSyncState {
   hydrated: boolean;
+  // True when hydration fell back to defaults because loading focus state
+  // failed (e.g. a transient network error). Lets callers retry instead of
+  // trusting the fallback as a permanent source of truth.
+  hydrationFailed: boolean;
   hydrate: () => Promise<void>;
+  retryHydration: () => Promise<void>;
   setCurrentMission: (taskId: string | null) => void;
   startSession: (minutes?: number) => void;
   resumeSession: () => void;
@@ -89,22 +94,29 @@ export const useFocusStore = create<FocusState>((set, get) => {
     void emitAppEvent(FOCUS_CHANGED_EVENT, nextState);
   }
 
+  async function runHydrate() {
+    try {
+      const repository = await getFocusRepository();
+      const persistedState = await repository.loadState();
+      set({ ...persistedState, hydrated: true, hydrationFailed: false });
+    } catch (error) {
+      console.error('Unable to hydrate focus state', error);
+      set({ hydrated: true, hydrationFailed: true });
+    }
+  }
+
   return {
     ...DEFAULT_FOCUS_STATE,
     hydrated: false,
+    hydrationFailed: false,
     hydrate: async () => {
       if (get().hydrated) {
         return;
       }
-
-      try {
-        const repository = await getFocusRepository();
-        const persistedState = await repository.loadState();
-        set({ ...persistedState, hydrated: true });
-      } catch (error) {
-        console.error('Unable to hydrate focus state', error);
-        set({ hydrated: true });
-      }
+      await runHydrate();
+    },
+    retryHydration: async () => {
+      await runHydrate();
     },
     setCurrentMission: (currentMissionId) => {
       const previousMissionId = get().currentMissionId;
@@ -198,7 +210,7 @@ export const useFocusStore = create<FocusState>((set, get) => {
       commitFocusUpdate();
     },
     syncFromExternal: (state) => {
-      set({ ...state, hydrated: true });
+      set({ ...state, hydrated: true, hydrationFailed: false });
     },
   };
 });
