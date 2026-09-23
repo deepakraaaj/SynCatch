@@ -5,18 +5,21 @@ import { cn } from '../lib/cn';
 import { messagePop } from '../lib/motion';
 import { useFocusStore } from '../features/focus/focus-store';
 import { useSettingsStore } from '../features/settings/settings-store';
+import { useIsMobile } from '../hooks/use-mobile';
 import { VIEW_LINES } from './characterMessages';
 import { announceLumi, useCompanionStore, type CompanionMode } from './companion-store';
 import { Lumi } from './Lumi';
 import { preloadLumiAssets } from './lumi-assets';
 import { useLumiExpression } from './useLumiExpression';
 import { useLumiGaze } from './useLumiGaze';
+import { subscribeLumiClickPulses } from './lumi-click-reactions';
 
 /**
- * Rendered size of the companion; every bound below is derived from it. The
- * dock sits at right-[72px] so it clears the quick-actions FAB (right-5, 44px).
+ * Rendered size of the companion (smaller on phones, where 148px would cover
+ * a big slice of the screen); every bound below is derived from it. The dock
+ * sits at right-[72px] so it clears the quick-actions FAB (right-5, 44px).
  */
-const AVATAR_PX = 148;
+const AVATAR_PX = { desktop: 148, mobile: 112 };
 /** Minimum gap between Lumi and the viewport edge. */
 const EDGE_PX = 12;
 /** Headroom kept above Lumi so its speech bubble never leaves the viewport. */
@@ -54,6 +57,7 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const focusRunning = useFocusStore((state) => Boolean(state.focusSessionStart) || state.status === 'locked-in');
   const expression = useLumiExpression();
+  const avatarPx = useIsMobile() ? AVATAR_PX.mobile : AVATAR_PX.desktop;
   const reaction = useCompanionStore((state) => state.reaction);
 
   const dockRef = useRef<HTMLDivElement>(null);
@@ -143,7 +147,8 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [measure, moveTo, onStage, x, y]);
+    // avatarPx: re-measure after the size switches between phone and desktop.
+  }, [avatarPx, measure, moveTo, onStage, x, y]);
 
   useEffect(() => {
     if (!onStage || effectiveMode !== 'stay') return;
@@ -210,8 +215,15 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
   // Flip the bubble and tools to Lumi's open side once it crosses the middle.
   useMotionValueEvent(x, 'change', (value) => {
     const dock = dockRef.current?.getBoundingClientRect();
-    if (dock) setOnLeft(dock.left + value + AVATAR_PX / 2 < window.innerWidth / 2);
+    if (dock) setOnLeft(dock.left + value + dock.width / 2 < window.innerWidth / 2);
   });
+
+  // Lumi smiles whenever you click something anywhere in the app. Each click
+  // restarts the smile, so rapid clicking holds it instead of flickering;
+  // real moments (celebrations, spoken lines) outrank it and play instead.
+  // Subscribed even while the companion is hidden: the dashboard hero Lumi
+  // shares the same reaction state.
+  useEffect(() => subscribeLumiClickPulses(() => react('smile', null)), [react]);
 
   // Celebrations are the one moment Lumi's whole body moves: a happy hop.
   // Everything else is the head's job (see useLumiGaze) — pulsing the whole
@@ -227,7 +239,8 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
     const text = VIEW_LINES[activeView];
     if (!onStage || !hydrated || focusRunning || !text || greetedViews.current.has(activeView)) return;
     greetedViews.current.add(activeView);
-    const timer = window.setTimeout(() => announceLumi('idle', { text }, undefined, 0), 700);
+    // Greets with a smile — the click that opened the view already smiled.
+    const timer = window.setTimeout(() => announceLumi('smile', { text }), 700);
     return () => window.clearTimeout(timer);
   }, [activeView, focusRunning, hydrated, onStage]);
 
@@ -255,7 +268,7 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
   if (blocked) return null;
 
   return (
-    <div ref={dockRef} className="pointer-events-none fixed bottom-[calc(var(--mobile-nav-height)+0.65rem)] right-[72px] z-[80] lg:bottom-5" style={{ width: AVATAR_PX, height: AVATAR_PX }}>
+    <div ref={dockRef} className="pointer-events-none fixed bottom-[calc(var(--mobile-nav-height)+0.65rem)] right-[72px] z-[80] lg:bottom-5" style={{ width: avatarPx, height: avatarPx }}>
       <AnimatePresence>
         {!visible ? (
           <motion.button key="summon" type="button" data-lumi-companion onClick={toggleVisible} className="pointer-events-auto absolute bottom-0 right-0 flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-accent/25 bg-panel/95 px-4 text-xs font-bold text-accent shadow-[0_12px_35px_rgb(var(--shadow-color)/0.3)] backdrop-blur-xl" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }} aria-label="Call Lumi"><Sparkles className="h-4 w-4" />Call Lumi</motion.button>
@@ -321,8 +334,9 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
               animate={pop}
             >
               <Lumi
-                // Lumi walks in its standing pose; a reaction (e.g. a celebration) still wins.
-                expression={moving && reaction === 'idle' ? 'neutral' : expression}
+                // Lumi walks in its standing pose (the smile face is seated, so it
+                // can't walk); other reactions, e.g. a celebration, still win.
+                expression={moving && (reaction === 'idle' || reaction === 'smile') ? 'neutral' : expression}
                 size="fill"
                 motion={moving ? 'walk' : 'idle'}
                 walkDirection={walkDirection}

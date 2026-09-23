@@ -90,9 +90,11 @@ to reason about, no hidden network calls.
 **Lumi is an art asset, not a CSS/SVG illustration.** `src/assets/lumi/*.webp` holds 10 pre-rendered,
 transparent-background expressions (neutral, happy, excited, focused, thinking, concerned, encouraging,
 celebrating, sleeping, calm). `Lumi.tsx` only selects the right file and renders it with `object-contain` —
-it never draws, approximates, or redraws the character. `characterState.ts`'s behavioral moods (dormant,
-settling, recovering, attentive, steady, building, glowing, radiant) map onto this fixed expression set via
-`MOOD_TO_EXPRESSION` in `lumi-controller.ts`. Sparkle/butterfly effects are layered around the artwork by
+it never draws, approximates, or redraws the character. Lumi always rests on `neutral`
+(`RESTING_EXPRESSION` in `lumi-controller.ts`) — the only face with the full rig (eyes that follow and
+blink, head turn, walk). The other faces are momentary reactions (click smile, celebrate, focus, …).
+`characterState.ts`'s behavioral moods (dormant, settling, recovering, attentive, steady, building, glowing,
+radiant) show in the dashboard hero's copy, not as a resting face. Sparkle/butterfly effects are layered around the artwork by
 separate components (`ButterflyEffect`, `effects-assets.tsx`) and never touch the image itself.
 
 **One brain, one renderer, one voice.**
@@ -116,6 +118,11 @@ shakes on delete. The body stays planted and breathes inside the mesh. Tilting o
 was removed: it reads as a sticker, not a companion. Faces without a neck (sleeping, focused, celebrating,
 excited) render flat and only breathe; celebrations are the one moment the whole body hops. Without WebGL2
 the flat image is used.
+
+**Click smile.** Any click on an interactive element anywhere in the app gives Lumi its big smile (the
+`smile` reaction → `happy` art) for ~1.6s, alongside the head perk. Each click restarts it, so rapid clicking
+holds the smile rather than flickering. It has the lowest reaction priority, so celebrations and spoken lines
+play instead; view greetings smile too. While walking Lumi keeps its standing pose (the smile art is seated).
 
 **Walk.** When the companion travels (Wander, Follow, or being dragged) it walks at a steady pace
 (`WALK_SPEED_PX`) in its standing pose (`neutral`, unless a reaction is playing). The walk cycle lives in the

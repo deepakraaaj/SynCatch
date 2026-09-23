@@ -1,26 +1,21 @@
 import type { LumiExpression } from './lumi-assets';
-import type { CharacterMood } from './types';
 
 /** Momentary things Lumi can do in response to an app event. */
-export type CompanionReaction = 'idle' | 'notice' | 'focus' | 'celebrate' | 'comfort' | 'sleep';
+export type CompanionReaction = 'idle' | 'smile' | 'notice' | 'focus' | 'celebrate' | 'comfort' | 'sleep';
 
 /**
- * Resting expression per behavioral mood (src/character/types.ts). Deliberately
- * avoids the sad `concerned` art for everyday states — overdue work reads as
- * `thinking`, long inactivity as `calm`, never as guilt.
+ * Lumi's resting face. It is the only face with the full rig — open eyes that
+ * follow the pointer and blink, a head that turns, legs that walk — so Lumi
+ * always rests on it. Other faces are momentary reactions below; mood shows in
+ * the dashboard copy instead. (Resting on mood faces lost the eye/head rig:
+ * calm and happy have closed eyes, encouraging/excited wink, and thinking/
+ * concerned frown.)
  */
-export const MOOD_TO_EXPRESSION: Record<CharacterMood, LumiExpression> = {
-  dormant: 'calm',
-  settling: 'neutral',
-  recovering: 'encouraging',
-  attentive: 'thinking',
-  steady: 'neutral',
-  building: 'encouraging',
-  glowing: 'happy',
-  radiant: 'excited',
-};
+export const RESTING_EXPRESSION: LumiExpression = 'neutral';
 
 export const REACTION_TO_EXPRESSION: Record<Exclude<CompanionReaction, 'idle'>, LumiExpression> = {
+  // Lumi's big smile, shown whenever you click something in the app.
+  smile: 'happy',
   notice: 'encouraging',
   focus: 'focused',
   celebrate: 'celebrating',
@@ -31,6 +26,7 @@ export const REACTION_TO_EXPRESSION: Record<Exclude<CompanionReaction, 'idle'>, 
 /** A lower-priority reaction never interrupts a higher one that is still playing. */
 export const REACTION_PRIORITY: Record<CompanionReaction, number> = {
   idle: 1,
+  smile: 1,
   sleep: 1,
   notice: 2,
   comfort: 2,
@@ -40,6 +36,7 @@ export const REACTION_PRIORITY: Record<CompanionReaction, number> = {
 
 const REACTION_BASE_MS: Record<CompanionReaction, number> = {
   idle: 3800,
+  smile: 1600,
   sleep: 3200,
   notice: 3200,
   comfort: 3400,
@@ -55,15 +52,14 @@ export function reactionDurationMs(reaction: CompanionReaction, text?: string) {
 interface ExpressionInput {
   reaction: CompanionReaction;
   focusRunning: boolean;
-  mood: CharacterMood;
 }
 
 /**
  * The single rule for which face Lumi shows, used by every surface that renders
- * the full character: an active reaction beats focus, focus beats mood.
+ * the full character: an active reaction beats focus, focus beats rest.
  */
-export function resolveLumiExpression({ reaction, focusRunning, mood }: ExpressionInput): LumiExpression {
+export function resolveLumiExpression({ reaction, focusRunning }: ExpressionInput): LumiExpression {
   if (reaction !== 'idle') return REACTION_TO_EXPRESSION[reaction];
   if (focusRunning) return 'focused';
-  return MOOD_TO_EXPRESSION[mood];
+  return RESTING_EXPRESSION;
 }

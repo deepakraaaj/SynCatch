@@ -132,7 +132,7 @@ export function NativeDialogHost() {
                   }`}
                 >
                   <Lumi
-                    expression={request.danger ? 'concerned' : 'thinking'}
+                    expression={request.danger ? 'concerned' : 'neutral'}
                     size={40}
                     reduceMotion={reduceMotion}
                     label=""

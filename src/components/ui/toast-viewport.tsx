@@ -7,7 +7,7 @@ import type { LumiExpression } from '../../character/lumi-assets';
 import { SparkleBurst } from '../../character/effects-assets';
 
 function getToastExpression(action: ToastActionType, tone: ToastTone): LumiExpression {
-  if (action === 'delete') return 'concerned';
+  if (action === 'delete') return 'neutral';
   if (action === 'save') return 'happy';
   if (action === 'create') return 'celebrating';
   if (action === 'update') return 'neutral';
