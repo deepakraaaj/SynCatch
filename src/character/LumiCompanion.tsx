@@ -262,8 +262,16 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
   }, [menuOpen]);
 
   const chooseMode = (next: CompanionMode) => {
+    if (next === 'stay') {
+      // Stop any in-flight walk synchronously before reading position — the
+      // roam/follow effects only call stopWalking() on cleanup, which runs
+      // after this click's state updates, so a still-animating x/y would be
+      // captured mid-flight and Lumi would visibly fight itself: settle where
+      // it was caught, then get yanked back toward that stale snapshot.
+      stopWalking();
+      setPosition({ x: Math.round(x.get()), y: Math.round(y.get()) });
+    }
     setMode(next);
-    if (next === 'stay') setPosition({ x: Math.round(x.get()), y: Math.round(y.get()) });
   };
 
   // Viewport point between Lumi's feet (normalized art: feet gap at x 254.5, soles at y 466 of 512).
@@ -304,8 +312,9 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
               setWalkDirection((current) => (current === heading ? current : heading));
             }}
             onDragEnd={() => {
-              setMoving(false);
-              setWalkDirection(0);
+              // Stop first (see chooseMode) so the captured drop point is where
+              // the finger/cursor actually released it, not a stale in-flight one.
+              stopWalking();
               setMode('stay');
               setPosition({ x: Math.round(x.get()), y: Math.round(y.get()) });
             }}
