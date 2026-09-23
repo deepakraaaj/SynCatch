@@ -133,9 +133,9 @@ export function NativeDialogHost() {
                 >
                   <Lumi
                     expression={request.danger ? 'concerned' : 'thinking'}
-                    size="sm"
+                    size={40}
                     reduceMotion={reduceMotion}
-                    className="h-10 w-10 object-contain"
+                    label=""
                   />
                 </div>
                 {request.danger && (

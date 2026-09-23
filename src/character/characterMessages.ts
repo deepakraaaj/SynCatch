@@ -72,3 +72,26 @@ export const MOOD_SUPPORTING_LINE: Record<CharacterMood, string> = {
 export function pickReactionMessage(trigger: ReactionTrigger, seed: string): string {
   return hashPick(REACTION_MESSAGES[trigger], seed);
 }
+
+/** What Lumi says the first time you open each view in a session. */
+export const VIEW_LINES: Record<string, string> = {
+  focus: 'I’ll stay quiet while you lock in.',
+  tasks: 'Small finishes create real momentum.',
+  missions: 'This is where the bigger story lives.',
+  calendar: 'Your rhythm leaves a trail.',
+  journal: 'Take your time. I’m listening.',
+  notes: 'Catch it before it disappears.',
+  insights: 'Patterns are progress you can see.',
+  review: 'Notice what worked — not only what remains.',
+  settings: 'Make this space feel like yours.',
+};
+
+/** Companion lines for specific app events. */
+export const COMPANION_LINES = {
+  taskCaptured: 'Captured. Now it has a place.',
+  focusStart: 'I’ll stay quiet. You only need to be here now.',
+  focusResume: 'Welcome back. Let’s continue from here.',
+  focusPause: 'A pause is information, not failure.',
+  focusDrift: 'Want to return with one tiny action?',
+  focusReset: 'Reset complete. Start again whenever you’re ready.',
+} as const;

@@ -5,7 +5,9 @@ import { getTaskRepository } from './task-repository';
 import type { Task, TaskDraft, TaskLane } from './task-types';
 import { showSuccessToast } from '../toasts/toast-store';
 import { resolveCharacterState } from '../../character/characterState';
-import { pushCharacterCompletionToast } from '../../character/characterToast';
+import { announceTaskCompletion } from '../../character/characterToast';
+import { COMPANION_LINES } from '../../character/characterMessages';
+import { announceLumi } from '../../character/companion-store';
 
 interface TaskStore {
   tasks: Task[];
@@ -82,7 +84,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const tasks = sortTasks([task, ...get().tasks]);
     set({ tasks, selectedTaskId: task.id });
     await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'created', taskId: task.id });
-    showSuccessToast('Task created', task.title);
+    announceLumi('notice', { text: COMPANION_LINES.taskCaptured, detail: task.title }, () =>
+      showSuccessToast('Task created', task.title),
+    );
     return task;
   },
 
@@ -128,7 +132,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'moved', taskId, lane });
       if (lane === 'done') {
         const state = resolveCharacterState({ tasks: get().tasks, now: new Date() });
-        pushCharacterCompletionToast(task.title, task.id, state);
+        announceTaskCompletion(task.title, task.id, state);
       }
     } catch (error) {
       set((state) => ({
@@ -160,7 +164,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       await repository.updateTask(nextTask);
       await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'done', taskId });
       const state = resolveCharacterState({ tasks: get().tasks, now: new Date() });
-      pushCharacterCompletionToast(task.title, task.id, state);
+      announceTaskCompletion(task.title, task.id, state);
     } catch (error) {
       set({ tasks: previousTasks, error: error instanceof Error ? error.message : 'Unable to complete task' });
     }

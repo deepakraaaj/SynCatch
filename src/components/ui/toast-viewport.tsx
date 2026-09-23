@@ -10,7 +10,7 @@ function getToastExpression(action: ToastActionType, tone: ToastTone): LumiExpre
   if (action === 'delete') return 'concerned';
   if (action === 'save') return 'happy';
   if (action === 'create') return 'celebrating';
-  if (action === 'update') return 'focused';
+  if (action === 'update') return 'neutral';
   if (tone === 'error') return 'concerned';
   if (tone === 'success') return 'happy';
   return 'calm';
@@ -82,7 +82,7 @@ function ToastItemCard({
               expression={expression}
               size="sm"
               reduceMotion={reduceMotion}
-              className="h-8 w-8 object-contain"
+              label=""
             />
           </div>
         </div>

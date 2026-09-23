@@ -73,6 +73,7 @@ import { formatRelativeTime } from '../../lib/date';
 import { isTauriApp, showHudWindow, showQuickAddWindow, subscribeAppEvent } from '../../lib/tauri';
 import { useIsMobile } from '../../hooks/use-mobile';
 import { lazyWithReload } from '../../lib/lazy-with-reload';
+import { LumiCompanion } from '../../character/LumiCompanion';
 
 // Route-level code splitting: each view loads on demand behind <Suspense>.
 const TeamCalendarView = lazyWithReload('team-calendar', () => import('../../features/team/TeamCalendarView').then((m) => ({ default: m.TeamCalendarView })));
@@ -5162,6 +5163,15 @@ export function MainApp() {
             </>
           ) : null}
         </>
+      ) : null}
+
+      {workspaceMode !== 'team' ? (
+        <LumiCompanion
+          activeView={activeView}
+          // The dashboard hero card is Lumi's home, so the floating companion
+          // steps aside there instead of showing a second Lumi on screen.
+          blocked={activeView === 'dashboard' || mobileNavOpen || showTaskDetailPanel || showMissionDetailPanel || taskComposerOpen || missionComposerOpen}
+        />
       ) : null}
 
       {/* Mobile bottom navigation */}

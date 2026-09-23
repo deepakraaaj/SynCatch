@@ -39,7 +39,7 @@ export function butterflyDrift(reduceMotion: boolean, delaySeconds = 0) {
       };
 }
 
-/** Message bubble pop-in, used by CharacterReaction. */
+/** Message bubble pop-in, used by the Lumi companion speech bubble. */
 export function messagePop(reduceMotion: boolean) {
   return reduceMotion
     ? {}

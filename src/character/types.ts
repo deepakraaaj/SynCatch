@@ -46,7 +46,3 @@ export interface CharacterStateResult {
 
 /** Reaction triggers used to pick character-voiced copy for a specific moment. */
 export type ReactionTrigger = 'taskCompleted' | 'streakContinued' | 'comeback' | 'overdueNudge';
-
-export type SpriteSize = 'sm' | 'md' | 'lg' | 'hero';
-
-export type GlowIntensity = 'none' | 'soft' | 'medium' | 'strong';

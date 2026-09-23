@@ -1,16 +1,18 @@
 import { showToast } from '../features/toasts/toast-store';
+import { announceLumi } from './companion-store';
 import { pickReactionMessage } from './characterMessages';
 import type { CharacterStateResult } from './types';
 
 /**
- * Pushes a character-voiced completion toast via the existing toast system
- * (no changes needed to toast-store.ts / toast-viewport.tsx — only the copy
- * changes from a generic "Task completed" to something Lumi would say).
+ * Celebrates a completed task in Lumi's voice — spoken by the floating
+ * companion when it is on stage, otherwise as a toast. Never both.
  */
-export function pushCharacterCompletionToast(taskTitle: string, taskId: string, state: CharacterStateResult) {
+export function announceTaskCompletion(taskTitle: string, taskId: string, state: CharacterStateResult) {
   const trigger =
     state.mood === 'recovering' ? 'comeback' : state.streak >= 2 ? 'streakContinued' : 'taskCompleted';
 
   const message = pickReactionMessage(trigger, taskId);
-  showToast({ title: message, description: taskTitle, tone: 'success' });
+  announceLumi('celebrate', { text: message, detail: taskTitle }, () =>
+    showToast({ title: message, description: taskTitle, tone: 'success' }),
+  );
 }

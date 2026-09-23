@@ -1,8 +1,14 @@
-import { motion } from 'framer-motion';
-import { LUMI_EXPRESSION_ASSET } from './lumi-assets';
-import type { LumiExpression } from './lumi-assets';
+import { AnimatePresence, motion, useMotionValue, useTransform, type TargetAndTransition, type Transition } from 'framer-motion';
+import { useState } from 'react';
+import { cn } from '../lib/cn';
+import { LUMI_BADGE_ASSET, LUMI_EXPRESSION_ASSET, type LumiExpression } from './lumi-assets';
+import { LumiEyes, type LumiGaze } from './LumiEyes';
+import { LumiMesh } from './LumiMesh';
+import { LUMI_RIG } from './lumi-rig';
+import type { LumiHeadMotion } from './useLumiGaze';
 
 export type LumiSize = 'sm' | 'md' | 'lg' | 'hero';
+export type LumiMotion = 'idle' | 'walk' | 'none';
 
 const SIZE_PX: Record<LumiSize, number> = {
   sm: 32,
@@ -11,79 +17,114 @@ const SIZE_PX: Record<LumiSize, number> = {
   hero: 160,
 };
 
+/** At or below this size the full body is unreadable, so the head-crop badge art is used. */
+const BADGE_MAX_PX = 48;
+
+/**
+ * How far the head moves (512px canvas units). Turning toward the pointer is
+ * a tilt around the neck plus a small shift toward it; `cockDeg`/`nodPx` are
+ * the extra tilt and lift of a click reaction (see useLumiGaze).
+ */
+const HEAD = { turnDeg: 7, cockDeg: 8, shiftX: 8, shiftY: 5, nodPx: 12 };
+
+// Ambient loop for faces without a neck rig. A gently breathing chest reads
+// as alive; moving or pulsing the whole picture reads as a sticker. (Rigged
+// faces breathe inside the mesh, see LumiMesh.)
+const BREATH: { animate: TargetAndTransition; transition: Transition } = {
+  animate: { scaleY: [1, 1.014, 1] },
+  transition: { duration: 3.6, repeat: Infinity, ease: 'easeInOut' },
+};
+
 interface LumiProps {
   expression: LumiExpression;
-  size?: LumiSize;
+  /** Preset, exact px, or 'fill' to take the parent's box. */
+  size?: LumiSize | number | 'fill';
+  /** Defaults to 'badge' at <=48px and 'full' above. */
+  variant?: 'full' | 'badge';
+  /** Defaults to 'idle' for full art and 'none' for badges. 'walk' plays the walk cycle (standing pose). */
+  motion?: LumiMotion;
+  /** While walking: -1 heading left, 1 heading right, 0 in place. */
+  walkDirection?: number;
   reduceMotion?: boolean;
   className?: string;
-  /** Accessible label. Defaults to "Lumi" — pass a more specific label where the moment matters. */
+  /** Accessible label. Pass '' when Lumi is decorative next to text that already says it all. */
   label?: string;
+  /** Where the eyes look (see useLumiGaze). Full art only; ignored under reduced motion. */
+  gaze?: LumiGaze;
+  /** Head turn + click reactions (see useLumiGaze). Moves only the head. */
+  headGaze?: LumiHeadMotion;
 }
 
 /**
- * Per-expression idle motion. Every variant is a small loop around the
- * artwork's own position/scale — never a redraw, never a distortion of the
- * image itself (no skew/stretch), just gentle presence.
+ * Lumi, the Intent Sprite — the only component that renders the character.
+ * It picks the pre-made artwork for an expression (src/assets/lumi), sizes it,
+ * and cross-fades between expressions. Resting expressions render on a warp
+ * mesh (LumiMesh) so the head turns toward the pointer and reacts to clicks
+ * while the body stays planted and breathes — bent, never cut. Open eyes blink
+ * and glance via the eye rig (LumiEyes). Nothing is redrawn in CSS/SVG.
  */
-function getMotionProps(expression: LumiExpression, reduceMotion: boolean) {
-  if (reduceMotion) return {};
+export function Lumi({ expression, size = 'md', variant, motion: motionKind, walkDirection = 0, reduceMotion = false, className, label = 'Lumi', gaze, headGaze }: LumiProps) {
+  const px = typeof size === 'number' ? size : size === 'fill' ? null : SIZE_PX[size];
+  const resolvedVariant = variant ?? (px !== null && px <= BADGE_MAX_PX ? 'badge' : 'full');
+  const resolvedMotion = reduceMotion ? 'none' : motionKind ?? (resolvedVariant === 'badge' ? 'none' : 'idle');
+  const src = (resolvedVariant === 'badge' ? LUMI_BADGE_ASSET : LUMI_EXPRESSION_ASSET)[expression];
+  const rig = resolvedVariant === 'full' && !reduceMotion ? LUMI_RIG[expression] : undefined;
+  const [meshFailed, setMeshFailed] = useState(false);
+  const head = rig?.head && !meshFailed ? rig.head : undefined;
+  const breathing = resolvedMotion === 'idle';
 
-  switch (expression) {
-    case 'focused':
-      // Very subtle breathing.
-      return {
-        animate: { scale: [1, 1.015, 1] },
-        transition: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' as const },
-      };
-    case 'celebrating':
-      // Small scale spring on entrance, then settles.
-      return {
-        initial: { scale: 0.85, opacity: 0 },
-        animate: { scale: 1, opacity: 1 },
-        transition: { type: 'spring' as const, stiffness: 300, damping: 14 },
-      };
-    case 'concerned':
-      // Very subtle side movement.
-      return {
-        animate: { x: [0, -2, 0, 2, 0] },
-        transition: { duration: 4.5, repeat: Infinity, ease: 'easeInOut' as const },
-      };
-    case 'sleeping':
-      // Barely-there breathing, slower than focused.
-      return {
-        animate: { scale: [1, 1.01, 1] },
-        transition: { duration: 4.5, repeat: Infinity, ease: 'easeInOut' as const },
-      };
-    default:
-      // Idle float — slight vertical bob, 3-5s loop.
-      return {
-        animate: { y: [0, -4, 0] },
-        transition: { duration: 4, repeat: Infinity, ease: 'easeInOut' as const },
-      };
-  }
-}
+  const still = useMotionValue(0);
+  const turnX = headGaze?.x ?? still;
+  const turnY = headGaze?.y ?? still;
+  const nod = headGaze?.nod ?? still;
+  const cock = headGaze?.cock ?? still;
+  const headRotate = useTransform([turnX, cock], ([x, c]: number[]) => x * HEAD.turnDeg + c * HEAD.cockDeg);
+  const headShiftX = useTransform(turnX, (x) => x * HEAD.shiftX);
+  const headShiftY = useTransform([turnY, nod], ([y, n]: number[]) => y * HEAD.shiftY - n * HEAD.nodPx);
 
-/**
- * Lumi, the Intent Sprite — rendered strictly from pre-made artwork
- * (src/assets/lumi/*.webp). This component only selects the right image for
- * the given expression, sizes it, and applies subtle motion around it. It
- * never redraws or approximates the character in CSS/SVG — quality comes
- * entirely from the art asset.
- */
-export function Lumi({ expression, size = 'md', reduceMotion = false, className, label = 'Lumi' }: LumiProps) {
-  const px = SIZE_PX[size];
-  const motionProps = getMotionProps(expression, reduceMotion);
+  const image = 'absolute inset-0 h-full w-full object-contain';
 
   return (
-    <motion.img
-      src={LUMI_EXPRESSION_ASSET[expression]}
-      alt={label}
-      width={px}
-      height={px}
-      draggable={false}
-      className={`object-contain select-none ${className ?? ''}`}
-      style={{ width: px, height: px }}
-      {...motionProps}
-    />
+    <motion.span
+      role={label ? 'img' : undefined}
+      aria-label={label || undefined}
+      aria-hidden={label ? undefined : true}
+      className={cn('relative block shrink-0 select-none', px === null && 'h-full w-full', className)}
+      style={px === null ? undefined : { width: px, height: px }}
+    >
+      <AnimatePresence initial={false}>
+        <motion.span
+          key={src}
+          className="absolute inset-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.18 }}
+        >
+          {rig && head ? (
+            <LumiMesh
+              src={src}
+              rig={{ ...rig, head }}
+              pose={{ rotate: headRotate, shiftX: headShiftX, shiftY: headShiftY }}
+              breathing={breathing || resolvedMotion === 'walk'}
+              walking={resolvedMotion === 'walk'}
+              walkDirection={walkDirection}
+              gaze={gaze}
+              onUnsupported={() => setMeshFailed(true)}
+            />
+          ) : (
+            <motion.span
+              className="absolute inset-0"
+              style={{ originY: 1 }}
+              animate={breathing ? BREATH.animate : undefined}
+              transition={breathing ? BREATH.transition : undefined}
+            >
+              <img src={src} alt="" draggable={false} className={image} />
+              {rig?.eyes.length ? <LumiEyes src={src} rig={rig} gaze={gaze} /> : null}
+            </motion.span>
+          )}
+        </motion.span>
+      </AnimatePresence>
+    </motion.span>
   );
 }

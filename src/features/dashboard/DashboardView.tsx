@@ -307,7 +307,12 @@ export function DashboardView({ onNavigate, onOpenTask, onOpenMission, onNewTask
       </motion.div>
 
       {/* Lumi — the Intent Sprite. Where momentum stands right now, and what small action keeps it alive. */}
-      <LumiHeroCard index={1} />
+      <LumiHeroCard
+        index={1}
+        doneToday={doneToday}
+        nextTask={upNext[0]?.title}
+        onStartSprint={() => onNavigate('focus')}
+      />
 
       {/* Stat tiles */}
       <motion.div {...stagger(2)} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
