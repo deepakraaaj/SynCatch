@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { cn } from '../lib/cn';
 import { LUMI_BADGE_ASSET, LUMI_EXPRESSION_ASSET, type LumiExpression } from './lumi-assets';
 import { LumiEyes, type LumiGaze } from './LumiEyes';
+import { LumiGlow } from './LumiGlow';
+import { useCompanionStore } from './companion-store';
 import { LumiMesh } from './LumiMesh';
 import { LUMI_RIG } from './lumi-rig';
 import type { LumiHeadMotion } from './useLumiGaze';
@@ -69,6 +71,7 @@ export function Lumi({ expression, size = 'md', variant, motion: motionKind, wal
   const resolvedMotion = reduceMotion ? 'none' : motionKind ?? (resolvedVariant === 'badge' ? 'none' : 'idle');
   const src = (resolvedVariant === 'badge' ? LUMI_BADGE_ASSET : LUMI_EXPRESSION_ASSET)[expression];
   const rig = resolvedVariant === 'full' && !reduceMotion ? LUMI_RIG[expression] : undefined;
+  const reaction = useCompanionStore((s) => s.reaction);
   const [meshFailed, setMeshFailed] = useState(false);
   const head = rig?.head && !meshFailed ? rig.head : undefined;
   const breathing = resolvedMotion === 'idle';
@@ -92,6 +95,7 @@ export function Lumi({ expression, size = 'md', variant, motion: motionKind, wal
       className={cn('relative block shrink-0 select-none', px === null && 'h-full w-full', className)}
       style={px === null ? undefined : { width: px, height: px }}
     >
+      {resolvedVariant === 'full' ? <LumiGlow reaction={reaction} reduceMotion={reduceMotion} /> : null}
       <AnimatePresence initial={false}>
         <motion.span
           key={src}

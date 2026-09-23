@@ -23,6 +23,21 @@ export const REACTION_TO_EXPRESSION: Record<Exclude<CompanionReaction, 'idle'>, 
   sleep: 'sleeping',
 };
 
+/**
+ * Emotion colour per reaction, in `R G B` (for `rgb(... / alpha)`). Joy/warmth
+ * palette only — Lumi never gets a "negative" colour (red/dark), matching the
+ * no-guilt rule. Rest uses a calm neutral glow.
+ */
+export const REACTION_GLOW: Record<CompanionReaction, string> = {
+  idle: '154 214 200', // calm teal — resting
+  smile: '255 204 92', // gold — joy
+  notice: '255 204 92', // gold — joy
+  focus: '178 158 255', // soft violet — focus
+  celebrate: '255 204 92', // gold — joy, biggest glow
+  comfort: '154 214 200', // calm teal — reassurance
+  sleep: '154 214 200', // calm teal — rest
+};
+
 /** A lower-priority reaction never interrupts a higher one that is still playing. */
 export const REACTION_PRIORITY: Record<CompanionReaction, number> = {
   idle: 1,
