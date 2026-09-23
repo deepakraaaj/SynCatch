@@ -130,6 +130,12 @@ same mesh shader, driven by the `walk` rig in `lumi-rig.ts` (hip line, soles, th
 bands): feet lift one after the other, arms swing opposite, the body sways onto the planted foot, rises on
 each step and leans toward the direction of travel. The ground shadow under the soles stays planted.
 
+**Luminous trail.** While Lumi walks or is carried, `LumiTrail.tsx` (one full-viewport canvas behind the
+companion) leaves glowing gold footprints where its feet land, mint/warm-white pixie dust and gold four-point
+stars floating up behind it, and the odd tiny pink heart, all dissolving over ~2s. It uses Lumi's own palette,
+never the theme accent (coral on some themes read as red dots). The loop only runs while particles exist, and
+the trail is off under reduced motion.
+
 **Eye rig.** Open-eyed resting faces (neutral, thinking, concerned, focused) come alive without new art:
 - *Gaze* re-shows the art's own iris through an inset elliptical socket, shifted up to 22%/18% of the eye
   radius toward the pointer (spring ~100ms; returns ahead after 2.5s idle). No skin can slide into the eye.

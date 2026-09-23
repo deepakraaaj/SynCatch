@@ -9,6 +9,7 @@ import { useIsMobile } from '../hooks/use-mobile';
 import { VIEW_LINES } from './characterMessages';
 import { announceLumi, useCompanionStore, type CompanionMode } from './companion-store';
 import { Lumi } from './Lumi';
+import { LumiTrail } from './LumiTrail';
 import { preloadLumiAssets } from './lumi-assets';
 import { useLumiExpression } from './useLumiExpression';
 import { useLumiGaze } from './useLumiGaze';
@@ -265,9 +266,18 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
     if (next === 'stay') setPosition({ x: Math.round(x.get()), y: Math.round(y.get()) });
   };
 
+  // Viewport point between Lumi's feet (normalized art: feet gap at x 254.5, soles at y 466 of 512).
+  const feetPoint = useCallback(() => {
+    const dock = dockRef.current?.getBoundingClientRect();
+    if (!dock) return null;
+    return { x: dock.left + x.get() + dock.width * (254.5 / 512), y: dock.top + y.get() + dock.height * (466 / 512) };
+  }, [x, y]);
+
   if (blocked) return null;
 
   return (
+    <>
+    <LumiTrail active={onStage && moving && !reduceMotion} emitPoint={feetPoint} sizePx={avatarPx} />
     <div ref={dockRef} className="pointer-events-none fixed bottom-[calc(var(--mobile-nav-height)+0.65rem)] right-[72px] z-[80] lg:bottom-5" style={{ width: avatarPx, height: avatarPx }}>
       <AnimatePresence>
         {!visible ? (
@@ -411,5 +421,6 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }
