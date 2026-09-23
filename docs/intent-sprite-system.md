@@ -131,10 +131,16 @@ bands): feet lift one after the other, arms swing opposite, the body sways onto 
 each step and leans toward the direction of travel. The ground shadow under the soles stays planted.
 
 **Luminous trail.** While Lumi walks or is carried, `LumiTrail.tsx` (one full-viewport canvas behind the
-companion) leaves glowing gold footprints where its feet land, mint/warm-white pixie dust and gold four-point
-stars floating up behind it, and the odd tiny pink heart, all dissolving over ~2s. It uses Lumi's own palette,
-never the theme accent (coral on some themes read as red dots). The loop only runs while particles exist, and
-the trail is off under reduced motion.
+companion) leaves glowing gold footprints where its feet land and warm gold/mint light motes drifting up
+behind it, all dissolving over ~2s. Every particle is a soft round glow, never a pointed "sparkle" shape —
+those read as cheap clip-art. It uses Lumi's own palette, never the theme accent (coral on some themes read
+as red dots). The loop only runs while particles exist, and the trail is off under reduced motion.
+
+**Walking smile.** `LumiMouth.tsx` swaps neutral's small resting mouth for a wider, brighter smile while Lumi
+walks (`neutral` is the only expression with legs and the eye rig, and its flat closed mouth read dull in
+motion). Same technique as `LumiEyes`: the drawn mouth is masked with the sampled skin tone and a smile is
+redrawn in the art's own ink colour, riding on the same head transform as the eyes. Off at rest and under
+reduced motion.
 
 **Eye rig.** Open-eyed resting faces (neutral, thinking, concerned, focused) come alive without new art:
 - *Gaze* re-shows the art's own iris through an inset elliptical socket, shifted up to 22%/18% of the eye

@@ -1,6 +1,7 @@
 import { motion, useMotionValue, type MotionValue } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { LumiEyes, type LumiGaze } from './LumiEyes';
+import { LumiMouth } from './LumiMouth';
 import type { LumiRig } from './lumi-rig';
 
 const CANVAS = 512;
@@ -121,6 +122,9 @@ interface LumiMeshProps {
   /** Walking (standing pose with a walk rig only) and which way: -1 left, 1 right, 0 in place. */
   walking: boolean;
   walkDirection: number;
+  /** Swap the drawn mouth for a wider smile — used while walking (neutral's resting mouth reads flat in motion). */
+  smiling?: boolean;
+  reduceMotion?: boolean;
   gaze?: LumiGaze;
   /** Called when WebGL is unavailable so the caller can show the flat image instead. */
   onUnsupported: () => void;
@@ -134,7 +138,7 @@ interface LumiMeshProps {
  * on the head with the same rigid transform (eyes sit well inside the
  * fully-head-driven zone).
  */
-export function LumiMesh({ src, rig, pose, breathing, walking, walkDirection, gaze, onUnsupported }: LumiMeshProps) {
+export function LumiMesh({ src, rig, pose, breathing, walking, walkDirection, smiling = false, reduceMotion = false, gaze, onUnsupported }: LumiMeshProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
   // Rigid transform for the eye overlay, mirroring the shader's head zone.
@@ -314,6 +318,7 @@ export function LumiMesh({ src, rig, pose, breathing, walking, walkDirection, ga
             style={{ x: eyeX, y: eyeY, rotate: eyeRotate, originX: rig.head.pivotX / CANVAS, originY: rig.head.pivotY / CANVAS }}
           >
             <LumiEyes src={src} rig={rig} gaze={gaze} />
+            <LumiMouth active={smiling} reduceMotion={reduceMotion} />
           </motion.span>
         </motion.span>
       ) : null}

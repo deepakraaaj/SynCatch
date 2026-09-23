@@ -72,6 +72,7 @@ export function Lumi({ expression, size = 'md', variant, motion: motionKind, wal
   const src = (resolvedVariant === 'badge' ? LUMI_BADGE_ASSET : LUMI_EXPRESSION_ASSET)[expression];
   const rig = resolvedVariant === 'full' && !reduceMotion ? LUMI_RIG[expression] : undefined;
   const reaction = useCompanionStore((s) => s.reaction);
+  const smiling = resolvedMotion === 'walk';
   const [meshFailed, setMeshFailed] = useState(false);
   const head = rig?.head && !meshFailed ? rig.head : undefined;
   const breathing = resolvedMotion === 'idle';
@@ -113,6 +114,8 @@ export function Lumi({ expression, size = 'md', variant, motion: motionKind, wal
               breathing={breathing || resolvedMotion === 'walk'}
               walking={resolvedMotion === 'walk'}
               walkDirection={walkDirection}
+              smiling={smiling}
+              reduceMotion={reduceMotion}
               gaze={gaze}
               onUnsupported={() => setMeshFailed(true)}
             />
