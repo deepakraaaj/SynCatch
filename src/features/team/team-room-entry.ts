@@ -1,9 +1,10 @@
 import { useTeamRoomStore } from './team-room-store';
-import { useTeamStore } from './team-store';
+import { TEAM_WORKSPACE_ENABLED, useTeamStore } from './team-store';
 import { connectTeamRoomSync } from './team-room-sync';
 
 /** Selects a room, connects its live sync, and unlocks the team workspace. */
 export async function enterTeamRoom(roomId: string): Promise<void> {
+  if (!TEAM_WORKSPACE_ENABLED) return;
   const state = useTeamRoomStore.getState();
   state.selectRoom(roomId);
   await connectTeamRoomSync(roomId);

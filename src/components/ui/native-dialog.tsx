@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, X } from 'lucide-react';
 import { Lumi } from '../../character/Lumi';
+import { useCompanionStore } from '../../character/companion-store';
 import { useSettingsStore } from '../../features/settings/settings-store';
 
 type DialogRequest = {
@@ -60,6 +61,7 @@ export function NativeDialogHost() {
   const [request, setRequest] = useState<DialogRequest | null>(activeRequest);
   const [value, setValue] = useState('');
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
+  const lumiHidden = useCompanionStore((state) => state.hidden);
 
   const close = (result: boolean | string | null) => {
     const current = activeRequest;
@@ -123,27 +125,29 @@ export function NativeDialogHost() {
           >
             <div className="flex items-start gap-3.5">
               {/* Animated Mascot / Icon Badge */}
-              <div className="relative shrink-0">
-                <div
-                  className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border shadow-inner ${
-                    request.danger
-                      ? 'border-rose-500/30 bg-rose-500/12'
-                      : 'border-accent/30 bg-accent/12'
-                  }`}
-                >
-                  <Lumi
-                    expression={request.danger ? 'concerned' : 'neutral'}
-                    size={40}
-                    reduceMotion={reduceMotion}
-                    label=""
-                  />
+              {lumiHidden ? null : (
+                <div className="relative shrink-0">
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border shadow-inner ${
+                      request.danger
+                        ? 'border-rose-500/30 bg-rose-500/12'
+                        : 'border-accent/30 bg-accent/12'
+                    }`}
+                  >
+                    <Lumi
+                      expression={request.danger ? 'concerned' : 'neutral'}
+                      size={40}
+                      reduceMotion={reduceMotion}
+                      label=""
+                    />
+                  </div>
+                  {request.danger && (
+                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white shadow">
+                      <AlertTriangle className="h-3 w-3" />
+                    </span>
+                  )}
                 </div>
-                {request.danger && (
-                  <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white shadow">
-                    <AlertTriangle className="h-3 w-3" />
-                  </span>
-                )}
-              </div>
+              )}
 
               <div className="min-w-0 flex-1 pt-0.5">
                 <h2

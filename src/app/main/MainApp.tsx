@@ -1,7 +1,6 @@
 import { TeamHeaderSwitcher } from "../../features/team/TeamHeaderSwitcher";
-import { PocketDropFAB } from "../../features/team/PocketDropModal";
 import { MissionHubNavSlotContext } from "../../features/team/mission-hub-nav-slot";
-import { useTeamStore } from "../../features/team/team-store";
+import { TEAM_WORKSPACE_ENABLED, useTeamStore } from "../../features/team/team-store";
 import { confirmDialog } from "../../components/ui/native-dialog";
 import {
   type DragEvent as ReactDragEvent,
@@ -14,7 +13,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Timer, Flag, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowLeft, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Check, CircleDashed, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, Heart, StickyNote, Wifi, WifiOff, MessageCircle, MessageSquare, Trophy, Users, UserRound, Bot, Palette, SlidersHorizontal, Download, Eye, Keyboard, AlertOctagon, PanelLeftClose, PanelLeftOpen, FolderKanban, type LucideIcon } from 'lucide-react';
+import { Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Timer, Flag, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowLeft, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Check, CircleDashed, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, Heart, StickyNote, Wifi, WifiOff, MessageCircle, MessageSquare, Trophy, Users, UserRound, Bot, Palette, SlidersHorizontal, Download, Eye, Keyboard, AlertOctagon, PanelLeftClose, PanelLeftOpen, FolderKanban, PackageSearch, EyeOff, Telescope, type LucideIcon } from 'lucide-react';
 import { MissionIcon } from '../../components/ui/mission-icon';
 import { DatePicker } from '../../components/ui/date-picker';
 import { Badge } from '../../components/ui/badge';
@@ -74,6 +73,7 @@ import { isTauriApp, showHudWindow, showQuickAddWindow, subscribeAppEvent } from
 import { useIsMobile } from '../../hooks/use-mobile';
 import { lazyWithReload } from '../../lib/lazy-with-reload';
 import { LumiCompanion } from '../../character/LumiCompanion';
+import { useCompanionStore } from '../../character/companion-store';
 
 // Route-level code splitting: each view loads on demand behind <Suspense>.
 const TeamCalendarView = lazyWithReload('team-calendar', () => import('../../features/team/TeamCalendarView').then((m) => ({ default: m.TeamCalendarView })));
@@ -91,6 +91,8 @@ const AssistantView = lazyWithReload('assistant', () => import('../../features/a
 const CalendarView = lazyWithReload('calendar', () => import('../../features/calendar/CalendarView').then((m) => ({ default: m.CalendarView })));
 const ChallengesView = lazyWithReload('challenges', () => import('../../features/challenges/ChallengesView').then((m) => ({ default: m.ChallengesView })));
 const ProjectsView = lazyWithReload('projects', () => import('../../features/projects/ProjectsView').then((m) => ({ default: m.ProjectsView })));
+const ManifestView = lazyWithReload('manifest', () => import('../../features/manifest/ManifestView').then((m) => ({ default: m.ManifestView })));
+const ProductsView = lazyWithReload('products', () => import('../../features/products/ProductsView').then((m) => ({ default: m.ProductsView })));
 
 function ViewLoading() {
   return (
@@ -100,12 +102,12 @@ function ViewLoading() {
   );
 }
 
-type MainView = 'dashboard' | 'focus' | 'missions' | 'projects' | 'roadmap' | 'today' | 'calendar' | 'challenges' | 'tasks' | 'history' | 'insights' | 'review' | 'journal' | 'notes' | 'loved-ones' | 'assistant' | 'settings' | 'apps' | 'crm' | 'problems';
+type MainView = 'dashboard' | 'focus' | 'missions' | 'projects' | 'products' | 'roadmap' | 'today' | 'calendar' | 'challenges' | 'tasks' | 'history' | 'insights' | 'review' | 'journal' | 'notes' | 'loved-ones' | 'manifest' | 'assistant' | 'settings' | 'apps' | 'crm' | 'problems';
 
 const MAIN_VIEW_PATHS: Record<MainView, string> = {
-  dashboard: '/dashboard', focus: '/focus', missions: '/missions', projects: '/projects', roadmap: '/roadmap',
+  dashboard: '/dashboard', focus: '/focus', missions: '/missions', projects: '/projects', products: '/products', roadmap: '/roadmap',
   today: '/today', calendar: '/calendar', challenges: '/challenges', tasks: '/tasks', history: '/history',
-  insights: '/insights', review: '/review', journal: '/journal', notes: '/notes', 'loved-ones': '/loved-ones', assistant: '/assistant',
+  insights: '/insights', review: '/review', journal: '/journal', notes: '/notes', 'loved-ones': '/loved-ones', manifest: '/manifest', assistant: '/assistant',
   settings: '/settings', apps: '/apps', crm: '/crm', problems: '/problems',
 };
 
@@ -171,6 +173,13 @@ const launcherViews: Array<{
     label: 'Roadmap',
     icon: Target,
     description: 'Plan the next moves',
+    gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
+  },
+  {
+    id: 'products',
+    label: 'Products',
+    icon: PackageSearch,
+    description: 'Track purchases, invoices & warranties',
     gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
   },
   {
@@ -242,6 +251,13 @@ const launcherViews: Array<{
     icon: Heart,
     description: 'Remember what matters to them',
     gradient: 'from-rose-500 via-pink-500 to-fuchsia-500',
+  },
+  {
+    id: 'manifest',
+    label: 'Manifest',
+    icon: Telescope,
+    description: 'Call it in, log steps & signs',
+    gradient: 'from-violet-500 via-purple-500 to-fuchsia-500',
   },
   {
     id: 'assistant',
@@ -698,6 +714,7 @@ function getViewCopy(view: MainView) {
     focus: 'What Now',
     missions: 'Missions',
     projects: 'Projects',
+    products: 'Products',
     roadmap: 'Roadmap',
     today: 'Today',
     calendar: 'Calendar',
@@ -709,6 +726,7 @@ function getViewCopy(view: MainView) {
     journal: 'Journal',
     notes: 'Notes',
     'loved-ones': 'Loved Ones',
+    manifest: 'Manifest',
     assistant: 'Assistant',
     settings: 'Settings',
     apps: 'Apps',
@@ -2241,6 +2259,8 @@ export function MainApp() {
   const launchAtLogin = useSettingsStore((state) => state.launchAtLogin);
   const launchAtLoginPending = useSettingsStore((state) => state.launchAtLoginPending);
   const setReduceMotion = useSettingsStore((state) => state.setReduceMotion);
+  const lumiHidden = useCompanionStore((state) => state.hidden);
+  const setLumiHidden = useCompanionStore((state) => state.setHidden);
   const setFocusPromptStyle = useSettingsStore((state) => state.setFocusPromptStyle);
   const setSyncMode = useSettingsStore((state) => state.setSyncMode);
   const setLaunchAtLogin = useSettingsStore((state) => state.setLaunchAtLogin);
@@ -2311,7 +2331,6 @@ export function MainApp() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('syncatch-sidebar-collapsed') === '1');
   const [mobileChatPickerOpen, setMobileChatPickerOpen] = useState(false);
   const [missionHubNavSlot, setMissionHubNavSlot] = useState<HTMLElement | null>(null);
-  const [fabDockOpen, setFabDockOpen] = useState(false);
   const dragImageRef = useRef<HTMLImageElement | null>(null);
   const dropHandledRef = useRef(false);
 
@@ -4590,6 +4609,17 @@ export function MainApp() {
 
               <div className="py-4">
                 <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent"><EyeOff className="h-4 w-4" /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-text-primary">Hide Lumi</p>
+                    <p className="mt-0.5 text-[11px] text-text-secondary">Remove Lumi everywhere — companion, dashboard, toasts and dialogs.</p>
+                  </div>
+                  <SettingSwitch checked={lumiHidden} label="Hide Lumi" onChange={setLumiHidden} />
+                </div>
+              </div>
+
+              <div className="py-4">
+                <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400"><Eye className="h-4 w-4" /></span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-primary">Transparent HUD</p>
@@ -4847,7 +4877,7 @@ export function MainApp() {
               </Button>
             </div>
 
-            {!mobileChatPickerOpen ? (
+            {!mobileChatPickerOpen && TEAM_WORKSPACE_ENABLED ? (
               <div className="relative mb-4 flex items-center justify-between rounded-2xl border border-borderSoft/20 bg-panel/35 p-2">
                 <span className="pl-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">Workspace</span>
                 <TeamHeaderSwitcher onSwitchMode={(mode) => {
@@ -4991,7 +5021,7 @@ export function MainApp() {
                 ) : null}
               </div>
 
-              <div className="hidden sm:block"><TeamHeaderSwitcher onSwitchMode={(mode) => setActiveView(mode === 'team' ? 'missions' : 'dashboard')} /></div>
+              {TEAM_WORKSPACE_ENABLED ? <div className="hidden sm:block"><TeamHeaderSwitcher onSwitchMode={(mode) => setActiveView(mode === 'team' ? 'missions' : 'dashboard')} /></div> : null}
             </div>
           </header>
 
@@ -5056,6 +5086,7 @@ export function MainApp() {
                   {activeView === 'focus' ? renderFocus() : null}
                   {activeView === 'missions' ? renderMissions() : null}
                   {activeView === 'projects' ? <ProjectsView /> : null}
+                  {activeView === 'products' ? <ProductsView /> : null}
                   {activeView === 'roadmap' ? <RoadmapView missions={missions} allTasks={tasks} onOpenMission={setDetailMissionId} /> : null}
                   {activeView === 'today' ? renderToday() : null}
                   {activeView === 'calendar' ? <CalendarView onOpenTarget={openCalendarTarget} /> : null}
@@ -5067,6 +5098,7 @@ export function MainApp() {
                   {activeView === 'journal' ? <JournalView focusedEntryId={calendarJournalTargetId} /> : null}
                   {activeView === 'notes' ? <NotesView openNoteId={calendarNoteTargetId} /> : null}
                   {activeView === 'loved-ones' ? <LovedOnesView /> : null}
+                  {activeView === 'manifest' ? <ManifestView /> : null}
                   {activeView === 'assistant' ? <AssistantView /> : null}
                   {activeView === 'settings' ? renderSettings() : null}
                 </>
@@ -5140,29 +5172,11 @@ export function MainApp() {
         </div>
       </div>
 
-      {/* Floating actions live behind one toggle so they stop covering whatever
-          sits in the bottom-right corner — a chat composer's send button, a
-          table's last row. Collapsed by default; the toggle stays put and the
-          buttons stack above it. */}
+      {/* One small, quiet launcher in the corner: the assistant is the only
+          floating action in the personal workspace, so it opens directly
+          instead of hiding behind a toggle. */}
       {!mobileNavOpen && !showTaskDetailPanel && !showMissionDetailPanel && workspaceMode !== 'team' ? (
-        <>
-          <button
-            type="button"
-            onClick={() => setFabDockOpen((open) => !open)}
-            aria-expanded={fabDockOpen}
-            aria-label={fabDockOpen ? 'Hide quick actions' : 'Show quick actions'}
-            className="fixed bottom-[calc(var(--mobile-nav-height)+0.75rem)] right-5 z-[67] flex h-11 w-11 items-center justify-center rounded-full border border-borderSoft bg-panel text-text-secondary shadow-[0_8px_24px_rgb(var(--shadow-color)/0.28)] transition-all hover:text-text-primary active:scale-95 lg:bottom-6"
-          >
-            <Plus className={`h-5 w-5 transition-transform duration-200 ${fabDockOpen ? 'rotate-45' : ''}`} />
-          </button>
-
-          {fabDockOpen ? (
-            <>
-              <AssistantWidget launcherPositionClassName="bottom-[calc(var(--mobile-nav-height)+4.5rem)] right-[0.875rem] lg:bottom-[5.25rem]" />
-              <PocketDropFAB positionClassName="bottom-[calc(var(--mobile-nav-height)+8.75rem)] right-5 lg:bottom-[9.5rem]" />
-            </>
-          ) : null}
-        </>
+        <AssistantWidget launcherPositionClassName="bottom-[calc(var(--mobile-nav-height)+0.75rem)] right-5 lg:bottom-6" />
       ) : null}
 
       {workspaceMode !== 'team' ? (
@@ -5170,7 +5184,7 @@ export function MainApp() {
           activeView={activeView}
           // The dashboard hero card is Lumi's home, so the floating companion
           // steps aside there instead of showing a second Lumi on screen.
-          blocked={activeView === 'dashboard' || mobileNavOpen || showTaskDetailPanel || showMissionDetailPanel || taskComposerOpen || missionComposerOpen}
+          blocked={lumiHidden || activeView === 'dashboard' || mobileNavOpen || showTaskDetailPanel || showMissionDetailPanel || taskComposerOpen || missionComposerOpen}
         />
       ) : null}
 

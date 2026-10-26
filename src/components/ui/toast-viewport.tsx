@@ -3,6 +3,7 @@ import { cn } from '../../lib/cn';
 import { useToastStore, type ToastTone, type ToastActionType } from '../../features/toasts/toast-store';
 import { useSettingsStore } from '../../features/settings/settings-store';
 import { Lumi } from '../../character/Lumi';
+import { useCompanionStore } from '../../character/companion-store';
 import type { LumiExpression } from '../../character/lumi-assets';
 import { SparkleBurst } from '../../character/effects-assets';
 
@@ -26,6 +27,7 @@ function ToastItemCard({
   reduceMotion: boolean;
 }) {
   const expression = getToastExpression(toast.action, toast.tone);
+  const lumiHidden = useCompanionStore((state) => state.hidden);
   const isDelete = toast.action === 'delete';
   const isSave = toast.action === 'save';
   const isCreate = toast.action === 'create';
@@ -65,27 +67,29 @@ function ToastItemCard({
 
       <div className="flex items-start gap-3.5 px-4 py-3.5">
         {/* Lumi mascot badge */}
-        <div className="relative shrink-0 pt-0.5">
-          <div
-            className={cn(
-              'flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border shadow-sm transition-transform',
-              isError
-                ? 'border-warning/30 bg-warning/10'
-                : isDelete
-                  ? 'border-rose-500/25 bg-rose-500/10'
-                  : isSave || isCreate
-                    ? 'border-emerald-500/25 bg-emerald-500/10'
-                    : 'border-borderSoft/40 bg-panel/60',
-            )}
-          >
-            <Lumi
-              expression={expression}
-              size="sm"
-              reduceMotion={reduceMotion}
-              label=""
-            />
+        {lumiHidden ? null : (
+          <div className="relative shrink-0 pt-0.5">
+            <div
+              className={cn(
+                'flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border shadow-sm transition-transform',
+                isError
+                  ? 'border-warning/30 bg-warning/10'
+                  : isDelete
+                    ? 'border-rose-500/25 bg-rose-500/10'
+                    : isSave || isCreate
+                      ? 'border-emerald-500/25 bg-emerald-500/10'
+                      : 'border-borderSoft/40 bg-panel/60',
+              )}
+            >
+              <Lumi
+                expression={expression}
+                size="sm"
+                reduceMotion={reduceMotion}
+                label=""
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="text-[13px] font-semibold leading-snug text-text-primary tracking-[-0.1px]">

@@ -25,6 +25,7 @@ interface CompanionState extends CompanionSnapshot {
   reactionNonce: number;
   hydrate: () => Promise<void>;
   setVisible: (visible: boolean) => void;
+  setHidden: (hidden: boolean) => void;
   toggleVisible: () => void;
   setMode: (mode: CompanionMode) => void;
   setDialogue: (dialogue: boolean) => void;
@@ -53,8 +54,8 @@ let editedBeforeHydrate = false;
 
 export const useCompanionStore = create<CompanionState>((set, get) => {
   function snapshot(): CompanionSnapshot {
-    const { visible, mode, dialogue, position } = get();
-    return { visible, mode, dialogue, position };
+    const { visible, hidden, mode, dialogue, position } = get();
+    return { visible, hidden, mode, dialogue, position };
   }
 
   function commit(patch: Partial<CompanionSnapshot>) {
@@ -94,6 +95,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => {
       set({ hydrated: true });
     },
     setVisible: (visible) => commit({ visible }),
+    setHidden: (hidden) => commit({ hidden }),
     toggleVisible: () => commit({ visible: !get().visible }),
     setMode: (mode) => commit({ mode }),
     setDialogue: (dialogue) => commit({ dialogue }),

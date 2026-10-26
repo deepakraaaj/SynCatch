@@ -16,6 +16,7 @@
     "tauri:build": "node scripts/run-tauri.mjs build"
   },
   "dependencies": {
+    "@fontsource/cormorant-garamond": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/space-grotesk": "^5.2.10",
     "@supabase/supabase-js": "^2.105.1",
@@ -23,6 +24,7 @@
     "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-global-shortcut": "^2.3.1",
     "@tauri-apps/plugin-sql": "^2.3.2",
+    "@tesseract.js-data/eng": "^1.0.0",
     "@tiptap/extension-image": "^3.26.1",
     "@tiptap/extension-link": "^3.26.1",
     "@tiptap/extension-placeholder": "^3.26.1",
@@ -35,6 +37,7 @@
     "lucide-react": "^1.14.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "tesseract.js": "^6.0.1",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

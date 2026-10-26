@@ -18,6 +18,12 @@ import type {
   TeamMissionItem,
 } from './team-types';
 
+/**
+ * Off switch for the whole team workspace. While false nothing can enter a team
+ * room, so no realtime channel is ever opened. Flip to true to bring it back.
+ */
+export const TEAM_WORKSPACE_ENABLED = false;
+
 let chatSeq = 0;
 const chatId = () => `chat-${Date.now().toString(36)}-${(chatSeq += 1).toString(36)}`;
 
@@ -197,7 +203,7 @@ export const useTeamStore = create<TeamState>()(
       backendSyncStatus: 'offline',
       backendSyncError: null,
 
-      setWorkspaceMode: (mode) => set({ workspaceMode: mode }),
+      setWorkspaceMode: (mode) => set({ workspaceMode: TEAM_WORKSPACE_ENABLED ? mode : 'personal' }),
 
       lockTeam: () => set({ teamUnlocked: false, workspaceMode: 'personal' }),
 

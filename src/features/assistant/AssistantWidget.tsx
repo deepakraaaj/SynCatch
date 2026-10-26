@@ -22,10 +22,10 @@ export function AssistantWidget({
         <button
           type="button"
           onClick={toggle}
-          className={`fixed z-[70] ${launcherPositionClassName} flex h-14 w-14 items-center justify-center rounded-full border border-accent/50 bg-accent text-[rgb(var(--accent-contrast))] shadow-[0_10px_32px_rgb(var(--shadow-color)/0.32),0_0_0_4px_rgb(var(--surface-1)/0.75)] transition-transform hover:scale-105 active:scale-95`}
+          className={`fixed z-[70] ${launcherPositionClassName} flex h-11 w-11 items-center justify-center rounded-full border border-borderSoft bg-panel text-text-secondary shadow-[0_8px_24px_rgb(var(--shadow-color)/0.28)] transition-all hover:text-text-primary active:scale-95`}
           aria-label="Open assistant"
         >
-          <MessageCircle className="h-6 w-6" strokeWidth={2.25} />
+          <MessageCircle className="h-5 w-5" />
         </button>
       )}
 
@@ -33,11 +33,11 @@ export function AssistantWidget({
       {open && (
         <>
           <div
-            className="fixed inset-0 z-[68] bg-black/20 sm:bg-transparent"
+            className="fixed inset-0 z-[68] bg-black/20 sm:bg-black/10"
             onClick={() => setOpen(false)}
           />
-          <div className="fixed bottom-0 right-0 left-0 z-[69] flex h-[80vh] flex-col overflow-hidden rounded-t-[28px] border border-borderSoft/30 bg-panel shadow-panel sm:bottom-24 sm:left-auto sm:right-5 sm:h-[560px] sm:w-[400px] sm:rounded-[28px]">
-            <div className="flex items-center justify-between border-b border-borderSoft/25 px-4 py-3">
+          <div className="fixed bottom-0 right-0 left-0 z-[69] flex h-[80vh] flex-col overflow-hidden rounded-t-[28px] border border-borderStrong/70 bg-panel shadow-[0_24px_64px_rgba(0,0,0,0.28)] sm:bottom-24 sm:left-auto sm:right-5 sm:h-[560px] sm:w-[400px] sm:rounded-[28px]">
+            <div className="flex items-center justify-between border-b border-borderSoft px-4 py-3">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/15 text-accent">
                   <MessageCircle className="h-4 w-4" />

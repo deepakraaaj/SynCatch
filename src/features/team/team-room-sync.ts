@@ -6,7 +6,7 @@ import {
   TEAM_TABLES,
   type TeamCollection,
   deleteRows,
-  hydrateRow,
+  loadRowsByIds,
   loadTeamWorkspace,
   serializeRow,
   upsertRows,
@@ -20,6 +20,12 @@ import type { TeamPersona, TeamRole, TeamWorkspaceData } from './team-types';
  * origin of anything: it is filled from the backend on connect, and every local
  * change is diffed by id and written straight back to the matching table. There
  * is no bundled seed and no localStorage — an empty room renders empty.
+ *
+ * Teammates hear about changes over Realtime Broadcast, not postgres_changes:
+ * after a write lands, the writer announces which ids changed and everyone else
+ * refetches those rows. Broadcast never touches the database, so the free
+ * instance is not stuck decoding the WAL all day, and the message carries ids
+ * only — row data still comes through RLS.
  */
 
 const COLLECTIONS = Object.keys(TEAM_TABLES) as TeamCollection[];
@@ -159,6 +165,11 @@ async function flush(roomId: string): Promise<void> {
       await deleteRows(collection, roomId, [...entry.remove]);
     }
 
+    batch.forEach((entry, collection) => {
+      const announcement: ChangeAnnouncement = { collection, upserted: [...entry.upsert], removed: [...entry.remove] };
+      void realtimeChannel?.send({ type: 'broadcast', event: CHANGE_EVENT, payload: announcement });
+    });
+
     setStatus('synced');
   } catch (error) {
     // Put the batch back so a transient failure retries on the next change.
@@ -180,50 +191,39 @@ const scheduleFlush = (roomId: string) => {
 // ──────────────────────────────────────────
 // Realtime
 
-const TABLE_TO_COLLECTION = Object.fromEntries(
-  COLLECTIONS.map((collection) => [TEAM_TABLES[collection], collection]),
-) as Record<string, TeamCollection>;
+const CHANGE_EVENT = 'rows-changed';
+
+interface ChangeAnnouncement {
+  collection: TeamCollection;
+  upserted: string[];
+  removed: string[];
+}
+
+async function applyAnnouncement(roomId: string, { collection, upserted, removed }: ChangeAnnouncement) {
+  if (!COLLECTIONS.includes(collection)) return;
+  const fresh = (await loadRowsByIds(collection, roomId, upserted)) as readonly { id: string }[];
+  if (roomId !== currentRoomId) return;
+
+  applyRemote(() => {
+    const gone = new Set(removed);
+    const byId = new Map(fresh.map((item) => [item.id, item]));
+    const list = (useTeamStore.getState()[collection] as readonly { id: string }[]).filter((item) => !gone.has(item.id));
+    const next = list.map((item) => byId.get(item.id) ?? item);
+    const added = fresh.filter((item) => !list.some((existing) => existing.id === item.id));
+    return { [collection]: [...added, ...next] } as any;
+  });
+}
 
 function subscribeRealtime(roomId: string): RealtimeChannel {
   const client = getSupabaseClient();
   const channel = client.channel(`team-workspace-${roomId}`);
 
-  for (const collection of COLLECTIONS) {
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: TEAM_TABLES[collection],
-        filter: `room_id=eq.${roomId}`,
-      },
-      (payload) => {
-        if (roomId !== currentRoomId) return;
-        const target = TABLE_TO_COLLECTION[payload.table];
-        if (!target) return;
-
-        applyRemote(() => {
-          const list = useTeamStore.getState()[target] as readonly { id: string }[];
-
-          if (payload.eventType === 'DELETE') {
-            const goneId = (payload.old as { id?: string })?.id;
-            if (!goneId) return {};
-            return { [target]: list.filter((item) => item.id !== goneId) } as any;
-          }
-
-          const row = payload.new as Record<string, any>;
-          if (!row?.id) return {};
-          const hydrated = hydrateRow(target, row) as { id: string };
-          const index = list.findIndex((item) => item.id === hydrated.id);
-          const next =
-            index >= 0
-              ? list.map((item) => (item.id === hydrated.id ? hydrated : item))
-              : [hydrated, ...list];
-          return { [target]: next } as any;
-        });
-      },
-    );
-  }
+  channel.on('broadcast', { event: CHANGE_EVENT }, ({ payload }) => {
+    if (roomId !== currentRoomId) return;
+    applyAnnouncement(roomId, payload as ChangeAnnouncement).catch((error: unknown) => {
+      console.error('Team workspace refresh failed:', error instanceof Error ? error.message : error);
+    });
+  });
 
   return channel.subscribe();
 }

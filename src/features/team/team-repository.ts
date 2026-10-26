@@ -371,12 +371,21 @@ export async function loadTeamWorkspace(roomId: string): Promise<TeamWorkspaceDa
   return { ...EMPTY, ...Object.fromEntries(results) } as TeamWorkspaceData;
 }
 
-/** Reads a single row back as its app type — used by realtime INSERT/UPDATE. */
-export function hydrateRow<K extends TeamCollection>(
+/** Refetches rows a teammate announced over broadcast, as app types. */
+export async function loadRowsByIds<K extends TeamCollection>(
   collection: K,
-  row: Row,
-): TeamWorkspaceData[K][number] {
-  return HYDRATORS[collection](row) as TeamWorkspaceData[K][number];
+  roomId: string,
+  ids: string[],
+): Promise<TeamWorkspaceData[K]> {
+  if (ids.length === 0) return [] as unknown as TeamWorkspaceData[K];
+  const client = getSupabaseClient();
+  const { data, error } = await (client
+    .from(TEAM_TABLES[collection])
+    .select('*')
+    .eq('room_id', roomId)
+    .in('id', ids) as any);
+  if (error) throw error;
+  return (data ?? []).map(HYDRATORS[collection] as (row: Row) => any) as TeamWorkspaceData[K];
 }
 
 // ──────────────────────────────────────────

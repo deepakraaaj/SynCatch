@@ -24,7 +24,9 @@ export type SidebarPinnedAppId =
   | 'settings'
   | 'projects'
   | 'crm'
-  | 'problems';
+  | 'problems'
+  | 'products'
+  | 'manifest';
 
 export interface SettingsSnapshot {
   reduceMotion: boolean;
@@ -40,6 +42,8 @@ export type CompanionMode = 'follow' | 'roam' | 'stay';
 /** Lumi companion placement/visibility — synced like any other preference. */
 export interface CompanionSnapshot {
   visible: boolean;
+  /** Settings kill-switch: no Lumi anywhere — companion, toasts, dialogs, dashboard. */
+  hidden: boolean;
   mode: CompanionMode;
   dialogue: boolean;
   /** Offset from the bottom-right dock, in px (always <= 0). Null = docked. */
@@ -56,11 +60,12 @@ export const DEFAULT_SETTINGS_SNAPSHOT: SettingsSnapshot = {
   focusPromptStyle: 'gentle',
   syncMode: 'local',
   launchAtLogin: false,
-  sidebarPinnedApps: ['dashboard', 'tasks', 'missions', 'projects', 'calendar', 'journal', 'notes', 'loved-ones'],
+  sidebarPinnedApps: ['dashboard', 'tasks', 'missions', 'projects', 'calendar', 'journal', 'notes', 'loved-ones', 'products'],
 };
 
 export const DEFAULT_COMPANION_SNAPSHOT: CompanionSnapshot = {
   visible: true,
+  hidden: false,
   mode: 'stay',
   dialogue: true,
   position: null,

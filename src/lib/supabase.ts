@@ -933,6 +933,67 @@ export async function deleteLovedOneRow(personId: string): Promise<void> {
   if (error) throw error;
 }
 
+// Manifestation queries
+export async function selectManifestationsByUser(): Promise<any[]> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { data, error } = await (client
+    .from('manifestations')
+    .select('*')
+    .eq('user_id', userId)
+    .order('started_on', { ascending: false }) as any);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    title: row.title,
+    intention: row.intention,
+    startedOn: row.started_on,
+    targetDate: row.target_date,
+    status: row.status,
+    manifestedOn: row.manifested_on,
+    image: row.image ?? null,
+    actions: row.actions ?? [],
+    signs: row.signs ?? [],
+  }));
+}
+
+export async function upsertManifestation(manifestation: any): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client.from('manifestations').upsert({
+    id: manifestation.id,
+    user_id: userId,
+    title: manifestation.title,
+    intention: manifestation.intention,
+    started_on: manifestation.startedOn,
+    target_date: manifestation.targetDate,
+    status: manifestation.status,
+    manifested_on: manifestation.manifestedOn,
+    image: manifestation.image,
+    actions: manifestation.actions,
+    signs: manifestation.signs,
+  }, { onConflict: 'id' }) as any);
+
+  if (error) throw error;
+}
+
+export async function deleteManifestationRow(manifestationId: string): Promise<void> {
+  const userId = await getUserId();
+  const client = getSupabaseClient();
+
+  const { error } = await (client
+    .from('manifestations')
+    .delete()
+    .eq('id', manifestationId)
+    .eq('user_id', userId) as any);
+
+  if (error) throw error;
+}
+
 // Challenges queries
 export async function selectChallengesByUser(): Promise<any[]> {
   const userId = await getUserId();
