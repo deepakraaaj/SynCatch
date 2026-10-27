@@ -8,6 +8,8 @@ export interface ManifestLogEntry {
   id: string;
   date: string;
   text: string;
+  /** How a sign felt when it arrived. Signs only, optional. */
+  feeling?: string;
 }
 
 export interface Manifestation {

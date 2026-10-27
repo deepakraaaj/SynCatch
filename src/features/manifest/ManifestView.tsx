@@ -1,6 +1,7 @@
 import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-500-italic.css';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ImagePlus, Pencil, Plus, Telescope, Trash2, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input, Textarea } from '../../components/ui/input';
@@ -16,6 +17,14 @@ const IMAGE_MAX_EDGE = 1600;
 // The universe speaks in a different voice: a serif italic, marked in gold.
 const SERIF = { fontFamily: '"Cormorant Garamond", Georgia, serif' };
 const GOLD = '#B8913A';
+/** Feelings a sign can arrive with, and how Lumi answers each one. */
+const SIGN_REPLIES: Record<string, string> = {
+  Goosebumps: 'Goosebumps do not lie. Hold on to this one.',
+  Calm: 'That calm is a quiet yes. Let yourself rest in it.',
+  Hopeful: 'Let that hope stay a while. You have earned it.',
+  Seen: 'You felt seen today. I am so glad you noticed.',
+  Surprised: 'Out of nowhere, right? That is how it talks to you.',
+};
 
 /** Downscale to a JPEG data URL so a phone photo syncs as ~200 KB, not 5 MB. */
 function downscaleImage(file: File): Promise<string> {
@@ -81,7 +90,7 @@ export function ManifestView() {
   function addLogEntry(item: Manifestation, kind: LogKind, entry: ManifestLogEntry) {
     void saveToStore({ ...item, [kind]: [...item[kind], entry] });
     const line = kind === 'signs'
-      ? { text: 'The universe is listening. I saw that too.', detail: entry.text }
+      ? { text: SIGN_REPLIES[entry.feeling ?? ''] ?? 'You noticed. That is half the magic, and I kept it safe for you.', detail: entry.text }
       : { text: 'That step counts. You are meeting it halfway.', detail: entry.text };
     announceLumi(kind === 'signs' ? 'celebrate' : 'smile', line, () => showToast({ title: line.text, description: entry.text, tone: 'success' }));
   }
@@ -202,7 +211,7 @@ function Dialogue({ item, onRemove }: { item: Manifestation; onRemove: (kind: Lo
               ) : (
                 <>
                   <span aria-hidden className="col-start-1 row-start-1 mt-[8px] h-2.5 w-2.5 rotate-45 justify-self-center md:col-start-2" style={{ background: GOLD }} />
-                  <p className="col-start-2 row-start-1 text-xl leading-6 text-text-primary [overflow-wrap:anywhere] md:col-start-3" style={{ ...SERIF, fontStyle: 'italic' }}>{entry.text}</p>
+                  <div className="col-start-2 row-start-1 md:col-start-3"><p className="text-xl leading-6 text-text-primary [overflow-wrap:anywhere]" style={{ ...SERIF, fontStyle: 'italic' }}>{entry.text}</p>{entry.feeling ? <p className="mt-1 text-xs text-text-muted">felt {entry.feeling.toLowerCase()}</p> : null}</div>
                 </>
               )}
               <button aria-label={`Remove "${entry.text}"`} onClick={() => onRemove(entry.kind, entry.id)} className={`absolute top-0 rounded-md p-1 text-text-muted opacity-0 transition-opacity hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 ${entry.kind === 'actions' ? 'right-0 md:left-0 md:right-auto' : 'right-0'}`} type="button"><X className="h-3.5 w-3.5" /></button>
@@ -218,11 +227,13 @@ function Composer({ onAdd }: { onAdd: (kind: LogKind, entry: ManifestLogEntry) =
   const [kind, setKind] = useState<LogKind>('actions');
   const [text, setText] = useState('');
   const [date, setDate] = useState(() => getLocalDateKey(new Date()));
+  const [feeling, setFeeling] = useState<string | null>(null);
 
   function add() {
     if (!text.trim() || !date) return;
-    onAdd(kind, { id: crypto.randomUUID(), date, text: text.trim() });
+    onAdd(kind, { id: crypto.randomUUID(), date, text: text.trim(), ...(kind === 'signs' && feeling ? { feeling } : {}) });
     setText('');
+    setFeeling(null);
   }
 
   return (
@@ -235,11 +246,20 @@ function Composer({ onAdd }: { onAdd: (kind: LogKind, entry: ManifestLogEntry) =
           </button>
         ))}
       </div>
+      {kind === 'signs' ? <p className="mt-3 px-1 text-lg leading-snug text-text-secondary" style={{ ...SERIF, fontStyle: 'italic' }}>Did the universe answer you? Tell me what you noticed.</p> : null}
       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
         <Input aria-label={kind === 'actions' ? 'The step you took' : 'The sign you noticed'} className="min-w-0 flex-1 text-base sm:text-sm" style={kind === 'signs' ? { ...SERIF, fontStyle: 'italic', fontSize: '1.15rem' } : undefined} value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') add(); }} placeholder={kind === 'actions' ? 'Booked a Japanese class' : 'A friend mentioned Kyoto out of nowhere'} />
         <Input aria-label="Date" className="text-base sm:w-40 sm:text-sm" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-        <Button onClick={add} disabled={!text.trim() || !date} type="button">Add</Button>
+        <Button onClick={add} disabled={!text.trim() || !date} type="button">{kind === 'signs' ? 'Keep it' : 'Add'}</Button>
       </div>
+      {kind === 'signs' ? (
+        <div role="radiogroup" aria-label="How did it feel?" className="mt-3 flex flex-wrap items-center gap-1.5 px-1">
+          <span className="mr-1 text-xs text-text-muted">How did it feel?</span>
+          {Object.keys(SIGN_REPLIES).map((value) => (
+            <button key={value} role="radio" aria-checked={feeling === value} onClick={() => setFeeling(feeling === value ? null : value)} className={`rounded-full border px-2.5 py-1 text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${feeling === value ? 'border-transparent text-text-primary' : 'border-borderSoft/60 text-text-muted hover:text-text-primary'}`} style={feeling === value ? { background: `${GOLD}33` } : undefined} type="button">{value}</button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -281,5 +301,5 @@ function ManifestEditor({ manifestation, onClose, onSave }: { manifestation: Man
   const [targetDate, setTargetDate] = useState(manifestation?.targetDate ?? '');
   const [image, setImage] = useState(manifestation?.image ?? null);
   const valid = title.trim() && startedOn;
-  return <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 p-0 backdrop-blur-[3px] sm:items-center sm:p-5" onClick={onClose}><div className="max-h-[92dvh] w-full min-w-0 max-w-xl overflow-y-auto rounded-t-[28px] border border-borderSoft/40 bg-panel p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[calc(100dvh-2.5rem)] sm:rounded-[28px] sm:p-6" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-text-primary">{manifestation ? 'Edit manifestation' : 'New manifestation'}</h2><Button aria-label="Close" className="h-10 w-10 shrink-0 rounded-full p-0" onClick={onClose} size="sm" variant="ghost"><X className="h-4 w-4" /></Button></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><VisionImagePicker image={image} onChange={setImage} /></div><label className="min-w-0 space-y-1.5 sm:col-span-2"><span className="text-xs font-medium text-text-secondary">What you want</span><Input className="min-w-0 max-w-full text-base sm:text-sm" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="A trip to Japan" /></label><label className="min-w-0 space-y-1.5 sm:col-span-2"><span className="text-xs font-medium text-text-secondary">Say it as if it is already true</span><Textarea className="min-h-24 text-lg" style={{ ...SERIF, fontStyle: 'italic' }} value={intention} onChange={(event) => setIntention(event.target.value)} placeholder="I am walking through Kyoto in spring." /></label><label className="min-w-0 space-y-1.5"><span className="text-xs font-medium text-text-secondary">Started</span><Input className="min-w-0 max-w-full text-base sm:text-sm" value={startedOn} onChange={(event) => setStartedOn(event.target.value)} type="date" /></label><label className="min-w-0 space-y-1.5"><span className="text-xs font-medium text-text-secondary">Hoping by (optional)</span><Input className="min-w-0 max-w-full text-base sm:text-sm" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} type="date" /></label></div><div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:justify-end"><Button onClick={onClose} variant="secondary">Cancel</Button><Button disabled={!valid} onClick={() => onSave({ id: manifestation?.id ?? crypto.randomUUID(), title: title.trim(), intention: intention.trim(), startedOn, targetDate: targetDate || null, status: manifestation?.status ?? 'manifesting', manifestedOn: manifestation?.manifestedOn ?? null, image, actions: manifestation?.actions ?? [], signs: manifestation?.signs ?? [] })}>{manifestation ? 'Save changes' : 'Create'}</Button></div></div></div>;
+  return createPortal(<div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 p-0 backdrop-blur-[3px] sm:items-center sm:p-5" onClick={onClose}><div className="max-h-[92dvh] w-full min-w-0 max-w-xl overflow-y-auto rounded-t-[28px] border border-borderSoft/40 bg-panel p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[calc(100dvh-2.5rem)] sm:rounded-[28px] sm:p-6" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-text-primary">{manifestation ? 'Edit manifestation' : 'New manifestation'}</h2><Button aria-label="Close" className="h-10 w-10 shrink-0 rounded-full p-0" onClick={onClose} size="sm" variant="ghost"><X className="h-4 w-4" /></Button></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><VisionImagePicker image={image} onChange={setImage} /></div><label className="min-w-0 space-y-1.5 sm:col-span-2"><span className="text-xs font-medium text-text-secondary">What you want</span><Input className="min-w-0 max-w-full text-base sm:text-sm" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="A trip to Japan" /></label><label className="min-w-0 space-y-1.5 sm:col-span-2"><span className="text-xs font-medium text-text-secondary">Say it as if it is already true</span><Textarea className="min-h-24 text-lg" style={{ ...SERIF, fontStyle: 'italic' }} value={intention} onChange={(event) => setIntention(event.target.value)} placeholder="I am walking through Kyoto in spring." /></label><label className="min-w-0 space-y-1.5"><span className="text-xs font-medium text-text-secondary">Started</span><Input className="min-w-0 max-w-full text-base sm:text-sm" value={startedOn} onChange={(event) => setStartedOn(event.target.value)} type="date" /></label><label className="min-w-0 space-y-1.5"><span className="text-xs font-medium text-text-secondary">Hoping by (optional)</span><Input className="min-w-0 max-w-full text-base sm:text-sm" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} type="date" /></label></div><div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:justify-end"><Button onClick={onClose} variant="secondary">Cancel</Button><Button disabled={!valid} onClick={() => onSave({ id: manifestation?.id ?? crypto.randomUUID(), title: title.trim(), intention: intention.trim(), startedOn, targetDate: targetDate || null, status: manifestation?.status ?? 'manifesting', manifestedOn: manifestation?.manifestedOn ?? null, image, actions: manifestation?.actions ?? [], signs: manifestation?.signs ?? [] })}>{manifestation ? 'Save changes' : 'Create'}</Button></div></div></div>, document.body);
 }
