@@ -27,7 +27,25 @@ SynCatch is a focus operating system for your desktop, built with Tauri 2, React
 
 Most productivity tools optimize for capturing everything. SynCatch optimizes for finishing one thing at a time — a fast, distraction-free workspace that lives where you work and helps you move from busy to impactful. It's designed for people who think in **missions**, not to-do lists.
 
-> *"Sync aachaa?"* — everything in sync, everything caught. The mark is two interlocking loops: your intentions and your time, locked together.
+> *"Sync aachaa?"* — everything in sync, everything caught.
+
+---
+
+## The Icon: Kaappu Kayiru
+
+When someone in Tamil Nadu takes a vow (*vratham*), they tie a **kaappu kayiru** (காப்புக் கயிறு), a saffron thread, around the wrist. It stays tied to them until the vow is fulfilled.
+
+That is what SynCatch does: **it syncs your goals to you, and helps you achieve them.**
+
+The mark is drawn as a single saffron thread:
+
+- **It rises** from the bottom-left, where you start.
+- **It ties one loop**, the kaappu knot: your goal, tied to you.
+- **It climbs on into an arrow**: the goal, achieved.
+
+Behind it is a handwritten list of goals (deep focus, healthy lifestyle, no sugar, only positive, 8 hours of deep sleep, deep work), some ticked off and some still in progress, because a vow is something you live day by day.
+
+Sources: [`app-icon.svg`](src-tauri/icons/app-icon.svg) (tile) plus the Android adaptive layers `app-icon-android-background.svg` and `app-icon-android-foreground.svg`.
 
 ---
 
