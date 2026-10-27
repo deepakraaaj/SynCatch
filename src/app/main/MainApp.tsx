@@ -893,7 +893,7 @@ function SidebarContent({
         </button>
       ) : null}
 
-      <div className={cn(compact ? 'space-y-2' : 'scrollbar-hidden mt-7 min-h-0 flex-1 overflow-y-auto pr-1')}>
+      <div className={cn(compact ? 'space-y-2' : 'sidebar-scroll-region scrollbar-hidden mt-7 min-h-0 flex-1 overflow-y-auto pr-1')}>
         {isTeam ? (
           <div className={cn('pt-1', compact ? 'space-y-1' : 'space-y-0.5')}>
             {compact && onOpenChat ? (
@@ -5154,10 +5154,10 @@ export function MainApp() {
               { id: 'roadmap' as MainView, label: 'More', Icon: MoreHorizontal },
             ]
           : [
-              { id: 'today' as MainView, label: 'Today', Icon: Sun },
+              { id: 'manifest' as MainView, label: 'Manifest', Icon: Telescope },
               { id: 'tasks' as MainView, label: 'Tasks', Icon: CheckSquare },
               { id: 'notes' as MainView, label: 'Notes', Icon: StickyNote },
-              { id: 'missions' as MainView, label: 'Missions', Icon: Target },
+              { id: 'missions' as MainView, label: 'Mission', Icon: Target },
               { id: 'roadmap' as MainView, label: 'More', Icon: MoreHorizontal },
             ]
         ).map((tab) => {
@@ -5166,10 +5166,8 @@ export function MainApp() {
           const isActive = isMore
             ? isTeam
               ? !['missions', 'calendar', 'tasks', 'crm'].includes(activeView)
-              : !['dashboard', 'today', 'tasks', 'notes', 'missions'].includes(activeView)
-            : tab.id === 'today'
-              ? activeView === 'today' || activeView === 'dashboard'
-              : activeView === tab.id;
+              : !['manifest', 'tasks', 'notes', 'missions'].includes(activeView)
+            : activeView === tab.id;
           return (
             <button
               key={tab.id}

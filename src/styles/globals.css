@@ -305,6 +305,15 @@ html:not([data-theme]) .mission-card,
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  /* Every page scrolls inside its own region in the desktop/mobile shell, so
+     setting this only on `html` misses most of the app. Keep programmatic and
+     anchor scrolling fluid in nested panels too. */
+  :where(.main-scroll-region, [class*='overflow-y-auto'], [class*='overflow-x-auto'], [class*='overflow-auto']) {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
   }
 
   body {
@@ -388,13 +397,6 @@ html:not([data-theme]) .mission-card,
       min-height: 48px;
       font-size: 16px;
       padding: 12px;
-    }
-  }
-
-  /* Smooth scrolling for better mobile feel */
-  @supports (scroll-behavior: smooth) {
-    html {
-      scroll-behavior: smooth;
     }
   }
 
@@ -586,6 +588,16 @@ html:not([data-theme]) .mission-card,
 
   .sidebar-shell {
     background: linear-gradient(180deg, rgb(var(--surface-2)), rgb(var(--surface-1)));
+  }
+
+  .sidebar-scroll-region {
+    scroll-behavior: smooth;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    will-change: scroll-position;
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
 
   .quick-add-shell {
