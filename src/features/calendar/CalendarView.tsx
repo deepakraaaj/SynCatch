@@ -40,12 +40,15 @@ export type CalendarDestination = 'today' | 'tasks' | 'history' | 'journal' | 'n
 export type CalendarOpenTarget = { destination: CalendarDestination; entityId?: string; date: string };
 
 const typeMeta = {
-  task: { label: 'Completed', icon: CheckCircle2, style: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500' },
-  focus: { label: 'Focus', icon: Clock3, style: 'border-sky-500/20 bg-sky-500/10 text-sky-500' },
-  journal: { label: 'Journal', icon: BookHeart, style: 'border-rose-500/20 bg-rose-500/10 text-rose-500' },
-  note: { label: 'Note', icon: FileText, style: 'border-amber-500/20 bg-amber-500/10 text-amber-500' },
-  mission: { label: 'Mission', icon: Target, style: 'border-violet-500/20 bg-violet-500/10 text-violet-500' },
+  task: { label: 'Completed', icon: CheckCircle2, style: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500', color: 'text-emerald-500' },
+  focus: { label: 'Focus', icon: Clock3, style: 'border-sky-500/20 bg-sky-500/10 text-sky-500', color: 'text-sky-500' },
+  journal: { label: 'Journal', icon: BookHeart, style: 'border-rose-500/20 bg-rose-500/10 text-rose-500', color: 'text-rose-500' },
+  note: { label: 'Note', icon: FileText, style: 'border-amber-500/20 bg-amber-500/10 text-amber-500', color: 'text-amber-500' },
+  mission: { label: 'Mission', icon: Target, style: 'border-violet-500/20 bg-violet-500/10 text-violet-500', color: 'text-violet-500' },
 } as const;
+
+const calendarTypes = ['task', 'focus', 'note', 'journal', 'mission'] as const;
+const legendLabels = { task: 'Tasks', focus: 'Focus', note: 'Notes', journal: 'Reflections', mission: 'Milestones' } as const;
 
 function localDate(value: string | null | undefined) {
   if (!value) return '';
@@ -68,6 +71,18 @@ function timeLabel(value: string) {
 function cleanText(value: string) {
   return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
+
+function durationLabel(minutes: number) {
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ''}`;
+}
+
+function plural(count: number, word: string) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
+}
+
+const priorityDot = { critical: 'bg-rose-500', high: 'bg-orange-500', normal: 'bg-sky-500', low: 'bg-text-muted' } as const;
+const priorityRank = { critical: 0, high: 1, normal: 2, low: 3 } as const;
 
 export function CalendarView({ onOpenTarget }: { onOpenTarget: (target: CalendarOpenTarget) => void }) {
   const tasks = useTaskStore((state) => state.tasks);
@@ -115,13 +130,34 @@ export function CalendarView({ onOpenTarget }: { onOpenTarget: (target: Calendar
     setOpenEventGroup(eventGroups[0]?.type ?? null);
   }, [selectedDate]);
   const selectedDay = journalDays.find((day) => day.entry_date === selectedDate);
-  const monthLabel = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const selectedLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  const firstWeekday = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+  const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const calendarDays = Array.from({ length: firstWeekday + daysInMonth }, (_, index) => index < firstWeekday ? null : index - firstWeekday + 1);
   const focusMinutes = selectedEvents.filter((event) => event.type === 'focus').reduce((sum, event) => sum + Number.parseInt(event.detail, 10) || sum, 0);
   const completedCount = selectedEvents.filter((event) => event.type === 'task').length;
+  const todayKey = dateKey(today);
+  const dayOffset = Math.round((new Date(`${selectedDate}T00:00:00`).getTime() - new Date(`${todayKey}T00:00:00`).getTime()) / 86400000);
+  const relativeLabel = dayOffset === 0 ? 'Today' : dayOffset === 1 ? 'Tomorrow' : dayOffset === -1 ? 'Yesterday' : dayOffset > 0 ? `In ${dayOffset} days` : `${-dayOffset} days ago`;
+  // Open work that lands on this day; today also carries anything already overdue.
+  const plannedTasks = tasks
+    .filter((task) => !task.completed_at && task.status !== 'done')
+    .map((task) => ({ task, day: task.scheduled_for || task.due_date }))
+    .filter(({ task, day }) => day === selectedDate || (dayOffset === 0 && !!task.due_date && task.due_date < todayKey))
+    .map(({ task }) => ({ task, overdue: !!task.due_date && task.due_date < todayKey }))
+    .sort((a, b) => Number(b.overdue) - Number(a.overdue) || priorityRank[a.task.priority] - priorityRank[b.task.priority]);
+  const plannedMinutes = plannedTasks.reduce((sum, { task }) => sum + (task.estimated_minutes || 0), 0);
+  const doneParts = [
+    completedCount ? `closed ${plural(completedCount, 'task')}` : '',
+    focusMinutes ? `focused for ${durationLabel(focusMinutes)}` : '',
+    selectedEvents.some((event) => event.type === 'note') ? `wrote ${plural(selectedEvents.filter((event) => event.type === 'note').length, 'note')}` : '',
+    selectedEvents.some((event) => event.type === 'journal') ? 'reflected' : '',
+  ].filter(Boolean);
+  const storyLine = doneParts.length
+    ? `You ${doneParts.length > 1 ? `${doneParts.slice(0, -1).join(', ')} and ${doneParts[doneParts.length - 1]}` : doneParts[0]}.`
+    : dayOffset > 0 ? (plannedTasks.length ? 'Here is what is lined up.' : 'Nothing planned yet — a free day.')
+    : dayOffset === 0 ? (plannedTasks.length ? 'A fresh page. Here is what is waiting on you.' : 'A fresh page, and nothing is waiting on you.')
+    : 'A quiet day — nothing was logged.';
   const monthPrefix = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
   const monthEvents = events.filter((event) => event.date.startsWith(monthPrefix));
   const activeDays = new Set(monthEvents.map((event) => event.date)).size;
@@ -132,6 +168,7 @@ export function CalendarView({ onOpenTarget }: { onOpenTarget: (target: Calendar
     notes: monthEvents.filter((event) => event.type === 'note').length,
     missions: monthEvents.filter((event) => event.type === 'mission').length,
   };
+  const monthTotal = monthEvents.length;
   const nearbyActiveDates = [...new Set(monthEvents.map((event) => event.date))]
     .filter((date) => date !== selectedDate)
     .sort((a, b) => Math.abs(new Date(`${a}T00:00:00`).getTime() - new Date(`${selectedDate}T00:00:00`).getTime()) - Math.abs(new Date(`${b}T00:00:00`).getTime() - new Date(`${selectedDate}T00:00:00`).getTime()))
@@ -151,24 +188,25 @@ export function CalendarView({ onOpenTarget }: { onOpenTarget: (target: Calendar
       <Card className="calendar-panel h-fit rounded-[24px] border-borderSoft/45 bg-panel/80 p-4 sm:p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight text-text-primary">{monthLabel}</h2>
-            <p className="mt-1 text-xs text-text-secondary">{activeDays} active {activeDays === 1 ? 'day' : 'days'} · {monthEvents.length} moments</p>
+            <h2 className="text-4xl font-semibold tracking-[-.04em] text-text-primary">{month.toLocaleDateString(undefined, { month: 'long' })} <span className="font-normal text-accent">{month.getFullYear()}</span></h2>
+            <p className="mt-1.5 text-base text-text-secondary">{activeDays} active {activeDays === 1 ? 'day' : 'days'} · {monthEvents.length} moments</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button aria-label="Previous month" onClick={() => changeMonth(-1)} size="sm" type="button" variant="ghost" className="h-8 w-8 rounded-[10px] p-0"><ChevronLeft className="h-4 w-4" /></Button>
-            <Button onClick={() => { setMonth(new Date(today.getFullYear(), today.getMonth(), 1)); setSelectedDate(dateKey(today)); }} size="sm" type="button" variant="secondary" className="h-8 rounded-[10px] px-3 text-[10px]">Today</Button>
-            <Button aria-label="Next month" onClick={() => changeMonth(1)} size="sm" type="button" variant="ghost" className="h-8 w-8 rounded-[10px] p-0"><ChevronRight className="h-4 w-4" /></Button>
+            <Button aria-label="Previous month" onClick={() => changeMonth(-1)} size="sm" type="button" variant="ghost" className="h-9 w-9 rounded-[10px] p-0"><ChevronLeft className="h-4 w-4" /></Button>
+            <Button onClick={() => { setMonth(new Date(today.getFullYear(), today.getMonth(), 1)); setSelectedDate(dateKey(today)); }} size="sm" type="button" variant="secondary" className="h-9 rounded-[10px] px-3.5 text-xs">Today</Button>
+            <Button aria-label="Next month" onClick={() => changeMonth(1)} size="sm" type="button" variant="ghost" className="h-9 w-9 rounded-[10px] p-0"><ChevronRight className="h-4 w-4" /></Button>
           </div>
         </div>
 
         <div className="mt-5 grid grid-cols-7 gap-1.5 text-center">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <div key={day} className="pb-2 text-[11px] font-semibold uppercase tracking-wider text-text-secondary">{day.slice(0, 1)}</div>)}
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => <div key={day} className={cn('pb-2 text-sm font-semibold uppercase tracking-[0.12em]', index >= 5 ? 'text-rose-500' : 'text-text-secondary')}>{day}</div>)}
           {calendarDays.map((day, index) => {
             if (!day) return <div key={`empty-${index}`} />;
             const key = dateKey(new Date(month.getFullYear(), month.getMonth(), day));
             const dayEvents = eventsByDate.get(key) ?? [];
             const selected = key === selectedDate;
             const isToday = key === dateKey(today);
+            const isWeekend = index % 7 >= 5;
             return (
               <motion.button
                 key={key}
@@ -176,42 +214,63 @@ export function CalendarView({ onOpenTarget }: { onOpenTarget: (target: Calendar
                 onClick={() => setSelectedDate(key)}
                 type="button"
                 className={cn(
-                  'relative flex min-h-[58px] flex-col items-start justify-between rounded-[12px] border p-2 transition-all sm:min-h-[64px]',
+                  'relative flex min-h-[64px] flex-col items-start justify-between rounded-[12px] border p-2 transition-all sm:min-h-[78px]',
                   selected
                     ? 'border-accent/55 bg-accent/14 shadow-[inset_0_0_0_1px_rgba(var(--accent),0.10),0_7px_18px_rgba(var(--accent),0.10)]'
+                    : isWeekend
+                      ? 'border-rose-500/20 bg-rose-500/[.06] hover:border-rose-500/35 hover:bg-rose-500/10'
                     : dayEvents.length > 0
                       ? 'border-borderSoft/55 bg-panel2/70 hover:border-borderStrong/50 hover:bg-panel2/90'
                       : 'border-borderSoft/40 bg-panel2/55 hover:border-borderStrong/45 hover:bg-panel2/75',
                 )}
               >
-                <span className={cn('flex h-7 min-w-7 items-center justify-center rounded-[8px] px-1 text-[13px] font-semibold', isToday ? 'bg-accent text-[rgb(var(--accent-contrast))] shadow-sm' : selected ? 'bg-accent/14 text-accent' : 'text-text-primary')}>{day}</span>
-                <div className="flex h-3 w-full items-end gap-0.5">
-                  {dayEvents.slice(0, 4).map((event) => <span key={event.id} className={cn('h-1 flex-1 rounded-full', event.type === 'task' ? 'bg-emerald-400' : event.type === 'focus' ? 'bg-sky-400' : event.type === 'note' ? 'bg-amber-400' : 'bg-violet-400')} />)}
-                  {dayEvents.length > 4 ? <span className="ml-0.5 text-[8px] leading-none text-text-muted">+{dayEvents.length - 4}</span> : null}
+                <span className={cn('flex h-9 min-w-9 items-center justify-center rounded-[9px] px-1.5 text-xl font-semibold tracking-tight', isToday ? 'bg-accent text-[rgb(var(--accent-contrast))] shadow-sm' : selected ? 'bg-accent/14 text-accent' : isWeekend ? 'text-rose-500' : 'text-text-primary')}>{day}</span>
+                <div className="flex min-h-4 w-full flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                  {calendarTypes.map((type) => {
+                    const count = dayEvents.filter((event) => event.type === type).length;
+                    if (!count) return null;
+                    const Icon = typeMeta[type].icon;
+                    return <span key={type} title={`${count} ${legendLabels[type].toLowerCase()}`} className={cn('flex items-center gap-0.5 text-[10px] font-semibold leading-none tabular-nums', typeMeta[type].color)}><Icon className="h-3.5 w-3.5" />{count > 1 ? <span className="hidden sm:inline">{count}</span> : null}</span>;
+                  })}
                 </div>
               </motion.button>
             );
           })}
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-borderSoft/30 pt-3 text-[11px] text-text-secondary">
-          <span className="flex items-center gap-1.5"><i className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Tasks</span>
-          <span className="flex items-center gap-1.5"><i className="h-1.5 w-1.5 rounded-full bg-sky-400" />Focus</span>
-          <span className="flex items-center gap-1.5"><i className="h-1.5 w-1.5 rounded-full bg-amber-400" />Notes</span>
-          <span className="flex items-center gap-1.5"><i className="h-1.5 w-1.5 rounded-full bg-violet-400" />Reflections</span>
+        <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-borderSoft/30 pt-3 text-sm text-text-secondary">
+          {calendarTypes.map((type) => {
+            const Icon = typeMeta[type].icon;
+            return <span key={type} className="flex items-center gap-1.5"><Icon className={cn('h-4 w-4', typeMeta[type].color)} />{legendLabels[type]}</span>;
+          })}
         </div>
       </Card>
 
       <div className="min-w-0 space-y-4">
         <Card className="calendar-panel rounded-[24px] border-borderSoft/45 bg-panel/80 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
-            <div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-secondary">Day story</p><h3 className="mt-1 text-base font-semibold tracking-tight text-text-primary">{selectedLabel}</h3></div>
+            <div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">{relativeLabel}</p><h3 className="mt-1 text-lg font-semibold tracking-tight text-text-primary">{selectedLabel}</h3></div>
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-accent/20 bg-accent/10 text-accent"><CalendarDays className="h-4 w-4" /></div>
           </div>
-          <div className="mt-5 grid grid-cols-3 gap-2">
-            <div className="rounded-[14px] border border-borderSoft/30 bg-panel2/60 p-3"><p className="text-lg font-semibold text-text-primary">{completedCount}</p><p className="text-[11px] text-text-secondary">tasks done</p></div>
-            <div className="rounded-[14px] border border-borderSoft/30 bg-panel2/60 p-3"><p className="text-lg font-semibold text-text-primary">{focusMinutes}m</p><p className="text-[11px] text-text-secondary">deep focus</p></div>
-            <div className="rounded-[14px] border border-borderSoft/30 bg-panel2/60 p-3"><p className="text-lg font-semibold text-text-primary">{selectedDay?.mood || '—'}</p><p className="text-[11px] text-text-secondary">mood / 5</p></div>
-          </div>
+          <p className="mt-3 text-sm leading-6 text-text-secondary">{storyLine}{selectedDay?.mood ? <span className="ml-2 inline-flex rounded-full border border-rose-500/20 bg-rose-500/8 px-2 py-0.5 text-[11px] font-medium text-rose-500">Mood {selectedDay.mood}/5</span> : null}</p>
+
+          {plannedTasks.length > 0 ? (
+            <div className="mt-4 rounded-[16px] border border-borderSoft/30 bg-panel2/45 p-2">
+              <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-secondary">{dayOffset < 0 ? 'Still open' : 'On the plate'} · {plannedTasks.length}</p>
+                {plannedMinutes ? <p className="text-xs text-text-muted">~{durationLabel(plannedMinutes)} of work</p> : null}
+              </div>
+              {plannedTasks.slice(0, 4).map(({ task, overdue }) => (
+                <button key={task.id} type="button" onClick={() => onOpenTarget({ destination: 'tasks', entityId: task.id, date: selectedDate })} className="group flex w-full items-center gap-3 rounded-[11px] px-2 py-2 text-left transition-colors hover:bg-white/[0.035]">
+                  <span className={cn('h-2 w-2 shrink-0 rounded-full', priorityDot[task.priority])} />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">{task.title}</span>
+                  {overdue ? <span className="shrink-0 rounded-full bg-rose-500/12 px-2 py-0.5 text-[10px] font-semibold text-rose-500">Overdue</span> : task.due_date === selectedDate ? <span className="shrink-0 rounded-full bg-amber-500/12 px-2 py-0.5 text-[10px] font-semibold text-amber-500">Due</span> : null}
+                  {task.estimated_minutes ? <span className="shrink-0 text-xs tabular-nums text-text-muted">{durationLabel(task.estimated_minutes)}</span> : null}
+                  <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+                </button>
+              ))}
+              {plannedTasks.length > 4 ? <button type="button" onClick={() => onOpenTarget({ destination: 'tasks', date: selectedDate })} className="w-full px-2 pb-1 pt-1.5 text-left text-xs font-medium text-accent">+{plannedTasks.length - 4} more in Tasks</button> : null}
+            </div>
+          ) : null}
           {selectedDay?.gratitude ? <div className="mt-3 rounded-[14px] border border-rose-500/15 bg-rose-500/6 px-4 py-3"><p className="text-[9px] font-semibold uppercase tracking-wider text-rose-500/80">Grateful for</p><p className="mt-1 text-[12px] leading-5 text-text-secondary">{selectedDay.gratitude}</p></div> : null}
         </Card>
 
@@ -283,23 +342,27 @@ export function CalendarView({ onOpenTarget }: { onOpenTarget: (target: Calendar
       </div>
 
       <Card className="calendar-panel rounded-[24px] border-borderSoft/45 bg-panel/75 p-4 min-[850px]:col-span-2 sm:p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-secondary">Month at a glance</p>
-            <p className="mt-1 text-sm font-semibold text-text-primary">Your {monthLabel} footprint</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-secondary">Month at a glance</p>
+            <p className="mt-1.5 text-2xl font-semibold tracking-[-.03em] text-text-primary">Your {month.toLocaleDateString(undefined, { month: 'long' })} <span className="font-normal text-accent">footprint</span></p>
+            <p className="mt-1 text-sm text-text-secondary">{monthTotal} {monthTotal === 1 ? 'moment' : 'moments'} across {activeDays} active {activeDays === 1 ? 'day' : 'days'}</p>
           </div>
-          <div className="grid grid-cols-5 gap-2 sm:min-w-[560px]">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5 lg:min-w-[640px]">
             {[
-              { label: 'Done', value: monthCounts.tasks, color: 'text-emerald-500', icon: CheckCircle2 },
-              { label: 'Focus', value: monthCounts.focus, color: 'text-sky-500', icon: Timer },
-              { label: 'Reflections', value: monthCounts.journal, color: 'text-rose-500', icon: BookHeart },
-              { label: 'Notes', value: monthCounts.notes, color: 'text-amber-500', icon: FileText },
-              { label: 'Milestones', value: monthCounts.missions, color: 'text-violet-500', icon: Target },
-            ].map(({ label, value, color, icon: Icon }) => (
-              <div key={label} className="rounded-[13px] border border-borderSoft/35 bg-panel2/55 p-2.5 text-center">
-                <Icon className={cn('mx-auto h-3.5 w-3.5', color)} />
-                <p className="mt-1.5 text-base font-semibold tabular-nums text-text-primary">{value}</p>
-                <p className="truncate text-[10px] text-text-secondary">{label}</p>
+              { label: 'Done', value: monthCounts.tasks, color: 'text-emerald-500', tint: 'border-emerald-500/25 bg-emerald-500/[.07]', bar: 'bg-emerald-500', icon: CheckCircle2 },
+              { label: 'Focus', value: monthCounts.focus, color: 'text-sky-500', tint: 'border-sky-500/25 bg-sky-500/[.07]', bar: 'bg-sky-500', icon: Timer },
+              { label: 'Reflections', value: monthCounts.journal, color: 'text-rose-500', tint: 'border-rose-500/25 bg-rose-500/[.07]', bar: 'bg-rose-500', icon: BookHeart },
+              { label: 'Notes', value: monthCounts.notes, color: 'text-amber-500', tint: 'border-amber-500/25 bg-amber-500/[.07]', bar: 'bg-amber-500', icon: FileText },
+              { label: 'Milestones', value: monthCounts.missions, color: 'text-violet-500', tint: 'border-violet-500/25 bg-violet-500/[.07]', bar: 'bg-violet-500', icon: Target },
+            ].map(({ label, value, color, tint, bar, icon: Icon }) => (
+              <div key={label} className={cn('rounded-[16px] border p-3.5 transition-opacity', value > 0 ? tint : 'border-borderSoft/30 bg-panel2/40 opacity-60')}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-xs font-medium text-text-secondary">{label}</p>
+                  <Icon className={cn('h-4 w-4 shrink-0', color)} />
+                </div>
+                <p className={cn('mt-2 text-3xl font-semibold tabular-nums tracking-tight', value > 0 ? color : 'text-text-muted')}>{value}</p>
+                <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-text-primary/[.06]"><div className={cn('h-full rounded-full', bar)} style={{ width: `${monthTotal ? (value / monthTotal) * 100 : 0}%` }} /></div>
               </div>
             ))}
           </div>

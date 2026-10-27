@@ -4630,13 +4630,13 @@ export function MainApp() {
             <SectionHeading action={<Badge tone="neutral">System</Badge>} title="Workspace" />
 
             <div className="space-y-2">
-              <div className="flex items-center gap-3 rounded-[15px] border border-borderSoft/30 bg-panel/32 p-3">
+              <div className="flex flex-wrap items-center gap-3 rounded-[15px] border border-borderSoft/30 bg-panel/32 p-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-accent/10 text-accent"><Keyboard className="h-4 w-4" /></span>
-                <div className="min-w-0 flex-1"><p className="text-sm font-medium text-text-primary">Quick Add shortcut</p><p className="mt-0.5 text-xs text-text-secondary">Capture without leaving your work.</p></div>
-                <div className="shrink-0">
-                  <Badge className="text-xs" tone="accent">
-                    {quickAddShortcut}
-                  </Badge>
+                <div className="min-w-[9rem] flex-1"><p className="text-sm font-medium text-text-primary">Quick Add shortcut</p><p className="mt-0.5 text-xs text-text-secondary">Capture without leaving your work.</p></div>
+                <div className="flex flex-wrap items-center gap-1">
+                  {quickAddShortcut.split('+').map((key) => (
+                    <kbd key={key} className="rounded-[7px] border border-accent/25 bg-accent/10 px-2 py-1 font-sans text-[11px] font-semibold text-accent">{key.trim()}</kbd>
+                  ))}
                 </div>
               </div>
 
