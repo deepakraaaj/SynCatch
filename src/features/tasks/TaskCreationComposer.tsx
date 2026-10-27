@@ -9,6 +9,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '../../components/ui/button';
 import { Input, Textarea } from '../../components/ui/input';
 import { cn } from '../../lib/cn';
@@ -678,7 +679,7 @@ export function TaskCreationComposer({
       </form>
 
       {/* Mission creation modal */}
-      {showMissionComposer ? (
+      {showMissionComposer ? createPortal(
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
           <div className="max-h-[90vh] w-full max-w-[500px] overflow-y-auto rounded-t-[24px] border border-borderSoft/30 bg-panel p-6 pb-[calc(var(--mobile-nav-height)+1rem)] shadow-2xl sm:rounded-[24px] sm:pb-6">
             <div className="mb-4 flex items-center justify-between">
@@ -697,7 +698,8 @@ export function TaskCreationComposer({
               onCancel={() => setShowMissionComposer(false)}
             />
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   );

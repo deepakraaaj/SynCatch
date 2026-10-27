@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, type DragEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   CheckSquare, 
   Plus, 
@@ -1410,10 +1411,10 @@ function TaskDetailModal({
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-[3px] animate-in fade-in duration-150"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-[3px] animate-in fade-in duration-150"
     >
       <div
         className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-borderSoft/60 bg-panel bg-dots-subtle shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col"
@@ -1696,6 +1697,7 @@ function TaskDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

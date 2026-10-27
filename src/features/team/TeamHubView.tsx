@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Users,
   Plus,
@@ -399,7 +400,7 @@ export function TeamHubView() {
       )}
 
       {/* New Venture Form */}
-      {isCreatingVenture && (
+      {isCreatingVenture && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-[3px] sm:items-center"
           onMouseDown={() => setIsCreatingVenture(false)}
@@ -486,7 +487,8 @@ export function TeamHubView() {
               </button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

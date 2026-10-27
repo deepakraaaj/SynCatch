@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Download, Edit3, LayoutGrid, Maximize2, Minimize2, Network, Plus, Trash2 } from 'lucide-react';
 import {
   Background, Controls, Handle, MiniMap, Position, ReactFlow, ReactFlowProvider, addEdge,
@@ -493,7 +494,7 @@ export function VisualCanvasView({ missionId }: VisualCanvasViewProps) {
           </div>
         )}
       </div>
-      {nameDialog && (
+      {nameDialog && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[3px]" onMouseDown={() => setNameDialog(null)}>
           <form onSubmit={saveDiagramName} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-borderSoft/45 bg-panel p-5 shadow-2xl">
             <div className="mb-5">
@@ -516,9 +517,10 @@ export function VisualCanvasView({ missionId }: VisualCanvasViewProps) {
               <button type="submit" disabled={!titleDraft.trim()} className="rounded-xl bg-accent px-4 py-2.5 text-xs font-bold text-[rgb(var(--accent-contrast))] disabled:cursor-not-allowed disabled:opacity-45">{nameDialog === 'create' ? 'Create diagram' : 'Save name'}</button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body,
       )}
-      {deleteDialogOpen && active && (
+      {deleteDialogOpen && active && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[3px]" onMouseDown={() => setDeleteDialogOpen(false)}>
           <div role="alertdialog" aria-modal="true" aria-labelledby="delete-diagram-title" onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-borderSoft/45 bg-panel p-5 shadow-2xl">
             <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-danger/10 text-danger"><Trash2 className="h-5 w-5" /></span>
@@ -529,7 +531,8 @@ export function VisualCanvasView({ missionId }: VisualCanvasViewProps) {
               <button type="button" onClick={confirmRemove} className="rounded-xl bg-danger px-4 py-2.5 text-xs font-bold text-white">Delete diagram</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </ReactFlowProvider>
   );

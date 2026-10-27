@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, Circle, ShieldCheck, Plus, User, Calendar, Target } from 'lucide-react';
 import { useTeamStore } from './team-store';
 
@@ -58,7 +59,7 @@ export function WorkflowGuardrailView({ missionId }: WorkflowGuardrailViewProps)
     ? Math.round((completedCount / activeSOP.steps.length) * 100)
     : 0;
 
-  const dialogNode = dialog && (
+  const dialogNode = dialog && createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-[3px] sm:items-center"
       onMouseDown={() => setDialog(null)}
@@ -140,7 +141,8 @@ export function WorkflowGuardrailView({ missionId }: WorkflowGuardrailViewProps)
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 
   if (!activeSOP) {
