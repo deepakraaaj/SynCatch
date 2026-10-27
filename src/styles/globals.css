@@ -978,6 +978,58 @@ html:not([data-theme]) .mission-card,
   /* backwards: hold the 0% keyframe (dim) during each dot's own
      animation-delay, so staggered dots start dim instead of flashing in at
      full brightness before their turn begins. */
+  /* SynCatch emblem: hovering it replays the loader's throw-and-catch once. */
+  .sc-e-s, .sc-e-c { transform-box: fill-box; transform-origin: 50% 100%; }
+  .sc-e-chip { transform-box: fill-box; transform-origin: center; }
+  .sc-e-dot, .sc-e-ripple { transform-box: fill-box; transform-origin: center; opacity: 0; }
+  .sc-emblem:hover .sc-e-s { animation: sc-e-send 2.2s ease-in-out; }
+  .sc-emblem:hover .sc-e-c { animation: sc-e-chomp 2.2s ease-in-out; }
+  .sc-emblem:hover .sc-e-chip { animation: sc-e-fly 1.4s cubic-bezier(0.3, 0.1, 0.4, 1) both; }
+  .sc-emblem:hover .sc-e-note { animation-delay: 0.3s; }
+  .sc-emblem:hover .sc-e-mission { animation-delay: 0.6s; }
+  .sc-emblem:hover .sc-e-dot { animation: sc-e-dot 2.2s ease-out; }
+  .sc-emblem:hover .sc-e-ripple { animation: sc-e-ripple 2.2s ease-out; }
+  /* Each item leaves its spot, arcs into the C's mouth (arrives at 70%), then pops back. */
+  @keyframes sc-e-fly {
+    0% { transform: none; opacity: 1; }
+    45% { transform: translate(calc(var(--sc-dx) * 0.55), calc(var(--sc-dy) * 0.55 - 36px)) rotate(12deg); }
+    70% { transform: translate(var(--sc-dx), var(--sc-dy)) scale(0.45); opacity: 1; }
+    74% { transform: translate(var(--sc-dx), var(--sc-dy)) scale(0.2); opacity: 0; }
+    88% { transform: scale(0); opacity: 0; }
+    96% { transform: scale(1.15); opacity: 1; }
+    100% { transform: none; opacity: 1; }
+  }
+  /* S flicks as each item leaves (0s, 0.3s, 0.6s). */
+  @keyframes sc-e-send {
+    0%, 100% { transform: none; }
+    4% { transform: rotate(8deg) scale(1.04, 0.96); }
+    9% { transform: rotate(-3deg); }
+    13% { transform: rotate(-8deg) scale(0.97, 1.03); }
+    18% { transform: rotate(8deg) scale(1.04, 0.96); }
+    23% { transform: rotate(-3deg); }
+    27% { transform: rotate(-8deg) scale(0.97, 1.03); }
+    32% { transform: rotate(8deg) scale(1.04, 0.96); }
+    37% { transform: rotate(-3deg); }
+    42% { transform: none; }
+  }
+  /* C chomps as each item lands (~0.98s, 1.28s, 1.58s), then settles. */
+  @keyframes sc-e-chomp {
+    0%, 38% { transform: none; }
+    43% { transform: rotate(-6deg); }
+    45% { transform: rotate(2deg) scale(0.9, 0.95); }
+    52% { transform: rotate(-6deg); }
+    58% { transform: rotate(2deg) scale(0.9, 0.95); }
+    66% { transform: rotate(-6deg); }
+    72% { transform: rotate(2deg) scale(0.88, 0.94); }
+    78% { transform: translateY(-4px) scale(1.03); }
+    84%, 100% { transform: none; }
+  }
+  @keyframes sc-e-dot { 0%, 72% { opacity: 0; transform: scale(0); } 77% { opacity: 1; transform: scale(1.4); } 82%, 92% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0); } }
+  @keyframes sc-e-ripple { 0%, 73% { opacity: 0; transform: scale(1); } 75% { opacity: 0.7; transform: scale(1.1); } 95%, 100% { opacity: 0; transform: scale(3); } }
+  @media (prefers-reduced-motion: reduce) {
+    .sc-emblem:hover .sc-e-s, .sc-emblem:hover .sc-e-c, .sc-emblem:hover .sc-e-chip, .sc-emblem:hover .sc-e-dot, .sc-emblem:hover .sc-e-ripple { animation: none; }
+  }
+
   .loader-dot {
     animation: dotBounce 1.4s ease-in-out infinite backwards;
   }

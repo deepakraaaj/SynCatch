@@ -1,11 +1,10 @@
-import { useRef } from 'react';
-import { SynCatchLogoAnimated, type SynCatchLogoHandle } from './SynCatchLogoAnimated';
+import type { CSSProperties } from 'react';
 
 interface SynCatchLogoProps {
   className?: string;
   /** Render the mark in currentColor instead of brand colors (for use on accent fills). */
   monochrome?: boolean;
-  /** Adapt the mark to the active theme accent instead of the brand palette. */
+  /** Adapt the mark to the active theme instead of the brand palette. */
   themed?: boolean;
   title?: string;
 }
@@ -14,76 +13,100 @@ const BRAND_BLUE = '#3E8BFF';
 const BRAND_FOG = '#F4F5F8';
 
 /**
- * SynCatch brandmark — a loop dissolving into dots just before it closes:
- * always in motion, always almost in sync. The two dots are the "catch"
- * landing at the loop's open end.
- *
- * Geometry: arc r=37 centered at (50,50) sweeping ~255°, with two dots
- * continuing the circle through the gap.
+ * "SynCatch" in Urbanist ExtraBold, outlined in four parts (S, yn, C, atch) so
+ * it needs no font and the splash can animate the S and the C on their own.
  */
-export const SYNCATCH_LOOP = 'M 15.2 62.7 A 37 37 0 1 1 71.3 80.3';
-export const SYNCATCH_STROKE_WIDTH = 16;
-export const SYNCATCH_DOTS = [
-  { cx: 50, cy: 87, r: 7 },
-  { cx: 28.8, cy: 80.3, r: 4.5 },
-] as const;
+export const SYNCATCH_WORD_S = 'M31.45 1.30L31.45 1.30Q25.55 1.30 20.18-0.55Q14.80-2.40 10.78-5.90Q6.75-9.40 5-14.20L5-14.20L17.95-19Q18.55-17.30 20.45-15.83Q22.35-14.35 25.20-13.43Q28.05-12.50 31.45-12.50L31.45-12.50Q34.70-12.50 37.58-13.48Q40.45-14.45 42.23-16.20Q44-17.95 44-20.30L44-20.30Q44-22.65 42.15-24.20Q40.30-25.75 37.40-26.68Q34.50-27.60 31.45-28.10L31.45-28.10Q23.90-29.20 17.93-31.68Q11.95-34.15 8.50-38.53Q5.05-42.90 5.05-49.65L5.05-49.65Q5.05-56.15 8.72-61Q12.40-65.85 18.43-68.55Q24.45-71.25 31.45-71.25L31.45-71.25Q37.25-71.25 42.65-69.40Q48.05-67.55 52.08-64.05Q56.10-60.55 57.85-55.65L57.85-55.65L44.90-50.95Q44.30-52.65 42.40-54.10Q40.50-55.55 37.65-56.45Q34.80-57.35 31.45-57.35L31.45-57.35Q28.25-57.40 25.38-56.40Q22.50-55.40 20.68-53.65Q18.85-51.90 18.85-49.65L18.85-49.65Q18.85-46.70 20.58-45.20Q22.30-43.70 25.15-43.05Q28-42.40 31.45-41.90L31.45-41.90Q38.55-40.85 44.55-38.18Q50.55-35.50 54.18-31.08Q57.80-26.65 57.80-20.30L57.80-20.30Q57.80-13.80 54.15-8.95Q50.50-4.10 44.50-1.40Q38.50 1.30 31.45 1.30Z';
+export const SYNCATCH_WORD_YN = 'M85.15-18.85L96.55-50L111.25-50L83.85 25L69.25 25L78.25 0L60.25-50L75.35-50L85.15-18.85ZM161.95-31.80L161.95-31.80L161.95 0L148.15 0L148.15-28Q148.15-30.65 146.88-32.77Q145.60-34.90 143.47-36.15Q141.35-37.40 138.75-37.40L138.75-37.40Q136.15-37.40 134-36.15Q131.85-34.90 130.60-32.77Q129.35-30.65 129.35-28L129.35-28L129.35 0L115.55 0L115.50-50L129.30-50L129.35-46.30Q131.85-48.70 135.22-50.05Q138.60-51.40 142.35-51.40L142.35-51.40Q147.80-51.40 152.22-48.75Q156.65-46.10 159.30-41.68Q161.95-37.25 161.95-31.80Z';
+export const SYNCATCH_WORD_C = 'M200.85 1.30L200.85 1.30Q193.75 1.30 187.50-1.53Q181.25-4.35 176.52-9.35Q171.80-14.35 169.13-20.93Q166.45-27.50 166.45-35L166.45-35Q166.45-42.55 169.13-49.13Q171.80-55.70 176.52-60.68Q181.25-65.65 187.50-68.48Q193.75-71.30 200.85-71.30L200.85-71.30Q209.35-71.30 216.50-67.38Q223.65-63.45 228.35-56.90L228.35-56.90L216.05-50.25Q213.25-53.55 209.30-55.53Q205.35-57.50 200.85-57.50L200.85-57.50Q196.60-57.50 192.85-55.75Q189.10-54 186.27-50.90Q183.45-47.80 181.85-43.75Q180.25-39.70 180.25-35L180.25-35Q180.25-30.35 181.85-26.28Q183.45-22.20 186.27-19.13Q189.10-16.05 192.85-14.28Q196.60-12.50 200.85-12.50L200.85-12.50Q205.40-12.50 209.32-14.50Q213.25-16.50 216.05-19.80L216.05-19.80L228.35-13.10Q223.65-6.60 216.50-2.65Q209.35 1.30 200.85 1.30Z';
+export const SYNCATCH_WORD_ATCH = 'M268.80-44.50L268.20-50L282-50L282 0L268.15 0L267.50-5.20Q265.55-2.30 262.50-0.50Q259.45 1.30 255.35 1.30L255.35 1.30Q249.75 1.30 244.90-0.80Q240.05-2.90 236.35-6.60Q232.65-10.30 230.57-15.18Q228.50-20.05 228.50-25.65L228.50-25.65Q228.50-31 230.45-35.65Q232.40-40.30 235.95-43.85Q239.50-47.40 244.13-49.40Q248.75-51.40 254.10-51.40L254.10-51.40Q258.70-51.40 262.38-49.45Q266.05-47.50 268.80-44.50L268.80-44.50ZM255-11.95L255-11.95Q258.40-11.95 261.15-13.70Q263.90-15.45 265.50-18.43Q267.10-21.40 267.10-25L267.10-25Q267.10-28.65 265.50-31.60Q263.90-34.55 261.15-36.30Q258.40-38.05 255-38.05L255-38.05Q251.55-38.05 248.75-36.30Q245.95-34.55 244.30-31.58Q242.65-28.60 242.65-25L242.65-25Q242.65-21.40 244.32-18.43Q246-15.45 248.80-13.70Q251.60-11.95 255-11.95ZM315.70-50L315.70-36.20L306.70-36.20L306.70 0L292.90 0L292.90-36.20L286-36.20L286-50L292.90-50L292.90-65.70L306.70-65.70L306.70-50L315.70-50ZM349.75-15.80L349.75-15.80L362.15-9.10Q358.70-4.40 353.50-1.55Q348.30 1.30 342.15 1.30L342.15 1.30Q335.25 1.30 329.57-2.25Q323.90-5.80 320.52-11.78Q317.15-17.75 317.15-25L317.15-25Q317.15-30.50 319.10-35.27Q321.05-40.05 324.47-43.68Q327.90-47.30 332.45-49.35Q337-51.40 342.15-51.40L342.15-51.40Q348.30-51.40 353.50-48.55Q358.70-45.70 362.15-40.90L362.15-40.90L349.75-34.20Q348.20-35.85 346.22-36.73Q344.25-37.60 342.15-37.60L342.15-37.60Q338.95-37.60 336.42-35.85Q333.90-34.10 332.42-31.23Q330.95-28.35 330.95-25L330.95-25Q330.95-21.70 332.45-18.85Q333.95-16 336.47-14.25Q339-12.50 342.15-12.50L342.15-12.50Q344.30-12.50 346.25-13.40Q348.20-14.30 349.75-15.80ZM412.30-31.80L412.30-31.80L412.30 0L398.50 0L398.50-28Q398.50-30.65 397.22-32.77Q395.95-34.90 393.82-36.15Q391.70-37.40 389.10-37.40L389.10-37.40Q386.50-37.40 384.35-36.15Q382.20-34.90 380.95-32.77Q379.70-30.65 379.70-28L379.70-28L379.70 0L365.90 0L365.85-75L379.65-75L379.70-46.30Q382.20-48.70 385.57-50.05Q388.95-51.40 392.70-51.40L392.70-51.40Q398.15-51.40 402.57-48.75Q407-46.10 409.65-41.68Q412.30-37.25 412.30-31.80Z';
 
+/**
+ * SynCatch icon, "S." — the S of Syn with a blue dot landing beside it like a
+ * full stop: the catch. Used wherever the full name doesn't fit.
+ */
 export function SynCatchLogo({ className, monochrome = false, themed = false, title = 'SynCatch' }: SynCatchLogoProps) {
-  const loopPaint = monochrome ? 'currentColor' : themed ? 'rgb(var(--accent-soft))' : BRAND_FOG;
+  const letterPaint = monochrome ? 'currentColor' : themed ? 'rgb(var(--text-primary))' : BRAND_FOG;
   const dotPaint = monochrome ? 'currentColor' : themed ? 'rgb(var(--accent))' : BRAND_BLUE;
 
   return (
-    <svg
-      viewBox="0 0 100 100"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      role="img"
-      aria-label={title}
-      className={className}
-    >
+    <svg viewBox="-0.75 -74.9 80 80" xmlns="http://www.w3.org/2000/svg" role="img" aria-label={title} className={className}>
       <title>{title}</title>
-      <path d={SYNCATCH_LOOP} stroke={loopPaint} strokeWidth={SYNCATCH_STROKE_WIDTH} strokeLinecap="round" />
-      {/* The "catch" — dots landing where the loop closes */}
-      {SYNCATCH_DOTS.map((dot) => (
-        <circle key={dot.cx} cx={dot.cx} cy={dot.cy} r={dot.r} fill={dotPaint} />
-      ))}
+      <path d={SYNCATCH_WORD_S} fill={letterPaint} />
+      <circle cx={66} cy={-6} r={7.5} fill={dotPaint} />
     </svg>
   );
 }
 
 /**
- * Full SynCatch wordmark — logo + name. With `themed`, the mark and the "Catch"
- * half of the name follow the theme accent; otherwise they stay brand blue.
+ * SynCatch emblem — the app icon's artwork: the wordmark with a task, a note and
+ * a mission in one arc, thrown from the S of Syn toward the C of Catch.
+ * "Syn" and the chips take the theme's text colour, "Catch" the theme accent.
+ * Geometry is in wordmark units (baseline y=0, cap height 70).
  */
-export function SynCatchWordmark({
-  className,
-  logoClassName = 'h-7 w-7',
-  textClassName = 'text-base font-bold tracking-tight',
-  themed = false,
-  animated = false,
-}: {
-  className?: string;
-  logoClassName?: string;
-  textClassName?: string;
-  themed?: boolean;
-  /** Use the animated mark; it spins into sync when the wordmark is hovered. */
-  animated?: boolean;
-}) {
-  const logoRef = useRef<SynCatchLogoHandle>(null);
+const EMBLEM_CHIPS = {
+  task: { x: 44, y: -118, rotate: -16 },
+  note: { x: 118, y: -182, rotate: 0 },
+  mission: { x: 190, y: -117, rotate: 14 },
+} as const;
+type ChipKind = keyof typeof EMBLEM_CHIPS;
+const CHIP_KINDS = Object.keys(EMBLEM_CHIPS) as ChipKind[];
+
+function ChipGlyph({ kind, color }: { kind: ChipKind; color: string }) {
+  if (kind === 'task') return <path d="M -5 0.5 L -1.5 4 L 5.5 -3.5" stroke={color} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" fill="none" />;
+  if (kind === 'note') return <path d="M -5 -4 H 5 M -5 0 H 5 M -5 4 H 1.5" stroke={color} strokeWidth={2.4} strokeLinecap="round" fill="none" />;
+  return <g><circle r={5.6} stroke={color} strokeWidth={2.4} fill="none" /><circle r={1.9} fill={color} /></g>;
+}
+
+/**
+ * With `animated` this is the boot loader instead (classes styled in index.html,
+ * which mirrors this markup): the S throws each item into the C's mouth, the C
+ * chomps, and after the third the caught dot lands green.
+ */
+export function SynCatchEmblem({ className, animated = false }: { className?: string; animated?: boolean }) {
+  const ink = 'rgb(var(--text-primary))';
+  const accent = 'rgb(var(--accent))';
+  if (animated) {
+    return (
+      <svg viewBox="5 -76 407.3 102" role="img" aria-label="SynCatch" className={className}>
+        <path className="sc-sglyph" d={SYNCATCH_WORD_S} fill={ink} />
+        <path d={SYNCATCH_WORD_YN} fill={ink} />
+        <path className="sc-cglyph" d={SYNCATCH_WORD_C} fill={accent} />
+        <path d={SYNCATCH_WORD_ATCH} fill={accent} />
+        <circle className="sc-ripple" cx={205} cy={-35} r={7} />
+        <circle className="sc-dot" cx={205} cy={-35} r={7} />
+        {CHIP_KINDS.map((kind, index) => (
+          <g key={kind} className={`sc-item sc-i${index + 1}`}>
+            <rect x={-15} y={-15} width={30} height={30} rx={8} fill={ink} />
+            <g transform="scale(1.35)"><ChipGlyph kind={kind} color="rgb(var(--bg-base))" /></g>
+          </g>
+        ))}
+      </svg>
+    );
+  }
+  // Still emblem. Hovering it replays the loader's story (classes styled in globals.css):
+  // the S flicks, each item flies into the C's mouth, the C chomps, the caught dot lands, items pop back.
   return (
-    <div
-      className={`flex items-center gap-2 ${className ?? ''}`}
-      onMouseEnter={animated ? () => logoRef.current?.play() : undefined}
-    >
-      {animated ? (
-        <SynCatchLogoAnimated ref={logoRef} className={logoClassName} themed={themed} />
-      ) : (
-        <SynCatchLogo className={logoClassName} themed={themed} />
-      )}
-      <span className={textClassName}>
-        <span className="text-text-primary">Syn</span>
-        <span style={{ color: themed ? 'rgb(var(--accent))' : BRAND_BLUE }}>Catch</span>
-      </span>
-    </div>
+    <svg viewBox="0 -210 417 235" role="img" aria-label="SynCatch" className={`sc-emblem ${className ?? ''}`} style={{ aspectRatio: '417 / 235' }}>
+      <path className="sc-e-s" d={SYNCATCH_WORD_S} fill={ink} />
+      <path d={SYNCATCH_WORD_YN} fill={ink} />
+      <path className="sc-e-c" d={SYNCATCH_WORD_C} fill={accent} />
+      <path d={SYNCATCH_WORD_ATCH} fill={accent} />
+      <circle className="sc-e-ripple" cx={205} cy={-35} r={7} fill="none" stroke={accent} strokeWidth={2} />
+      <circle className="sc-e-dot" cx={205} cy={-35} r={7} fill={accent} />
+      {CHIP_KINDS.map((kind) => {
+        const chip = EMBLEM_CHIPS[kind];
+        return (
+          <g key={kind} transform={`translate(${chip.x} ${chip.y})`}>
+            <g className={`sc-e-chip sc-e-${kind}`} style={{ '--sc-dx': `${205 - chip.x}px`, '--sc-dy': `${-35 - chip.y}px` } as CSSProperties}>
+              <g transform={`rotate(${chip.rotate}) scale(1.8)`}>
+                <rect x={-11} y={-11} width={22} height={22} rx={6} fill={ink} />
+                <ChipGlyph kind={kind} color="rgb(var(--bg-base))" />
+              </g>
+            </g>
+          </g>
+        );
+      })}
+    </svg>
   );
 }

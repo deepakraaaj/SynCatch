@@ -1,15 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <title>SynCatch</title>
-  <!-- A loop dissolving into dots just before closing. Ink in light tabs, white in dark tabs. -->
-  <style>
-    .mark { stroke: #222326; }
-    .dot { fill: #222326; }
-    @media (prefers-color-scheme: dark) {
-      .mark { stroke: #F4F5F8; }
-      .dot { fill: #F4F5F8; }
-    }
-  </style>
-  <path class="mark" d="M 15.2 62.7 A 37 37 0 1 1 71.3 80.3" stroke-width="16" stroke-linecap="round"/>
-  <circle class="dot" cx="50" cy="87" r="7"/>
-  <circle class="dot" cx="28.8" cy="80.3" r="4.5"/>
+  <!-- Favicon: "S." — the S of Syn with the blue caught dot (SynCatchLogo), on a white tile.
+       The full app icon is unreadable at tab size, so the tab gets the simple mark. -->
+  <rect width="64" height="64" rx="14" fill="#FFFFFF"/>
+  <g transform="translate(9.43 52.07) scale(0.575)">
+    <path d="M31.45 1.30L31.45 1.30Q25.55 1.30 20.18-0.55Q14.80-2.40 10.78-5.90Q6.75-9.40 5-14.20L5-14.20L17.95-19Q18.55-17.30 20.45-15.83Q22.35-14.35 25.20-13.43Q28.05-12.50 31.45-12.50L31.45-12.50Q34.70-12.50 37.58-13.48Q40.45-14.45 42.23-16.20Q44-17.95 44-20.30L44-20.30Q44-22.65 42.15-24.20Q40.30-25.75 37.40-26.68Q34.50-27.60 31.45-28.10L31.45-28.10Q23.90-29.20 17.93-31.68Q11.95-34.15 8.50-38.53Q5.05-42.90 5.05-49.65L5.05-49.65Q5.05-56.15 8.72-61Q12.40-65.85 18.43-68.55Q24.45-71.25 31.45-71.25L31.45-71.25Q37.25-71.25 42.65-69.40Q48.05-67.55 52.08-64.05Q56.10-60.55 57.85-55.65L57.85-55.65L44.90-50.95Q44.30-52.65 42.40-54.10Q40.50-55.55 37.65-56.45Q34.80-57.35 31.45-57.35L31.45-57.35Q28.25-57.40 25.38-56.40Q22.50-55.40 20.68-53.65Q18.85-51.90 18.85-49.65L18.85-49.65Q18.85-46.70 20.58-45.20Q22.30-43.70 25.15-43.05Q28-42.40 31.45-41.90L31.45-41.90Q38.55-40.85 44.55-38.18Q50.55-35.50 54.18-31.08Q57.80-26.65 57.80-20.30L57.80-20.30Q57.80-13.80 54.15-8.95Q50.50-4.10 44.50-1.40Q38.50 1.30 31.45 1.30Z" fill="#17181B"/>
+    <circle cx="66" cy="-6" r="7.5" fill="#3E8BFF"/>
+  </g>
 </svg>

@@ -57,7 +57,7 @@ import { useJournalStore } from '../../features/journal/journal-store';
 import { DashboardView } from '../../features/dashboard/DashboardView';
 import type { CalendarOpenTarget } from '../../features/calendar/CalendarView';
 import { AssistantWidget } from '../../features/assistant/AssistantWidget';
-import { SynCatchWordmark } from '../../components/SynCatchLogo';
+import { SynCatchEmblem, SynCatchLogo } from '../../components/SynCatchLogo';
 import { TaskCreationComposer } from '../../features/tasks/TaskCreationComposer';
 import { TaskDetailPanel } from '../../features/tasks/TaskDetailPanel';
 import { MissionDetailPanel } from '../../features/missions/MissionDetailPanel';
@@ -111,9 +111,13 @@ const MAIN_VIEW_PATHS: Record<MainView, string> = {
   settings: '/settings', apps: '/apps', crm: '/crm', problems: '/problems',
 };
 
+/** Views that only exist in the Team workspace; their personal URLs fall back to the dashboard. */
+const TEAM_ONLY_VIEWS: MainView[] = ['crm', 'problems'];
+
 function viewFromPath(pathname: string): MainView {
   const normalized = pathname.replace(/^\/team/, '').replace(/\/$/, '') || '/dashboard';
-  return (Object.entries(MAIN_VIEW_PATHS).find(([, path]) => path === normalized)?.[0] as MainView | undefined) ?? 'dashboard';
+  const view = (Object.entries(MAIN_VIEW_PATHS).find(([, path]) => path === normalized)?.[0] as MainView | undefined) ?? 'dashboard';
+  return !pathname.startsWith('/team') && TEAM_ONLY_VIEWS.includes(view) ? 'dashboard' : view;
 }
 
 type CaptureState = {
@@ -265,20 +269,6 @@ const launcherViews: Array<{
     icon: MessageCircle,
     description: 'Ask, plan, or draft',
     gradient: 'from-blue-500 via-indigo-500 to-violet-500',
-  },
-  {
-    id: 'crm',
-    label: 'CRM',
-    icon: Users,
-    description: 'Track venue leads & pilots',
-    gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
-  },
-  {
-    id: 'problems',
-    label: 'Problems HUB',
-    icon: AlertOctagon,
-    description: 'MDM objections & friction bank',
-    gradient: 'from-rose-500 via-pink-500 to-amber-500',
   },
   {
     id: 'settings',
@@ -740,7 +730,6 @@ function NavButton({
   active,
   label,
   icon: Icon,
-  gradient,
   caption,
   onClick,
   compact = false,
@@ -749,49 +738,31 @@ function NavButton({
   active: boolean;
   label: string;
   icon: LucideIcon;
-  gradient?: string;
   caption?: string;
   onClick: () => void;
   compact?: boolean;
   collapsed?: boolean;
 }) {
+  // iOS-style: the selected app is a solid accent pill; the rest are plain line icons.
   return (
     <button
       className={cn(
-        'group relative flex w-full items-center gap-3 overflow-hidden rounded-[14px] border text-left transition-all duration-200',
-        collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5',
+        'group flex w-full items-center gap-3 rounded-[12px] text-left transition-colors duration-150',
+        collapsed ? 'justify-center p-2.5' : 'px-3 py-2',
         active
-          ? 'border-accent/25 bg-accent/10 shadow-[0_8px_22px_rgba(var(--accent),0.08)]'
-          : 'border-transparent bg-transparent hover:border-borderSoft/30 hover:bg-panel/55',
+          ? 'bg-accent text-[rgb(var(--accent-contrast))] shadow-[0_6px_16px_rgb(var(--accent)/0.3)]'
+          : 'text-text-primary hover:bg-text-primary/[0.06]',
       )}
       onClick={onClick}
-      title={collapsed ? label : undefined}
+      title={collapsed ? label : caption}
       type="button"
     >
-      {active ? <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-accent" /> : null}
-      <span
-        className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border transition-all',
-          compact && gradient
-            ? `border-white/10 bg-gradient-to-br ${gradient} text-white shadow-[0_6px_16px_rgba(0,0,0,0.2)]`
-            : active
-            ? 'border-accent/20 bg-accent/12 text-accent'
-            : 'border-borderSoft/25 bg-panel/45 text-text-muted group-hover:border-borderSoft/40 group-hover:text-text-secondary',
-        )}
-      >
-        <Icon className="h-4 w-4" />
-      </span>
-      {!collapsed && <div className="min-w-0">
-        <p
-          className={cn(
-            'text-[14px] font-semibold tracking-tight',
-            active ? 'text-text-primary' : compact ? 'text-text-primary/85' : 'text-text-secondary',
-          )}
-        >
+      <Icon className={cn('h-[17px] w-[17px] shrink-0', active ? '' : 'text-text-muted group-hover:text-text-secondary')} />
+      {!collapsed && (
+        <span className={cn('min-w-0 truncate text-[14px] tracking-tight', active ? 'font-semibold' : compact ? 'font-medium text-text-primary/85' : 'font-medium')}>
           {label}
-        </p>
-        {caption ? <p className="mt-0.5 hidden truncate text-[11px] leading-4 text-text-muted/85 sm:block">{caption}</p> : null}
-      </div>}
+        </span>
+      )}
     </button>
   );
 }
@@ -815,69 +786,43 @@ function AppLauncherTile({
   onClick: () => void;
   onTogglePinned: () => void;
 }) {
+  // Mac/iPhone home-screen style: a top-lit rounded-square icon with its name below.
   return (
-    <div
-      className={cn(
-        'group relative flex min-h-[148px] w-full flex-col overflow-hidden rounded-[22px] border p-5 text-left transition-all duration-200',
-        active
-          ? 'border-accent/35 bg-accent/10 shadow-[0_14px_34px_rgba(var(--accent),0.12)]'
-          : 'border-borderSoft/28 bg-panel/45 hover:-translate-y-1 hover:border-borderSoft/50 hover:bg-panel/70 hover:shadow-[0_16px_34px_rgba(var(--shadow-color),0.12)]',
-      )}
-    >
-      <div className={cn('absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r opacity-80', gradient)} />
-      <div className={cn('pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br opacity-[0.08] blur-2xl transition-opacity group-hover:opacity-[0.16]', gradient)} />
-
+    <div className="group relative flex flex-col items-center">
       <button
         type="button"
-        className="absolute inset-0 rounded-[22px] text-left"
+        title={description}
         onClick={onClick}
+        className="flex flex-col items-center gap-2 rounded-[18px] p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
       >
-        <span className="sr-only">Open {label}</span>
-      </button>
-
-      <div className="pointer-events-none relative z-[1] flex items-start justify-between gap-3">
-        <div
+        <span
           className={cn(
-            'flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br shadow-[0_10px_22px_rgba(0,0,0,0.16)] ring-1 ring-white/20',
+            'relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[22%] bg-gradient-to-br shadow-[0_6px_14px_rgb(var(--shadow-color)/0.28)] ring-1 ring-black/10 transition-transform duration-200 group-hover:-translate-y-0.5 group-active:scale-95 sm:h-16 sm:w-16',
             gradient,
           )}
         >
-          <Icon className="h-5 w-5 text-white drop-shadow-sm" />
-        </div>
-        <ArrowUpRight className="h-4 w-4 text-text-muted/45 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-text-secondary" />
-      </div>
-
-      <div className="pointer-events-none relative z-[1] mt-4 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className={cn('text-[15px] font-semibold tracking-tight', active ? 'text-text-primary' : 'text-text-secondary')}>
-            {label}
-          </p>
-          {active ? <span className="rounded-full bg-accent/12 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">Current</span> : null}
-        </div>
-        <p className="mt-1 text-[12px] leading-5 text-text-muted">{description}</p>
-      </div>
-
-      <div className="pointer-events-none relative z-[2] mt-auto flex items-end justify-end pt-3">
-        <button
-          type="button"
-          title={pinned ? `Remove ${label} from sidebar` : `Pin ${label} to sidebar`}
-          aria-label={pinned ? `Remove ${label} from sidebar` : `Pin ${label} to sidebar`}
-          className={cn(
-            'pointer-events-auto',
-            'inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors',
-            pinned
-              ? 'border-accent/25 bg-accent/12 text-accent hover:bg-accent/18'
-              : 'border-borderSoft/30 bg-panel/60 text-text-muted hover:border-borderSoft/50 hover:text-text-primary',
-          )}
-          onClick={(event) => {
-            event.stopPropagation();
-            onTogglePinned();
-          }}
-        >
-          {pinned ? <CheckCircle2 className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-          {pinned ? 'Pinned' : 'Pin'}
-        </button>
-      </div>
+          <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent" />
+          <Icon className="relative h-6 w-6 text-white drop-shadow-[0_1px_1px_rgb(0_0_0/0.25)] sm:h-7 sm:w-7" />
+        </span>
+        <span className={cn('max-w-[84px] truncate text-[12px] font-medium leading-tight', active ? 'text-text-primary' : 'text-text-secondary')}>{label}</span>
+        {/* Like the Dock's running-app dot: marks the app you're in. */}
+        <span aria-hidden className={cn('-mt-1 h-1 w-1 rounded-full', active ? 'bg-text-primary/70' : 'bg-transparent')} />
+      </button>
+      <button
+        type="button"
+        title={pinned ? `Remove ${label} from sidebar` : `Pin ${label} to sidebar`}
+        aria-label={pinned ? `Remove ${label} from sidebar` : `Pin ${label} to sidebar`}
+        aria-pressed={pinned}
+        className={cn(
+          'absolute left-[calc(50%+14px)] top-0 flex !min-h-0 !min-w-0 h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-opacity sm:left-[calc(50%+20px)] sm:h-5 sm:w-5',
+          pinned
+            ? 'border-accent/40 bg-accent text-[rgb(var(--accent-contrast))]'
+            : 'border-borderSoft/50 bg-panel text-text-muted hover:text-text-primary sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100',
+        )}
+        onClick={onTogglePinned}
+      >
+        <Pin className="h-2.5 w-2.5" />
+      </button>
     </div>
   );
 }
@@ -911,11 +856,16 @@ function SidebarContent({
       className="group flex w-full items-center gap-3 rounded-[14px] border border-borderSoft/30 bg-panel/35 px-3 py-2.5 text-left transition-all duration-200 hover:border-accent/25 hover:bg-accent/8"
       onClick={onOpenApps}
     >
-      <div className="grid h-8 w-8 shrink-0 grid-cols-2 gap-[3px] rounded-[10px] border border-borderSoft/25 bg-panel/55 p-[7px] transition-colors group-hover:border-accent/25">
-        <span className="rounded-[2px] bg-cyan-400/90" />
-        <span className="rounded-[2px] bg-fuchsia-400/90" />
-        <span className="rounded-[2px] bg-amber-400/90" />
-        <span className="rounded-[2px] bg-emerald-400/90" />
+      <div className="grid h-8 w-8 shrink-0 grid-cols-3 gap-[2px] rounded-[10px] border border-borderSoft/25 bg-panel/55 p-[7px] transition-colors group-hover:border-accent/25">
+        <span className="rounded-[2px] bg-text-muted/70" />
+        <span className="rounded-[2px] bg-text-muted/70" />
+        <span className="rounded-[2px] bg-text-muted/70" />
+        <span className="rounded-[2px] bg-text-muted/70" />
+        <span className="rounded-[2px] bg-text-muted/70" />
+        <span className="rounded-[2px] bg-text-muted/70" />
+        <span className="rounded-[2px] bg-text-muted/70" />
+        <span className="rounded-[2px] bg-text-muted/70" />
+        <span className="rounded-[2px] bg-text-muted/70" />
       </div>
       <div className="min-w-0">
         <p className="text-[14px] font-semibold tracking-tight text-text-primary/90">All apps</p>
@@ -937,21 +887,20 @@ function SidebarContent({
           type="button"
           onClick={() => onViewSelect(isTeam ? 'missions' : 'dashboard')}
           aria-label="Go to dashboard"
-          className={cn('-mx-1 flex items-center rounded-2xl px-1 py-1 transition-opacity hover:opacity-80 cursor-pointer', collapsed && 'justify-center')}
+          className={cn('-mx-1 flex items-center rounded-2xl px-1 py-1 cursor-pointer', collapsed && 'justify-center')}
         >
-          <SynCatchWordmark themed animated logoClassName="h-12 w-12" textClassName={cn('text-2xl font-bold tracking-tight', collapsed && 'hidden')} />
+          {collapsed ? <SynCatchLogo className="h-12 w-12" themed /> : <SynCatchEmblem className="h-[108px] w-auto" />}
         </button>
       ) : null}
 
       <div className={cn(compact ? 'space-y-2' : 'scrollbar-hidden mt-7 min-h-0 flex-1 overflow-y-auto pr-1')}>
         {isTeam ? (
-          <div className={cn('pt-1', compact ? 'space-y-1' : 'space-y-1.5')}>
+          <div className={cn('pt-1', compact ? 'space-y-1' : 'space-y-0.5')}>
             {compact && onOpenChat ? (
               <NavButton
                 active={false}
                 compact
                 collapsed={collapsed}
-                gradient="from-rose-500 via-orange-500 to-amber-500"
                 icon={MessageSquare}
                 label="Chat"
                 onClick={onOpenChat}
@@ -963,7 +912,6 @@ function SidebarContent({
                 caption={view.description}
                 compact={compact}
                 collapsed={collapsed}
-                gradient={view.gradient}
                 icon={view.icon}
                 key={view.id}
                 label={view.label}
@@ -972,7 +920,7 @@ function SidebarContent({
             ))}
           </div>
         ) : visibleIds.length > 0 ? (
-          <div className={cn('pt-1', compact ? 'space-y-1' : 'space-y-1.5')}>
+          <div className={cn('pt-1', compact ? 'space-y-1' : 'space-y-0.5')}>
             {launcherViews
               .filter((view) => view.id !== 'settings' && visibleIds.includes(view.id))
               .map((view) => (
@@ -981,7 +929,6 @@ function SidebarContent({
                   caption={view.description}
                   compact={compact}
                   collapsed={collapsed}
-                  gradient={view.gradient}
                   icon={view.icon}
                   key={view.id}
                   label={view.label}
@@ -1019,7 +966,7 @@ function AppsWorkspacePage({
   const otherViews = launcherViews.filter((view) => !pinnedAppIds.includes(view.id));
 
   const renderAppGrid = (views: typeof launcherViews) => (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+    <div className="grid grid-cols-4 gap-x-2 gap-y-5 sm:gap-x-4">
       {views.map((view) => (
         <AppLauncherTile
           active={activeView === view.id}
@@ -1042,11 +989,16 @@ function AppsWorkspacePage({
         <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-accent/10 blur-3xl" />
         <div className="relative flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-4">
-            <div className="hidden h-12 w-12 shrink-0 grid-cols-2 gap-1 rounded-[16px] border border-borderSoft/25 bg-panel2/55 p-3 sm:grid">
-              <span className="rounded-[3px] bg-cyan-400" />
-              <span className="rounded-[3px] bg-fuchsia-400" />
-              <span className="rounded-[3px] bg-amber-400" />
-              <span className="rounded-[3px] bg-emerald-400" />
+            <div className="hidden h-12 w-12 shrink-0 grid-cols-3 gap-[3px] rounded-[16px] border border-borderSoft/25 bg-panel2/55 p-3 sm:grid">
+              <span className="rounded-[3px] bg-text-muted/70" />
+              <span className="rounded-[3px] bg-text-muted/70" />
+              <span className="rounded-[3px] bg-text-muted/70" />
+              <span className="rounded-[3px] bg-text-muted/70" />
+              <span className="rounded-[3px] bg-text-muted/70" />
+              <span className="rounded-[3px] bg-text-muted/70" />
+              <span className="rounded-[3px] bg-text-muted/70" />
+              <span className="rounded-[3px] bg-text-muted/70" />
+              <span className="rounded-[3px] bg-text-muted/70" />
             </div>
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-text-muted/75">App launcher</p>
@@ -1073,9 +1025,11 @@ function AppsWorkspacePage({
         </div>
       </Card>
 
+      {/* Pinned and the rest sit side by side on wide screens, stacked on phones. */}
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
       {pinnedViews.length > 0 ? (
-        <section className="mt-7">
-          <div className="mb-3 flex items-end justify-between gap-3 px-1">
+        <section className="rounded-[28px] border border-borderSoft/25 bg-panel/55 p-5 shadow-[0_12px_40px_rgb(var(--shadow-color)/0.12)] sm:p-6">
+          <div className="mb-5 flex items-end justify-between gap-3 px-1">
             <div>
               <h3 className="text-[15px] font-semibold text-text-primary">Pinned</h3>
               <p className="mt-0.5 text-[11px] text-text-muted">Shown in your sidebar</p>
@@ -1087,8 +1041,8 @@ function AppsWorkspacePage({
       ) : null}
 
       {otherViews.length > 0 ? (
-        <section className="mt-7">
-          <div className="mb-3 flex items-end justify-between gap-3 px-1">
+        <section className="rounded-[28px] border border-borderSoft/25 bg-panel/55 p-5 shadow-[0_12px_40px_rgb(var(--shadow-color)/0.12)] sm:p-6">
+          <div className="mb-5 flex items-end justify-between gap-3 px-1">
             <div>
               <h3 className="text-[15px] font-semibold text-text-primary">All apps</h3>
               <p className="mt-0.5 text-[11px] text-text-muted">More tools for your workflow</p>
@@ -1098,6 +1052,7 @@ function AppsWorkspacePage({
           {renderAppGrid(otherViews)}
         </section>
       ) : null}
+      </div>
     </div>
   );
 }
@@ -4867,9 +4822,9 @@ export function MainApp() {
                   type="button"
                   onClick={() => { setActiveView('dashboard'); setMobileNavOpen(false); }}
                   aria-label="Go to dashboard"
-                  className="flex items-center rounded-xl transition-opacity hover:opacity-80"
+                  className="flex items-center rounded-xl"
                 >
-                  <SynCatchWordmark themed animated logoClassName="h-11 w-11" textClassName="text-base font-bold tracking-tight" />
+                  <SynCatchEmblem className="h-16 w-auto" />
                 </button>
               )}
               <Button onClick={() => setMobileNavOpen(false)} size="sm" type="button" variant="ghost" className="h-8 w-8 p-0 rounded-full">

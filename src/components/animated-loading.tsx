@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { SynCatchLogoAnimated } from './SynCatchLogoAnimated';
+import { SynCatchEmblem } from './SynCatchLogo';
 
 interface AnimatedLoadingProps {
   autoDismiss?: boolean;
@@ -17,8 +17,8 @@ interface AnimatedLoadingProps {
 }
 
 /**
- * Full-screen boot loader. Mirrors the pre-React splash in index.html
- * (same mark, same layout) so the handoff between the two is seamless.
+ * Full-screen boot loader. Mirrors the pre-React splash in index.html (same
+ * emblem, same classes, styled there) so the handoff between the two is seamless.
  */
 export function AnimatedLoading({
   autoDismiss = false,
@@ -56,43 +56,14 @@ export function AnimatedLoading({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[999] flex flex-col items-center justify-center gap-8"
-      style={{
-        background: 'linear-gradient(180deg, rgb(var(--bg-base)) 0%, rgb(var(--bg-soft)) 100%)',
-      }}
-    >
-      <div className="flex flex-col items-center gap-4 text-center">
-        <SynCatchLogoAnimated className="h-20 w-20" loop themed />
-        <div>
-          <h1 className="text-5xl font-black tracking-tighter">
-            <span className="text-text-primary">Syn</span>
-            <span className="text-accent">Catch</span>
-          </h1>
-          <p
-            className="mt-3 text-base font-medium tracking-widest"
-            style={{ color: 'rgb(var(--accent) / 0.8)' }}
-          >
-            Sync aachaa?
-          </p>
-        </div>
-
-        <div className="flex gap-1.5">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="loader-dot h-1.5 w-1.5 rounded-full"
-              style={{
-                backgroundColor: 'rgb(var(--accent))',
-                animationDelay: `${i * 0.2}s`,
-              }}
-            />
-          ))}
-        </div>
+    <div className="sc-splash" style={{ zIndex: 999 }}>
+      <div className="sc-center">
+        <SynCatchEmblem className="sc-lockup" animated />
+        <p className="sc-about">Every thought, caught and in sync.</p>
       </div>
 
       {showEscape ? (
-        <div className="flex flex-col items-center gap-3 text-center">
+        <div className="mt-8 flex flex-col items-center gap-3 px-6 text-center">
           <p className="text-sm text-text-muted">
             This is taking longer than expected — the connection may be down.
           </p>
@@ -118,14 +89,7 @@ export function AnimatedLoading({
           </div>
         </div>
       ) : (
-        <div className="absolute bottom-10 text-center">
-          <p
-            className="text-sm uppercase tracking-widest"
-            style={{ color: 'rgb(var(--text-muted) / 0.7)' }}
-          >
-            Aachu — caught &amp; synced ✓
-          </p>
-        </div>
+        <p className="sc-status"><span className="sc-q">Sync aachaa?</span><span className="sc-a">Aachu ✓</span></p>
       )}
     </div>
   );

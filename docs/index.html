@@ -15,6 +15,7 @@
     <meta property="og:image" content="screenshots/dashboard.png">
 
     <!-- Fonts -->
+    <link rel="icon" type="image/svg+xml" href="assets/syncatch-favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -131,14 +132,8 @@
         .nav-logo {
             width: 36px;
             height: 36px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, var(--accent), rgba(43, 144, 135, 0.9));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 14px;
-            color: var(--bg-base);
+            border-radius: 9px;
+            display: block;
         }
 
         .nav-title {
@@ -656,7 +651,7 @@
     <nav class="nav">
         <div class="container">
             <a href="#" class="nav-brand">
-                <div class="nav-logo">MC</div>
+                <img class="nav-logo" src="assets/syncatch-favicon.svg" alt="">
                 <span class="nav-title">MissionControl</span>
             </a>
             <ul class="nav-links">

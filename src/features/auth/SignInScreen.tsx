@@ -3,7 +3,7 @@ import { useAuthStore } from './auth-store';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ToastViewport } from '../../components/ui/toast-viewport';
-import { SynCatchLogoAnimated } from '../../components/SynCatchLogoAnimated';
+import { SynCatchEmblem } from '../../components/SynCatchLogo';
 
 export function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -88,15 +88,7 @@ export function SignInScreen() {
                 style={{ background: 'radial-gradient(closest-side, rgb(var(--accent) / 0.4), transparent)' }}
               />
 
-              <div className="relative flex items-center gap-3">
-                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-panel/85 shadow-glow">
-                  <SynCatchLogoAnimated className="h-8 w-8" themed autoPlay />
-                </div>
-                <span className="text-xl font-bold tracking-tight">
-                  <span className="text-text-primary">Syn</span>
-                  <span className="text-accent">Catch</span>
-                </span>
-              </div>
+              <SynCatchEmblem className="relative h-24 w-auto self-start" />
 
               <div className="relative space-y-4">
                 <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">Sync aachaa?</p>
@@ -127,15 +119,7 @@ export function SignInScreen() {
             {/* Form panel */}
             <div className="p-6 sm:p-10">
               <div className="mb-8 lg:hidden">
-                <div className="flex items-center gap-3">
-                  <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-panel2/70 shadow-glow">
-                    <SynCatchLogoAnimated className="h-7 w-7" themed autoPlay />
-                  </div>
-                  <span className="text-lg font-bold tracking-tight">
-                    <span className="text-text-primary">Syn</span>
-                    <span className="text-accent">Catch</span>
-                  </span>
-                </div>
+                <SynCatchEmblem className="h-20 w-auto" />
                 <p className="mt-2 text-xs text-text-muted">Focus Operating System &amp; Venture Command Center</p>
               </div>
 

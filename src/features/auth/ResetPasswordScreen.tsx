@@ -3,7 +3,7 @@ import { useAuthStore } from './auth-store';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ToastViewport } from '../../components/ui/toast-viewport';
-import { SynCatchLogo } from '../../components/SynCatchLogo';
+import { SynCatchEmblem } from '../../components/SynCatchLogo';
 
 interface ResetPasswordScreenProps {
   onDone: () => void;
@@ -38,10 +38,7 @@ export function ResetPasswordScreen({ onDone }: ResetPasswordScreenProps) {
       <div className="w-full max-w-md px-8">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-white mb-3 flex items-center justify-center gap-3">
-            <SynCatchLogo className="h-11 w-11" />
-            <span>
-              Syn<span style={{ color: '#3E8BFF' }}>Catch</span>
-            </span>
+            <SynCatchEmblem className="h-24 w-auto" />
           </h1>
           <p className="text-slate-400 text-lg">
             {done ? 'Password updated' : 'Choose a new password'}
