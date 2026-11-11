@@ -74,6 +74,7 @@ import { useIsMobile } from '../../hooks/use-mobile';
 import { lazyWithReload } from '../../lib/lazy-with-reload';
 import { LumiCompanion } from '../../character/LumiCompanion';
 import { MascotPicker } from '../../character/MascotPicker';
+import { SidebarMascot } from '../../character/SidebarMascot';
 import { useCompanionStore } from '../../character/companion-store';
 
 // Route-level code splitting: each view loads on demand behind <Suspense>.
@@ -854,7 +855,7 @@ function SidebarContent({
   const appsButton = (
     <button
       type="button"
-      className="group flex w-full items-center gap-3 rounded-[14px] border border-borderSoft/30 bg-panel/35 px-3 py-2.5 text-left transition-all duration-200 hover:border-accent/25 hover:bg-accent/8"
+      className="group relative z-10 flex w-full items-center gap-3 rounded-[14px] border border-borderSoft/30 bg-panel/35 px-3 py-2.5 backdrop-blur-md text-left transition-all duration-200 hover:border-accent/25 hover:bg-accent/8"
       onClick={onOpenApps}
     >
       <div className="grid h-8 w-8 shrink-0 grid-cols-3 gap-[2px] rounded-[10px] border border-borderSoft/25 bg-panel/55 p-[7px] transition-colors group-hover:border-accent/25">
@@ -944,7 +945,10 @@ function SidebarContent({
 
       {!compact && !isTeam && !collapsed ? (
         /* Start-button style: Apps anchored to the bottom-left corner of the sidebar. */
-        <div className="shrink-0 border-t border-borderSoft/20 pt-4">{appsButton}</div>
+        <div className="shrink-0 border-t border-borderSoft/20 pt-4">
+          <SidebarMascot />
+          {appsButton}
+        </div>
       ) : null}
     </div>
   );

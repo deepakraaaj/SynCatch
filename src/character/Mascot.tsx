@@ -1,7 +1,7 @@
 // Vendored from page-mascot 0.1.0 (https://github.com/nilbuild/page-mascot,
 // MIT, (c) Kamran Ahmed — licence in public/mascots/LICENSE). SynCatch adds
-// idle life on top: a random blink, and looking around while the pointer rests
-// or on devices without one. Everything else is upstream as-is.
+// an occasional idle blink and a `cue` prop so the app can play a reaction
+// (task done, focus started, a click...). Everything else is upstream as-is.
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 
@@ -30,7 +30,7 @@ const REACTIONS = [
 ] as const
 
 type Direction = (typeof DIRECTIONS)[number]
-type Reaction = (typeof REACTIONS)[number]
+export type Reaction = (typeof REACTIONS)[number]
 
 // Clockwise from the right, matching atan2 with y pointing down.
 const CLOCKWISE: Direction[] = [
@@ -55,12 +55,10 @@ const DIZZY_AFTER = 4
 const DIZZY_WINDOW = 1600
 const DIZZY_END = 1100
 
-// Idle life (SynCatch addition).
+// SynCatch additions: idle blink and app-driven reactions.
 const BLINK_MS = 150
 const BLINK_GAP: [number, number] = [2400, 5600]
-const IDLE_AFTER = 2500
-const GLANCE_GAP: [number, number] = [900, 2400]
-const IDLE_LOOKS: Direction[] = ['center', 'center', 'left', 'right', 'up-left', 'up-right', 'down-left', 'down-right', 'up', 'down']
+const CUE_MS = 1300
 
 function between([min, max]: [number, number]) {
   return min + Math.random() * (max - min)
@@ -99,10 +97,12 @@ export type MascotProps = {
   className?: string
   /** What a screen reader calls it. */
   label?: string
+  /** Plays `reaction` whenever `id` changes — how the app makes it react to events. */
+  cue?: { reaction: Reaction; id: number } | null
 }
 
 export function Mascot(props: MascotProps) {
-  const { directions, reactions, size = 140, className, label = 'mascot' } = props
+  const { directions, reactions, size = 140, className, label = 'mascot', cue } = props
 
   const buttonRef = useRef<HTMLButtonElement>(null)
   const squashRef = useRef<HTMLSpanElement>(null)
@@ -129,30 +129,12 @@ export function Mascot(props: MascotProps) {
   }, [])
 
   useEffect(() => {
-    const tracks = window.matchMedia('(hover: hover) and (pointer: fine)').matches
-    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      return
+    }
 
     let sector = -1
     let pointer: { x: number; y: number } | null = null
-    let movedAt = 0
-
-    // While the pointer rests (or there is none), glance around on its own.
-    let glanceTimer = 0
-    const glance = () => {
-      glanceTimer = window.setTimeout(() => {
-        if (Date.now() - movedAt > IDLE_AFTER) {
-          sector = -1
-          setDirection(IDLE_LOOKS[Math.floor(Math.random() * IDLE_LOOKS.length)])
-        }
-        glance()
-      }, between(GLANCE_GAP))
-    }
-    if (!calm) {
-      glance()
-    }
-    if (!tracks) {
-      return () => window.clearTimeout(glanceTimer)
-    }
 
     const aim = () => {
       const button = buttonRef.current
@@ -182,7 +164,6 @@ export function Mascot(props: MascotProps) {
 
     const onPointerMove = (event: PointerEvent) => {
       pointer = { x: event.clientX, y: event.clientY }
-      movedAt = Date.now()
       aim()
     }
 
@@ -190,7 +171,6 @@ export function Mascot(props: MascotProps) {
     window.addEventListener('scroll', aim, { passive: true })
 
     return () => {
-      window.clearTimeout(glanceTimer)
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('scroll', aim)
     }
@@ -201,6 +181,24 @@ export function Mascot(props: MascotProps) {
       timersRef.current.forEach(window.clearTimeout)
     }
   }, [])
+
+  // An app event asked for a reaction: show it now, then settle back.
+  const cueId = cue?.id
+  const cueReaction = cue?.reaction
+  const [shownCue, setShownCue] = useState<number>()
+  if (cueId !== shownCue) {
+    setShownCue(cueId)
+    if (cueReaction) {
+      setReaction(cueReaction)
+    }
+  }
+  useEffect(() => {
+    if (cueId === undefined || !cueReaction) {
+      return
+    }
+    timersRef.current.forEach(window.clearTimeout)
+    timersRef.current = [window.setTimeout(() => setReaction(null), cueReaction === 'blink' ? BLINK_MS : CUE_MS)]
+  }, [cueId, cueReaction])
 
   const boop = () => {
     timersRef.current.forEach(window.clearTimeout)
@@ -240,6 +238,7 @@ export function Mascot(props: MascotProps) {
       ref={buttonRef}
       type="button"
       onClick={boop}
+      data-mascot
       aria-label={`Boop the ${label}`}
       className={className}
       style={{

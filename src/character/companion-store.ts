@@ -31,6 +31,7 @@ interface CompanionState extends CompanionSnapshot {
   setDialogue: (dialogue: boolean) => void;
   setPosition: (position: CompanionSnapshot['position']) => void;
   setCharacter: (character: string) => void;
+  setInSidebar: (inSidebar: boolean) => void;
   setOnStage: (onStage: boolean) => void;
   react: (reaction: CompanionReaction, line?: LumiLine | null, priority?: number) => void;
   clearReaction: () => void;
@@ -55,8 +56,8 @@ let editedBeforeHydrate = false;
 
 export const useCompanionStore = create<CompanionState>((set, get) => {
   function snapshot(): CompanionSnapshot {
-    const { visible, hidden, mode, dialogue, position, character } = get();
-    return { visible, hidden, mode, dialogue, position, character };
+    const { visible, hidden, mode, dialogue, position, character, inSidebar } = get();
+    return { visible, hidden, mode, dialogue, position, character, inSidebar };
   }
 
   function commit(patch: Partial<CompanionSnapshot>) {
@@ -102,6 +103,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => {
     setDialogue: (dialogue) => commit({ dialogue }),
     setPosition: (position) => commit({ position }),
     setCharacter: (character) => commit({ character }),
+    setInSidebar: (inSidebar) => commit({ inSidebar }),
     setOnStage: (onStage) => set({ onStage }),
     react: (reaction, line = null, priority = REACTION_PRIORITY[reaction]) => {
       const current = get();

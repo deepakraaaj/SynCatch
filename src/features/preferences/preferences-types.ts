@@ -50,6 +50,8 @@ export interface CompanionSnapshot {
   position: { x: number; y: number } | null;
   /** Which page-mascot character the companion is (see src/character/mascots.ts). */
   character: string;
+  /** Desktop: parked in the sidebar above "All apps" (true) or floating on screen (false). */
+  inSidebar: boolean;
 }
 
 export const DEFAULT_THEME_SNAPSHOT: ThemeSnapshot = {
@@ -72,4 +74,5 @@ export const DEFAULT_COMPANION_SNAPSHOT: CompanionSnapshot = {
   dialogue: true,
   position: null,
   character: 'fox',
+  inSidebar: true,
 };

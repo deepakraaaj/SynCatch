@@ -1,5 +1,5 @@
 import { AnimatePresence, animate, motion, useAnimationControls, useMotionValue, useMotionValueEvent } from 'framer-motion';
-import { EyeOff, MessageCircle, Sparkles } from 'lucide-react';
+import { EyeOff, MessageCircle, PanelLeft, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn';
 import { messagePop } from '../lib/motion';
@@ -11,6 +11,7 @@ import { Mascot } from './Mascot';
 import { announceLumi, useCompanionStore, type CompanionMode } from './companion-store';
 import { LumiTrail } from './LumiTrail';
 import { mascotLabel, mascotSheets } from './mascots';
+import { useMascotCue } from './useMascotCue';
 
 /**
  * Rendered size of the companion (smaller on phones, where 148px would cover
@@ -49,13 +50,18 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
   const dialogue = useCompanionStore((state) => state.dialogue);
   const position = useCompanionStore((state) => state.position);
   const character = useCompanionStore((state) => state.character);
+  const cue = useMascotCue();
   const line = useCompanionStore((state) => state.line);
   const nonce = useCompanionStore((state) => state.reactionNonce);
   const hydrated = useCompanionStore((state) => state.hydrated);
-  const { hydrate, toggleVisible, setMode, setDialogue, setPosition, setOnStage, react } = useCompanionStore.getState();
+  const inSidebar = useCompanionStore((state) => state.inSidebar);
+  const { hydrate, toggleVisible, setMode, setDialogue, setPosition, setOnStage, setInSidebar } = useCompanionStore.getState();
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const focusRunning = useFocusStore((state) => Boolean(state.focusSessionStart) || state.status === 'locked-in');
-  const avatarPx = useIsMobile() ? AVATAR_PX.mobile : AVATAR_PX.desktop;
+  const isMobile = useIsMobile();
+  const avatarPx = isMobile ? AVATAR_PX.mobile : AVATAR_PX.desktop;
+  // On desktop it lives in the sidebar (SidebarMascot) until dragged out; phones have no sidebar.
+  const away = blocked || (inSidebar && !isMobile);
 
   const dockRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
@@ -76,7 +82,7 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
 
   // Lumi stays put during focus and when motion is reduced, whatever the chosen mode.
   const effectiveMode: CompanionMode = focusRunning || reduceMotion ? 'stay' : mode;
-  const onStage = visible && !blocked;
+  const onStage = visible && !away;
   reduceMotionRef.current = reduceMotion;
 
   useEffect(() => {
@@ -140,6 +146,16 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
     return () => window.removeEventListener('resize', onResize);
     // avatarPx: re-measure after the size switches between phone and desktop.
   }, [avatarPx, measure, moveTo, onStage, x, y]);
+
+  // Coming out of the sidebar: appear where it was dropped instead of
+  // gliding there from the dock. (Runs before the stay effect below.)
+  const positionRef = useRef(position);
+  positionRef.current = position;
+  useEffect(() => {
+    if (away) return;
+    x.set(positionRef.current?.x ?? 0);
+    y.set(positionRef.current?.y ?? 0);
+  }, [away, x, y]);
 
   useEffect(() => {
     if (!onStage || effectiveMode !== 'stay') return;
@@ -262,7 +278,7 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
     return { x: dock.left + x.get() + dock.width * (254.5 / 512), y: dock.top + y.get() + dock.height * (466 / 512) };
   }, [x, y]);
 
-  if (blocked) return null;
+  if (away) return null;
 
   return (
     <>
@@ -320,7 +336,6 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
                 if (draggedRef.current) { draggedRef.current = false; return; }
                 const top = avatarRef.current?.getBoundingClientRect().top ?? MENU_ROOM_PX;
                 setMenuBelow(top < MENU_ROOM_PX);
-                if (!menuOpen) react('notice', null, 1);
                 setMenuOpen((open) => !open);
               }}
               className="pointer-events-auto absolute inset-0 cursor-grab drop-shadow-[0_16px_14px_rgb(var(--shadow-color)/0.3)] active:cursor-grabbing"
@@ -328,6 +343,7 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
             >
               <Mascot
                 {...mascotSheets(character)}
+                cue={cue}
                 size={avatarPx}
                 label={focusRunning ? `${mascotLabel(character)}, focusing with you` : mascotLabel(character)}
                 className="rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-accent/25"
@@ -383,6 +399,16 @@ export function LumiCompanion({ activeView, blocked = false }: LumiCompanionProp
                     <span className={cn('absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-[left]', dialogue ? 'left-[15px]' : 'left-0.5')} />
                   </span>
                 </button>
+                {isMobile ? null : (
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); setInSidebar(true); }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-text-primary hover:bg-panel2"
+                  >
+                    <PanelLeft className="h-4 w-4 text-text-secondary" />
+                    <span className="flex-1">Back to sidebar</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => { setMenuOpen(false); toggleVisible(); }}

@@ -4,6 +4,7 @@ import { Mascot } from '../../character/Mascot';
 import { ButterflyEffect } from '../../character/ButterflyEffect';
 import { useCompanionStore } from '../../character/companion-store';
 import { mascotLabel, mascotSheets } from '../../character/mascots';
+import { useMascotCue } from '../../character/useMascotCue';
 import { useCharacterState } from '../../character/useCharacterState';
 import { MOOD_HEADLINES, MOOD_SUPPORTING_LINE } from '../../character/characterMessages';
 import { stagger } from '../../lib/motion';
@@ -15,6 +16,7 @@ export function LumiHeroCard({ index, doneToday, nextTask, onStartSprint }: Lumi
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const lumiHidden = useCompanionStore((state) => state.hidden);
   const character = useCompanionStore((state) => state.character);
+  const cue = useMascotCue();
   const { state, shouldShowMilestone, acknowledgeMilestone } = useCharacterState();
 
   return (
@@ -43,7 +45,7 @@ export function LumiHeroCard({ index, doneToday, nextTask, onStartSprint }: Lumi
           <div aria-hidden className="pointer-events-none absolute inset-[25%] rounded-full bg-accent/25 blur-3xl" />
           <div className="relative h-[118px] w-[118px] drop-shadow-[0_24px_24px_rgb(var(--shadow-color)/0.25)] sm:h-[270px] sm:w-[270px]">
             {/* page-mascot sizes itself inline; !h-full/!w-full let the box above set the size per breakpoint. */}
-            <Mascot {...mascotSheets(character)} label={mascotLabel(character)} className="!h-full !w-full" />
+            <Mascot {...mascotSheets(character)} cue={cue} label={mascotLabel(character)} className="!h-full !w-full" />
           </div>
         </div>}
       </div>
