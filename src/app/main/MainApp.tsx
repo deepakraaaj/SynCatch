@@ -13,7 +13,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Timer, Flag, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowLeft, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Check, CircleDashed, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, Heart, StickyNote, Wifi, WifiOff, MessageCircle, MessageSquare, Trophy, Users, UserRound, Bot, Palette, SlidersHorizontal, Download, Eye, Keyboard, AlertOctagon, PanelLeftClose, PanelLeftOpen, FolderKanban, PackageSearch, Telescope, type LucideIcon } from 'lucide-react';
+import { Sun, CheckSquare, Target, MoreHorizontal, CheckCircle2, Timer, Flag, Clock, BarChart3, ClipboardList, Settings, Lightbulb, Link2, AlertCircle, Pin, FileText, ArrowLeft, ArrowUpRight, RotateCcw, Cloud, Pencil, Trash2, Play, Pause, CheckCircle, Check, CircleDashed, Menu, X, Plus, CalendarDays, ChevronDown, CornerDownRight, BookHeart, Heart, StickyNote, Wifi, WifiOff, MessageCircle, MessageSquare, Trophy, Users, UserRound, Bot, Palette, SlidersHorizontal, Download, Eye, Keyboard, AlertOctagon, PanelLeftClose, PanelLeftOpen, FolderKanban, PackageSearch, EyeOff, Telescope, type LucideIcon } from 'lucide-react';
 import { MissionIcon } from '../../components/ui/mission-icon';
 import { DatePicker } from '../../components/ui/date-picker';
 import { Badge } from '../../components/ui/badge';
@@ -72,6 +72,9 @@ import { formatRelativeTime } from '../../lib/date';
 import { isTauriApp, showHudWindow, showQuickAddWindow, subscribeAppEvent } from '../../lib/tauri';
 import { useIsMobile } from '../../hooks/use-mobile';
 import { lazyWithReload } from '../../lib/lazy-with-reload';
+import { LumiCompanion } from '../../character/LumiCompanion';
+import { MascotPicker } from '../../character/MascotPicker';
+import { useCompanionStore } from '../../character/companion-store';
 
 // Route-level code splitting: each view loads on demand behind <Suspense>.
 const TeamCalendarView = lazyWithReload('team-calendar', () => import('../../features/team/TeamCalendarView').then((m) => ({ default: m.TeamCalendarView })));
@@ -2212,6 +2215,8 @@ export function MainApp() {
   const launchAtLogin = useSettingsStore((state) => state.launchAtLogin);
   const launchAtLoginPending = useSettingsStore((state) => state.launchAtLoginPending);
   const setReduceMotion = useSettingsStore((state) => state.setReduceMotion);
+  const lumiHidden = useCompanionStore((state) => state.hidden);
+  const setLumiHidden = useCompanionStore((state) => state.setHidden);
   const setFocusPromptStyle = useSettingsStore((state) => state.setFocusPromptStyle);
   const setSyncMode = useSettingsStore((state) => state.setSyncMode);
   const setLaunchAtLogin = useSettingsStore((state) => state.setLaunchAtLogin);
@@ -4560,6 +4565,30 @@ export function MainApp() {
 
               <div className="py-4">
                 <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent"><EyeOff className="h-4 w-4" /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-text-primary">Hide Lumi</p>
+                    <p className="mt-0.5 text-[11px] text-text-secondary">Remove Lumi everywhere — the floating companion and the dashboard.</p>
+                  </div>
+                  <SettingSwitch checked={lumiHidden} label="Hide Lumi" onChange={setLumiHidden} />
+                </div>
+              </div>
+
+              {lumiHidden ? null : (
+                <div className="py-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent"><Heart className="h-4 w-4" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-text-primary">Companion character</p>
+                      <p className="mt-0.5 text-[11px] text-text-secondary">Who keeps you company, on the dashboard and floating.</p>
+                    </div>
+                  </div>
+                  <MascotPicker />
+                </div>
+              )}
+
+              <div className="py-4">
+                <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400"><Eye className="h-4 w-4" /></span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-primary">Transparent HUD</p>
@@ -5117,6 +5146,15 @@ export function MainApp() {
           instead of hiding behind a toggle. */}
       {!mobileNavOpen && !showTaskDetailPanel && !showMissionDetailPanel && workspaceMode !== 'team' ? (
         <AssistantWidget launcherPositionClassName="bottom-[calc(var(--mobile-nav-height)+0.75rem)] right-5 lg:bottom-6" />
+      ) : null}
+
+      {workspaceMode !== 'team' ? (
+        <LumiCompanion
+          activeView={activeView}
+          // The dashboard hero card is Lumi's home, so the floating companion
+          // steps aside there instead of showing a second Lumi on screen.
+          blocked={lumiHidden || activeView === 'dashboard' || mobileNavOpen || showTaskDetailPanel || showMissionDetailPanel || taskComposerOpen || missionComposerOpen}
+        />
       ) : null}
 
       {/* Mobile bottom navigation */}

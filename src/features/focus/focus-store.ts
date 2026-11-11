@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { emitAppEvent, FOCUS_CHANGED_EVENT } from '../../lib/tauri';
 import { getElapsedSeconds } from '../../lib/date';
 import { getFocusRepository } from './focus-repository';
+import { announceLumi } from '../../character/companion-store';
+import { COMPANION_LINES } from '../../character/characterMessages';
 
 export type FocusStatus = 'idle' | 'locked-in' | 'warming-up' | 'drifting';
 export type HudMode = 'compact' | 'expanded';
@@ -140,6 +142,7 @@ export const useFocusStore = create<FocusState>((set, get) => {
         status: 'locked-in',
       });
       commitFocusUpdate();
+      announceLumi('focus', { text: COMPANION_LINES.focusStart });
     },
     resumeSession: () => {
       const currentMissionId = get().currentMissionId;
@@ -153,6 +156,7 @@ export const useFocusStore = create<FocusState>((set, get) => {
         status: 'locked-in',
       });
       commitFocusUpdate();
+      announceLumi('focus', { text: COMPANION_LINES.focusResume });
     },
     pauseSession: () => {
       const focusSessionStart = get().focusSessionStart;
@@ -169,10 +173,12 @@ export const useFocusStore = create<FocusState>((set, get) => {
         status: 'idle',
       });
       commitFocusUpdate();
+      announceLumi('comfort', { text: COMPANION_LINES.focusPause });
     },
     setStatus: (status) => {
       set({ status });
       commitFocusUpdate();
+      if (status === 'drifting') announceLumi('notice', { text: COMPANION_LINES.focusDrift });
     },
     resetSession: () => {
       set((state) => ({
@@ -182,6 +188,7 @@ export const useFocusStore = create<FocusState>((set, get) => {
         manualFocusReset: state.manualFocusReset + 1,
       }));
       commitFocusUpdate();
+      announceLumi('idle', { text: COMPANION_LINES.focusReset });
     },
     setHudMode: (hudMode) => {
       if (get().hudMode === hudMode) {

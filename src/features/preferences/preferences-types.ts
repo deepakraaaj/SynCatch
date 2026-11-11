@@ -37,6 +37,21 @@ export interface SettingsSnapshot {
   sidebarPinnedApps: SidebarPinnedAppId[];
 }
 
+export type CompanionMode = 'follow' | 'roam' | 'stay';
+
+/** Lumi companion placement/visibility — synced like any other preference. */
+export interface CompanionSnapshot {
+  visible: boolean;
+  /** Settings kill-switch: no Lumi anywhere — companion and dashboard. */
+  hidden: boolean;
+  mode: CompanionMode;
+  dialogue: boolean;
+  /** Offset from the bottom-right dock, in px (always <= 0). Null = docked. */
+  position: { x: number; y: number } | null;
+  /** Which page-mascot character the companion is (see src/character/mascots.ts). */
+  character: string;
+}
+
 export const DEFAULT_THEME_SNAPSHOT: ThemeSnapshot = {
   themeId: 'dark-focus',
 };
@@ -48,4 +63,13 @@ export const DEFAULT_SETTINGS_SNAPSHOT: SettingsSnapshot = {
   syncMode: 'local',
   launchAtLogin: false,
   sidebarPinnedApps: ['dashboard', 'tasks', 'missions', 'projects', 'calendar', 'journal', 'notes', 'loved-ones', 'products'],
+};
+
+export const DEFAULT_COMPANION_SNAPSHOT: CompanionSnapshot = {
+  visible: true,
+  hidden: false,
+  mode: 'stay',
+  dialogue: true,
+  position: null,
+  character: 'lumi',
 };

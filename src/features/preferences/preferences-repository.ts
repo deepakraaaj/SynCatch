@@ -1,8 +1,10 @@
 import { getSqlDatabase } from '../../lib/database';
 import { isTauriApp } from '../../lib/tauri';
 import {
+  DEFAULT_COMPANION_SNAPSHOT,
   DEFAULT_SETTINGS_SNAPSHOT,
   DEFAULT_THEME_SNAPSHOT,
+  type CompanionSnapshot,
   type SettingsSnapshot,
   type ThemeSnapshot,
 } from './preferences-types';
@@ -13,12 +15,16 @@ const THEME_STORAGE_KEY = 'missioncontrol-theme';
 const SETTINGS_STORAGE_KEY = 'missioncontrol-settings';
 const THEME_PREFERENCE_KEY = 'theme';
 const SETTINGS_PREFERENCE_KEY = 'settings';
+const COMPANION_STORAGE_KEY = 'missioncontrol-lumi-companion';
+const COMPANION_PREFERENCE_KEY = 'lumi-companion';
 
 interface PreferencesRepository {
   loadTheme(): Promise<ThemeSnapshot | null>;
   saveTheme(snapshot: ThemeSnapshot): Promise<void>;
   loadSettings(): Promise<SettingsSnapshot>;
   saveSettings(snapshot: SettingsSnapshot): Promise<void>;
+  loadCompanion(): Promise<CompanionSnapshot | null>;
+  saveCompanion(snapshot: CompanionSnapshot): Promise<void>;
 }
 
 function mergeParsedState<T extends object>(raw: string | null, defaults: T): T {
@@ -82,6 +88,15 @@ class BrowserPreferencesRepository implements PreferencesRepository {
   async saveSettings(snapshot: SettingsSnapshot) {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(snapshot));
   }
+
+  async loadCompanion(): Promise<CompanionSnapshot | null> {
+    const raw = localStorage.getItem(COMPANION_STORAGE_KEY);
+    return raw ? mergeParsedState(raw, DEFAULT_COMPANION_SNAPSHOT) : null;
+  }
+
+  async saveCompanion(snapshot: CompanionSnapshot) {
+    localStorage.setItem(COMPANION_STORAGE_KEY, JSON.stringify(snapshot));
+  }
 }
 
 class SqlPreferencesRepository implements PreferencesRepository {
@@ -138,6 +153,14 @@ class SqlPreferencesRepository implements PreferencesRepository {
   async saveSettings(snapshot: SettingsSnapshot) {
     await this.savePreference(SETTINGS_PREFERENCE_KEY, snapshot);
   }
+
+  async loadCompanion(): Promise<CompanionSnapshot | null> {
+    return this.loadPreference<CompanionSnapshot>(COMPANION_PREFERENCE_KEY, DEFAULT_COMPANION_SNAPSHOT);
+  }
+
+  async saveCompanion(snapshot: CompanionSnapshot) {
+    await this.savePreference(COMPANION_PREFERENCE_KEY, snapshot);
+  }
 }
 
 class SupabasePreferencesRepository implements PreferencesRepository {
@@ -166,6 +189,17 @@ class SupabasePreferencesRepository implements PreferencesRepository {
   async saveSettings(snapshot: SettingsSnapshot) {
     const { upsertPreference } = await import('../../lib/supabase');
     await upsertPreference('settings', snapshot);
+  }
+
+  async loadCompanion(): Promise<CompanionSnapshot | null> {
+    const { selectPreference } = await import('../../lib/supabase');
+    const value = await retryTransient(() => selectPreference(COMPANION_PREFERENCE_KEY));
+    return value ? mergeParsedState(value, DEFAULT_COMPANION_SNAPSHOT) : null;
+  }
+
+  async saveCompanion(snapshot: CompanionSnapshot) {
+    const { upsertPreference } = await import('../../lib/supabase');
+    await upsertPreference(COMPANION_PREFERENCE_KEY, snapshot);
   }
 }
 
