@@ -71,5 +71,5 @@ export const DEFAULT_COMPANION_SNAPSHOT: CompanionSnapshot = {
   mode: 'stay',
   dialogue: true,
   position: null,
-  character: 'lumi',
+  character: 'fox',
 };

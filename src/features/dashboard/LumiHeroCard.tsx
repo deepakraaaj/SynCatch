@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, Flame } from 'lucide-react';
-import { Mascot } from 'page-mascot';
+import { Mascot } from '../../character/Mascot';
 import { ButterflyEffect } from '../../character/ButterflyEffect';
 import { useCompanionStore } from '../../character/companion-store';
 import { mascotLabel, mascotSheets } from '../../character/mascots';

@@ -44,9 +44,9 @@ EYES = [
 
 # Head pose per unit of direction. The cell is chosen by angle, so each turn
 # must read at a glance: tilt toward the pointer, slide the head and glance.
-TURN_DEG = 9.0
-SHIFT = (11.0, 8.0)
-GLANCE = (0.3, 0.24)  # iris travel as a fraction of the eye radius
+TURN_DEG = 14.0
+SHIFT = (16.0, 12.0)
+GLANCE = (0.42, 0.34)  # iris travel as a fraction of the eye radius
 SOCKET_INSET = 0.86  # the shifted iris shows only inside this much of the eye
 
 LID_MARGIN = 6.5

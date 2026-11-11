@@ -7,7 +7,7 @@ import { useFocusStore } from '../features/focus/focus-store';
 import { useSettingsStore } from '../features/settings/settings-store';
 import { useIsMobile } from '../hooks/use-mobile';
 import { VIEW_LINES } from './characterMessages';
-import { Mascot } from 'page-mascot';
+import { Mascot } from './Mascot';
 import { announceLumi, useCompanionStore, type CompanionMode } from './companion-store';
 import { LumiTrail } from './LumiTrail';
 import { mascotLabel, mascotSheets } from './mascots';
