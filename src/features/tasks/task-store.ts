@@ -6,8 +6,6 @@ import type { Task, TaskDraft, TaskLane } from './task-types';
 import { showSuccessToast } from '../toasts/toast-store';
 import { resolveCharacterState } from '../../character/characterState';
 import { announceTaskCompletion } from '../../character/characterToast';
-import { COMPANION_LINES } from '../../character/characterMessages';
-import { announceLumi } from '../../character/companion-store';
 
 interface TaskStore {
   tasks: Task[];
@@ -84,9 +82,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const tasks = sortTasks([task, ...get().tasks]);
     set({ tasks, selectedTaskId: task.id });
     await emitAppEvent(TASKS_CHANGED_EVENT, { type: 'created', taskId: task.id });
-    announceLumi('notice', { text: COMPANION_LINES.taskCaptured, detail: task.title }, () =>
-      showSuccessToast('Task created', task.title),
-    );
+    showSuccessToast('Task created', task.title);
     return task;
   },
 

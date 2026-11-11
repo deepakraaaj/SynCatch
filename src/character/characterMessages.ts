@@ -85,13 +85,3 @@ export const VIEW_LINES: Record<string, string> = {
   review: 'Notice what worked — not only what remains.',
   settings: 'Make this space feel like yours.',
 };
-
-/** Companion lines for specific app events. */
-export const COMPANION_LINES = {
-  taskCaptured: 'Captured. Now it has a place.',
-  focusStart: 'I’ll stay quiet. You only need to be here now.',
-  focusResume: 'Welcome back. Let’s continue from here.',
-  focusPause: 'A pause is information, not failure.',
-  focusDrift: 'Want to return with one tiny action?',
-  focusReset: 'Reset complete. Start again whenever you’re ready.',
-} as const;

@@ -1,12 +1,10 @@
 import { motion } from 'framer-motion';
-import { useRef } from 'react';
 import { ArrowRight, Flame } from 'lucide-react';
+import { Mascot } from 'page-mascot';
+import lumiDirections from '../../assets/lumi-mascot/directions.webp';
+import lumiReactions from '../../assets/lumi-mascot/reactions.webp';
 import { ButterflyEffect } from '../../character/ButterflyEffect';
-import { Lumi } from '../../character/Lumi';
-import { useCompanionStore } from '../../character/companion-store';
 import { useCharacterState } from '../../character/useCharacterState';
-import { useLumiExpression } from '../../character/useLumiExpression';
-import { useLumiGaze } from '../../character/useLumiGaze';
 import { MOOD_HEADLINES, MOOD_SUPPORTING_LINE } from '../../character/characterMessages';
 import { stagger } from '../../lib/motion';
 import { useSettingsStore } from '../settings/settings-store';
@@ -15,12 +13,7 @@ interface LumiHeroCardProps { index: number; doneToday: number; nextTask?: strin
 
 export function LumiHeroCard({ index, doneToday, nextTask, onStartSprint }: LumiHeroCardProps) {
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
-  const lumiHidden = useCompanionStore((state) => state.hidden);
   const { state, shouldShowMilestone, acknowledgeMilestone } = useCharacterState();
-  // Same face as every other Lumi: reacts to clicks and task/focus events.
-  const expression = useLumiExpression();
-  const lumiRef = useRef<HTMLDivElement>(null);
-  const gaze = useLumiGaze(lumiRef, !reduceMotion);
 
   return (
     <motion.section {...stagger(index, reduceMotion)} className="relative isolate min-h-[330px] overflow-hidden rounded-[30px] bg-gradient-to-r from-accent/10 via-panel/35 to-transparent px-6 py-8 sm:px-10 lg:min-h-[360px] lg:px-14">
@@ -30,8 +23,8 @@ export function LumiHeroCard({ index, doneToday, nextTask, onStartSprint }: Lumi
 
       <div className="grid min-h-[270px] items-center gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
         <div className="relative z-10 max-w-2xl">
-          <p className={`${lumiHidden ? '' : 'pr-[104px] sm:pr-0 '}text-[10px] font-bold uppercase tracking-[0.26em] text-accent`}>Your intention, made visible</p>
-          <h2 className={`mt-4 ${lumiHidden ? '' : 'pr-[104px] sm:pr-0 '}text-3xl font-bold leading-[1.05] tracking-[-0.045em] text-text-primary sm:text-5xl`}>{MOOD_HEADLINES[state.mood]}</h2>
+          <p className={`pr-[104px] sm:pr-0 text-[10px] font-bold uppercase tracking-[0.26em] text-accent`}>Your intention, made visible</p>
+          <h2 className={`mt-4 pr-[104px] sm:pr-0 text-3xl font-bold leading-[1.05] tracking-[-0.045em] text-text-primary sm:text-5xl`}>{MOOD_HEADLINES[state.mood]}</h2>
           <p className="mt-4 max-w-xl text-[15px] leading-7 text-text-secondary/80">{MOOD_SUPPORTING_LINE[state.mood]}</p>
           <div className="mt-6 flex flex-wrap items-center gap-5">
             <span><strong className="text-xl text-text-primary">{state.streak}</strong><small className="ml-2 text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">day rhythm</small></span>
@@ -44,12 +37,13 @@ export function LumiHeroCard({ index, doneToday, nextTask, onStartSprint }: Lumi
 
         {/* Phones: small, in the card's top-right corner, clear of the full-width button.
             Larger screens: big, standing in the bottom-right of the card. */}
-        {lumiHidden ? null : <div aria-hidden className="pointer-events-none absolute right-1 top-3 opacity-95 sm:-bottom-9 sm:-right-10 sm:top-auto lg:bottom-[-38px] lg:right-5">
-          <div className="absolute inset-[25%] rounded-full bg-accent/25 blur-3xl" />
-          <div ref={lumiRef} className="relative h-[118px] w-[118px] drop-shadow-[0_24px_24px_rgb(var(--shadow-color)/0.25)] sm:h-[270px] sm:w-[270px]">
-            <Lumi expression={expression} size="fill" reduceMotion={reduceMotion} gaze={gaze} headGaze={gaze.head} label="" />
+        <div className="absolute right-1 top-3 opacity-95 sm:-bottom-9 sm:-right-10 sm:top-auto lg:bottom-[-38px] lg:right-5">
+          <div aria-hidden className="pointer-events-none absolute inset-[25%] rounded-full bg-accent/25 blur-3xl" />
+          <div className="relative h-[118px] w-[118px] drop-shadow-[0_24px_24px_rgb(var(--shadow-color)/0.25)] sm:h-[270px] sm:w-[270px]">
+            {/* page-mascot sizes itself inline; !h-full/!w-full let the box above set the size per breakpoint. */}
+            <Mascot directions={lumiDirections} reactions={lumiReactions} label="Lumi" className="!h-full !w-full" />
           </div>
-        </div>}
+        </div>
       </div>
     </motion.section>
   );

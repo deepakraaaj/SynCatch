@@ -6,7 +6,6 @@ import { ImagePlus, Pencil, Plus, Telescope, Trash2, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input, Textarea } from '../../components/ui/input';
 import { confirmDialog } from '../../components/ui/native-dialog';
-import { announceLumi } from '../../character/companion-store';
 import { showErrorToast, showToast } from '../toasts/toast-store';
 import { getLocalDateKey } from '../../lib/date';
 import { useManifestStore, type ManifestLogEntry, type Manifestation } from './manifest-store';
@@ -92,13 +91,13 @@ export function ManifestView() {
     const line = kind === 'signs'
       ? { text: SIGN_REPLIES[entry.feeling ?? ''] ?? 'You noticed. That is half the magic, and I kept it safe for you.', detail: entry.text }
       : { text: 'That step counts. You are meeting it halfway.', detail: entry.text };
-    announceLumi(kind === 'signs' ? 'celebrate' : 'smile', line, () => showToast({ title: line.text, description: entry.text, tone: 'success' }));
+    showToast({ title: line.text, description: entry.text, tone: 'success' });
   }
 
   function setStatus(item: Manifestation, status: Manifestation['status']) {
     void saveToStore({ ...item, status, manifestedOn: status === 'manifested' ? getLocalDateKey(new Date()) : null });
     if (status === 'manifested') {
-      announceLumi('celebrate', { text: 'You manifested it! I knew you would.', detail: item.title }, () => showToast({ title: 'You manifested it!', description: item.title, tone: 'success' }));
+      showToast({ title: 'You manifested it!', description: item.title, tone: 'success' });
     }
   }
 
